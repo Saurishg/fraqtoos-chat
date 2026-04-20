@@ -1,0 +1,16 @@
+[Unit]
+Description=FraqtoOS Chat — Tailscale Chatbot
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=work
+WorkingDirectory=/home/work/fraqtoos-chat
+ExecStart=/usr/bin/python3 /home/work/fraqtoos-chat/server.py
+Restart=always
+RestartSec=10
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=multi-user.target
