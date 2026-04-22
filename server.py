@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 FraqtoOS Chat — Tailscale chatbot.
-Access: http://100.67.1.60:8080
+Access: http://192.168.2.108:8080
 Supports: Ollama models + Claude API + FLUX.1-schnell image generation
 """
 import json, os, requests, base64, uuid, time
@@ -168,7 +168,7 @@ def claude_stream(model, messages, system=""):
 
 
 if __name__ == "__main__":
-    print(f"FraqtoOS Chat → http://100.67.1.60:8080")
+    print(f"FraqtoOS Chat → http://192.168.2.108:8080")
     print(f"Claude: {'✓ loaded' if ANTHROPIC_KEY else '✗ no key'}")
     print(f"Images: ComfyUI on {COMFYUI}")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
