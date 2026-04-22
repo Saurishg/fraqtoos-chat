@@ -32,9 +32,10 @@ async def chat(req: Request):
     data     = await req.json()
     model    = data.get("model", "phi4")
     messages = data.get("messages", [])[-12:]
+    system   = data.get("system", "")
     if model in CLAUDE_MODELS:
-        return StreamingResponse(claude_stream(model, messages), media_type="text/plain")
-    return StreamingResponse(ollama_stream(model, messages), media_type="text/plain")
+        return StreamingResponse(claude_stream(model, messages, system), media_type="text/plain")
+    return StreamingResponse(ollama_stream(model, messages, system), media_type="text/plain")
 
 
 @app.post("/imagine")
@@ -126,21 +127,21 @@ def _flux_generate(prompt: str, steps: int = 4, width: int = 1024, height: int =
     raise TimeoutError("Image generation timed out")
 
 
-def ollama_stream(model, messages):
-    prompt = ""
-    for m in messages:
-        role = "User" if m["role"] == "user" else "Assistant"
-        prompt += f"{role}: {m['content']}\n"
-    prompt += "Assistant:"
+def ollama_stream(model, messages, system=""):
+    # Use /api/chat for proper multi-turn support
+    chat_msgs = [m for m in messages if m["role"] in ("user", "assistant")]
+    payload = {
+        "model": model, "messages": chat_msgs, "stream": True,
+        "options": {"temperature": 0.7, "num_predict": 2000}
+    }
+    if system:
+        payload["system"] = system
     try:
-        r = requests.post(f"{OLLAMA}/api/generate", json={
-            "model": model, "prompt": prompt, "stream": True,
-            "options": {"temperature": 0.7, "num_predict": 1200}
-        }, stream=True, timeout=300)
+        r = requests.post(f"{OLLAMA}/api/chat", json=payload, stream=True, timeout=300)
         for line in r.iter_lines():
             if line:
                 d = json.loads(line)
-                token = d.get("response", "")
+                token = d.get("message", {}).get("content", "")
                 if token:
                     yield json.dumps({"token": token}) + "\n"
                 if d.get("done"):
@@ -149,14 +150,17 @@ def ollama_stream(model, messages):
         yield json.dumps({"error": str(e)}) + "\n"
 
 
-def claude_stream(model, messages):
+def claude_stream(model, messages, system=""):
     if not ANTHROPIC_KEY:
         yield json.dumps({"error": "Add ANTHROPIC_API_KEY to /home/work/fraqtoos-chat/.env"}) + "\n"
         return
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-        with client.messages.stream(model=model, max_tokens=2048, messages=messages) as stream:
+        kwargs = dict(model=model, max_tokens=4096, messages=messages)
+        if system:
+            kwargs["system"] = system
+        with client.messages.stream(**kwargs) as stream:
             for text in stream.text_stream:
                 yield json.dumps({"token": text}) + "\n"
     except Exception as e:

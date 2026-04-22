@@ -10,55 +10,125 @@
 
   #topbar {
     background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
-    padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   }
-  #topbar h1 { font-size: 18px; color: #fff; font-weight: 600; }
+  #topbar h1 { font-size: 17px; color: #fff; font-weight: 600; }
   .ts-ip { color: #555; font-size: 11px; background: #2a2a2a; padding: 3px 8px; border-radius: 4px; }
   #model-select {
     margin-left: auto; background: #2a2a2a; border: 1px solid #3a3a3a;
-    color: #e0e0e0; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    color: #e0e0e0; padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer;
   }
-  #clear-btn {
+  .tb-btn {
     background: #2a2a2a; border: 1px solid #3a3a3a; color: #888;
-    padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+    padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; white-space: nowrap;
   }
-  #clear-btn:hover { color: #e0e0e0; }
+  .tb-btn:hover { color: #e0e0e0; background: #333; }
 
-  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  /* System prompt bar */
+  #sysprompt-bar {
+    background: #141414; border-bottom: 1px solid #222; padding: 8px 16px;
+    display: none; align-items: center; gap: 8px;
+  }
+  #sysprompt-bar.open { display: flex; }
+  #sysprompt-bar label { font-size: 11px; color: #666; white-space: nowrap; }
+  #sysprompt-input {
+    flex: 1; background: #222; border: 1px solid #333; color: #ccc;
+    padding: 5px 10px; border-radius: 6px; font-size: 12px; outline: none; font-family: inherit;
+  }
+  #sysprompt-input:focus { border-color: #3b82f6; }
+  #sysprompt-save { background: #1e40af; color: #fff; border: none; border-radius: 5px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
 
-  .msg { display: flex; gap: 10px; max-width: 84%; }
+  #chat { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .msg { display: flex; gap: 10px; max-width: 86%; }
   .msg.user { margin-left: auto; flex-direction: row-reverse; }
-  .bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-  .user .bubble { background: #1e40af; color: #fff; border-radius: 12px 12px 2px 12px; }
+  .msg-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .bubble {
+    padding: 11px 15px; border-radius: 12px; font-size: 14px; line-height: 1.65;
+    word-break: break-word; position: relative;
+  }
+  .user .bubble { background: #1e40af; color: #fff; border-radius: 12px 12px 2px 12px; white-space: pre-wrap; }
   .bot  .bubble { background: #1e1e1e; color: #e0e0e0; border: 1px solid #2a2a2a; border-radius: 12px 12px 12px 2px; }
   .bot.claude .bubble { border-color: #7c3aed55; background: #1a1528; }
 
-  .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; background: #2a2a2a; }
+  /* Markdown inside bot bubbles */
+  .bubble h1,.bubble h2,.bubble h3 { margin: 10px 0 5px; font-weight: 600; line-height: 1.3; }
+  .bubble h1 { font-size: 18px; } .bubble h2 { font-size: 16px; } .bubble h3 { font-size: 14px; }
+  .bubble ul,.bubble ol { margin: 6px 0 6px 18px; }
+  .bubble li { margin: 2px 0; }
+  .bubble p { margin: 6px 0; }
+  .bubble strong { font-weight: 600; }
+  .bubble em { font-style: italic; color: #bbb; }
+  .bubble a { color: #60a5fa; text-decoration: none; }
+  .bubble a:hover { text-decoration: underline; }
+  .bubble hr { border: none; border-top: 1px solid #333; margin: 10px 0; }
+  .bubble blockquote { border-left: 3px solid #444; margin: 6px 0; padding: 4px 10px; color: #aaa; }
+  .bubble table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+  .bubble th,.bubble td { border: 1px solid #333; padding: 5px 10px; text-align: left; }
+  .bubble th { background: #252525; }
+
+  /* Code blocks */
+  .code-block { position: relative; margin: 8px 0; }
+  .code-lang { position: absolute; top: 0; left: 0; background: #333; color: #888;
+    font-size: 11px; padding: 2px 8px; border-radius: 6px 0 4px 0; font-family: monospace; }
+  .code-copy { position: absolute; top: 4px; right: 6px; background: #333; border: none;
+    color: #888; font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+  .code-copy:hover { color: #fff; background: #444; }
+  pre { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 6px; padding: 28px 12px 12px; overflow-x: auto; }
+  code { font-family: 'Courier New', monospace; font-size: 13px; }
+  p > code, li > code { background: #1e1e1e; border: 1px solid #333; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+  /* Message meta row */
+  .msg-meta { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .msg-time { font-size: 10px; color: #444; }
+  .msg-stats { font-size: 10px; color: #3b6ab5; }
+  .copy-msg-btn { background: none; border: none; color: #444; font-size: 12px; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .copy-msg-btn:hover { color: #aaa; background: #222; }
+  .regen-btn { background: none; border: none; color: #444; font-size: 12px; cursor: pointer; padding: 1px 4px; border-radius: 3px; }
+  .regen-btn:hover { color: #60a5fa; background: #1a2a3a; }
+
+  .avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; background: #2a2a2a; align-self: flex-start; }
   .user .avatar { background: #1e40af; }
   .claude .avatar { background: #2d1b69; }
 
-  pre { background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px; overflow-x: auto; margin: 8px 0; }
-  code { font-family: 'Courier New', monospace; font-size: 13px; }
+  /* Typing indicator */
+  .typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+  .typing-dots span { width: 6px; height: 6px; background: #555; border-radius: 50%; animation: dot-bounce 1.2s infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
 
-  #model-label { color: #444; font-size: 11px; text-align: center; padding: 3px 0; }
-  #model-label span { color: #666; }
+  #status-bar { color: #3a3a3a; font-size: 11px; text-align: center; padding: 3px 0; min-height: 20px; }
+  #status-bar span { color: #555; }
 
-  #inputbar { background: #1a1a1a; border-top: 1px solid #2a2a2a; padding: 14px 20px; display: flex; gap: 10px; align-items: flex-end; }
+  #inputbar { background: #1a1a1a; border-top: 1px solid #2a2a2a; padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+  #inputbar-row { display: flex; gap: 8px; align-items: flex-end; }
   #input {
     flex: 1; background: #2a2a2a; border: 1px solid #3a3a3a; color: #e0e0e0;
     padding: 10px 14px; border-radius: 8px; font-size: 14px; resize: none;
     min-height: 44px; max-height: 160px; outline: none; font-family: inherit; line-height: 1.5;
   }
   #input:focus { border-color: #3b82f6; }
-  #send-btn { background: #1e40af; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; height: 44px; }
+  #send-btn { background: #1e40af; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; cursor: pointer; height: 44px; min-width: 60px; }
   #send-btn:hover { background: #2563eb; }
   #send-btn:disabled { background: #222; color: #444; cursor: not-allowed; }
   #send-btn.claude-mode { background: #6d28d9; }
   #send-btn.claude-mode:hover { background: #7c3aed; }
-  #img-btn { background: #065f46; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-size: 18px; cursor: pointer; height: 44px; }
+  #send-btn.stop-mode { background: #7f1d1d; color: #fca5a5; }
+  #send-btn.stop-mode:hover { background: #991b1b; }
+
+  #img-btn { background: #065f46; color: #fff; border: none; border-radius: 8px; padding: 10px 12px; font-size: 18px; cursor: pointer; height: 44px; }
   #img-btn:hover { background: #047857; }
   #img-btn:disabled { background: #222; color: #444; cursor: not-allowed; }
-  .gen-img { max-width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #2a2a2a; }
+
+  /* Image size selector */
+  #img-size { background: #2a2a2a; border: 1px solid #3a3a3a; color: #888; padding: 0 8px; border-radius: 8px; font-size: 12px; height: 44px; cursor: pointer; }
+  .gen-img { max-width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #2a2a2a; display: block; cursor: zoom-in; }
+
+  /* Lightbox */
+  #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 100; align-items: center; justify-content: center; cursor: zoom-out; }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
 
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
@@ -70,7 +140,7 @@
   <span>🤖</span>
   <h1>FraqtoOS Chat</h1>
   <span class="ts-ip">100.67.1.60:8080</span>
-  <select id="model-select" onchange="onModelChange()">
+  <select id="model-select" onchange="onModelChange()" title="Select AI model">
     <optgroup label="── Local (Ollama) ──">
       <option value="phi4">phi4 — Fast (9 GB)</option>
       <option value="gemma4:latest">gemma4 — Balanced (9.6 GB)</option>
@@ -83,23 +153,45 @@
       <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 💨</option>
     </optgroup>
   </select>
-  <button id="clear-btn" onclick="clearChat()">Clear</button>
+  <button class="tb-btn" onclick="toggleSysPrompt()" title="Set system prompt">⚙ System</button>
+  <button class="tb-btn" onclick="exportChat()" title="Export chat as text">⬇ Export</button>
+  <button class="tb-btn" onclick="clearChat()">🗑 Clear</button>
+</div>
+
+<div id="sysprompt-bar">
+  <label>System:</label>
+  <input id="sysprompt-input" placeholder="You are a helpful assistant..." />
+  <button id="sysprompt-save" onclick="saveSysPrompt()">Save</button>
 </div>
 
 <div id="chat">
   <div class="msg bot">
     <div class="avatar">🤖</div>
-    <div class="bubble">Hi! I'm FraqtoOS Chat. Select a model above and start chatting.</div>
+    <div class="msg-wrap">
+      <div class="bubble">Hi! I'm FraqtoOS Chat. Select a model and start chatting.<br><br>
+        <strong>Tips:</strong> <code>Shift+Enter</code> for newline · <code>/image prompt</code> or 🎨 to generate images · ⚙ System to set a persona · ⬇ Export to save chat
+      </div>
+    </div>
   </div>
 </div>
 
-<div id="model-label">Using: <span id="model-name">phi4</span></div>
+<div id="status-bar">Using: <span id="model-name">phi4</span></div>
 
 <div id="inputbar">
-  <textarea id="input" placeholder="Ask anything... or type /image your prompt to generate an image" rows="1"></textarea>
-  <button id="img-btn" onclick="generateImage()" title="Generate Image (FLUX.1-schnell)">🎨</button>
-  <button id="send-btn" onclick="send()">Send ➤</button>
+  <div id="inputbar-row">
+    <textarea id="input" placeholder="Ask anything… or /image your prompt" rows="1"></textarea>
+    <select id="img-size" title="Image size">
+      <option value="512">512²</option>
+      <option value="768">768²</option>
+      <option value="1024" selected>1024²</option>
+    </select>
+    <button id="img-btn" onclick="generateImage()" title="Generate Image (FLUX.1-schnell)">🎨</button>
+    <button id="send-btn" onclick="sendOrStop()">Send ➤</button>
+  </div>
 </div>
+
+<!-- Lightbox for full-size images -->
+<div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt=""></div>
 
 <script>
 const chat        = document.getElementById('chat');
@@ -107,86 +199,274 @@ const input       = document.getElementById('input');
 const sendBtn     = document.getElementById('send-btn');
 const modelSelect = document.getElementById('model-select');
 const modelLabel  = document.getElementById('model-name');
+const statusBar   = document.getElementById('status-bar');
 
 const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001']);
 let history = [];
+let systemPrompt = localStorage.getItem('fraqtoos_sysprompt') || '';
+let currentAbort = null;
+let isStreaming = false;
+
+// Init system prompt display
+if (systemPrompt) document.getElementById('sysprompt-input').value = systemPrompt;
 
 function isClaude() { return CLAUDE_MODELS.has(modelSelect.value); }
 
 function onModelChange() {
   modelLabel.textContent = modelSelect.value;
   sendBtn.className = isClaude() ? 'claude-mode' : '';
+  localStorage.setItem('fraqtoos_model', modelSelect.value);
+}
+
+// Restore last model
+(function() {
+  var saved = localStorage.getItem('fraqtoos_model');
+  if (saved) { modelSelect.value = saved; onModelChange(); }
+})();
+
+function toggleSysPrompt() {
+  document.getElementById('sysprompt-bar').classList.toggle('open');
+}
+function saveSysPrompt() {
+  systemPrompt = document.getElementById('sysprompt-input').value.trim();
+  localStorage.setItem('fraqtoos_sysprompt', systemPrompt);
+  document.getElementById('sysprompt-bar').classList.remove('open');
+  setStatus(systemPrompt ? 'System prompt saved.' : 'System prompt cleared.', 2000);
 }
 
 input.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendOrStop(); }
 });
 input.addEventListener('input', function() {
   input.style.height = 'auto';
   input.style.height = Math.min(input.scrollHeight, 160) + 'px';
 });
 
+// Keyboard shortcut: Escape stops streaming
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && isStreaming) stopStreaming();
+});
+
+function setStatus(msg, clearAfter) {
+  statusBar.innerHTML = msg;
+  if (clearAfter) setTimeout(() => {
+    statusBar.innerHTML = 'Using: <span id="model-name">' + modelSelect.value + '</span>';
+    modelLabel = document.getElementById('model-name');
+  }, clearAfter);
+}
+
 function escHtml(t) {
   return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function renderText(text) {
-  // code blocks
+function renderMarkdown(text) {
   var html = escHtml(text);
-  html = html.replace(/```[\w]*\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Fenced code blocks with language label + copy button
+  html = html.replace(/```([\w]*)\n([\s\S]*?)```/g, function(_, lang, code) {
+    var id = 'cb' + Math.random().toString(36).slice(2,8);
+    var label = lang ? '<span class="code-lang">' + escHtml(lang) + '</span>' : '';
+    return '<div class="code-block">' + label +
+      '<button class="code-copy" onclick="copyCode(\'' + id + '\')">copy</button>' +
+      '<pre id="' + id + '"><code>' + code + '</code></pre></div>';
+  });
+
+  // Inline code
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  // Bold / italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+
+  // Horizontal rule
+  html = html.replace(/^---+$/gm, '<hr>');
+
+  // Blockquote
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Tables (basic)
+  html = html.replace(/((?:\|.+\|\n)+)/g, function(block) {
+    var rows = block.trim().split('\n');
+    var out = '<table>';
+    rows.forEach(function(row, i) {
+      if (/^\|[-| :]+\|$/.test(row)) return;
+      var tag = (i === 0) ? 'th' : 'td';
+      var cells = row.replace(/^\||\|$/g,'').split('|');
+      out += '<tr>' + cells.map(c => '<' + tag + '>' + c.trim() + '</' + tag + '>').join('') + '</tr>';
+    });
+    return out + '</table>';
+  });
+
+  // Unordered lists
+  html = html.replace(/((?:^[*\-] .+\n?)+)/gm, function(block) {
+    var items = block.trim().split('\n').map(l => '<li>' + l.replace(/^[*\-] /, '') + '</li>').join('');
+    return '<ul>' + items + '</ul>';
+  });
+
+  // Ordered lists
+  html = html.replace(/((?:^\d+\. .+\n?)+)/gm, function(block) {
+    var items = block.trim().split('\n').map(l => '<li>' + l.replace(/^\d+\. /, '') + '</li>').join('');
+    return '<ol>' + items + '</ol>';
+  });
+
+  // Paragraphs (double newline)
+  html = html.replace(/\n\n+/g, '</p><p>');
+  // Single newlines inside paragraphs
+  html = html.replace(/\n/g, '<br>');
+
   return html;
 }
 
-function addMsg(role, isClaudeMsg) {
+function copyCode(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() {
+    var btn = el.previousElementSibling;
+    if (btn) { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 1500); }
+  });
+}
+
+function copyMsg(text, btn) {
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = '✓';
+    setTimeout(() => btn.textContent = '⧉', 1500);
+  });
+}
+
+function addMsg(role, isClaudeMsg, text) {
   var div = document.createElement('div');
   div.className = 'msg ' + role + (isClaudeMsg ? ' claude' : '');
   var avatar = role === 'user' ? '👤' : (isClaudeMsg ? '✦' : '🤖');
-  div.innerHTML = '<div class="avatar">' + avatar + '</div><div class="bubble"></div>';
+  var now = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  div.innerHTML =
+    '<div class="avatar">' + avatar + '</div>' +
+    '<div class="msg-wrap">' +
+      '<div class="bubble"></div>' +
+      '<div class="msg-meta">' +
+        '<span class="msg-time">' + now + '</span>' +
+        '<span class="msg-stats"></span>' +
+        (role === 'bot' ? '<button class="copy-msg-btn" title="Copy response">⧉</button>' : '') +
+        (role === 'bot' ? '<button class="regen-btn" title="Regenerate">↺</button>' : '') +
+      '</div>' +
+    '</div>';
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
-  return div.querySelector('.bubble');
+  var bubble = div.querySelector('.bubble');
+  var copyBtn = div.querySelector('.copy-msg-btn');
+  var regenBtn = div.querySelector('.regen-btn');
+  var statsEl = div.querySelector('.msg-stats');
+  if (copyBtn) copyBtn.onclick = function() { copyMsg(bubble._rawText || bubble.textContent, copyBtn); };
+  if (regenBtn) regenBtn.onclick = function() { regenerate(); };
+  return { bubble, statsEl };
+}
+
+function showTyping() {
+  var div = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'msg bot';
+  div.innerHTML = '<div class="avatar">🤖</div><div class="msg-wrap"><div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>';
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+function hideTyping() {
+  var el = document.getElementById('typing-indicator');
+  if (el) el.remove();
 }
 
 function clearChat() {
   history = [];
-  chat.innerHTML = '<div class="msg bot"><div class="avatar">🤖</div><div class="bubble">Chat cleared.</div></div>';
+  chat.innerHTML = '';
+  addMsg('bot', false).bubble.innerHTML = 'Chat cleared.';
 }
 
-async function send() {
+function exportChat() {
+  var lines = ['FraqtoOS Chat Export — ' + new Date().toLocaleString(), ''];
+  history.forEach(function(m) {
+    lines.push((m.role === 'user' ? 'You' : 'AI') + ': ' + m.content);
+    lines.push('');
+  });
+  var blob = new Blob([lines.join('\n')], {type:'text/plain'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fraqtoos-chat-' + Date.now() + '.txt';
+  a.click();
+}
+
+function stopStreaming() {
+  if (currentAbort) { currentAbort.abort(); currentAbort = null; }
+}
+
+function sendOrStop() {
+  if (isStreaming) { stopStreaming(); return; }
+  sendMsg();
+}
+
+var lastUserMsg = '';
+function regenerate() {
+  if (!lastUserMsg || isStreaming) return;
+  // remove last assistant message from history
+  if (history.length && history[history.length-1].role === 'assistant') history.pop();
+  input.value = lastUserMsg;
+  sendMsg();
+}
+
+async function sendMsg() {
   var text = input.value.trim();
-  if (!text || sendBtn.disabled) return;
+  if (!text) return;
+  lastUserMsg = text;
   input.value = '';
   input.style.height = '44px';
-  sendBtn.disabled = true;
 
   var model = modelSelect.value;
   var claudeMsg = isClaude();
 
   var ub = addMsg('user', false);
-  ub.innerHTML = renderText(text);
+  ub.bubble.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+  ub.bubble._rawText = text;
   history.push({ role: 'user', content: text });
 
-  var bubble = addMsg('bot', claudeMsg);
-  bubble.textContent = '...';
+  showTyping();
+  isStreaming = true;
+  sendBtn.textContent = '■ Stop';
+  sendBtn.className = (claudeMsg ? 'claude-mode ' : '') + 'stop-mode';
+  sendBtn.disabled = false;
+
+  var startTime = Date.now();
+  var tokenCount = 0;
+
+  currentAbort = new AbortController();
+  var { bubble, statsEl } = addMsg('bot', claudeMsg);
+  var full = '';
+
+  // Build messages with optional system prompt
+  var msgs = history.slice();
+  if (systemPrompt && !claudeMsg) {
+    msgs = [{role:'system', content: systemPrompt}].concat(msgs);
+  }
 
   try {
     var res = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: model, messages: history })
+      body: JSON.stringify({ model: model, messages: msgs, system: systemPrompt }),
+      signal: currentAbort.signal
     });
 
+    hideTyping();
     if (!res.ok) {
       bubble.textContent = 'HTTP Error: ' + res.status;
-      sendBtn.disabled = false;
-      return;
+      finishStream(false); return;
     }
 
     var reader = res.body.getReader();
     var decoder = new TextDecoder();
-    var full = '';
-    bubble.textContent = '';
+    bubble.innerHTML = '';
 
     while (true) {
       var r = await reader.read();
@@ -199,48 +479,69 @@ async function send() {
           var d = JSON.parse(line);
           if (d.token) {
             full += d.token;
-            bubble.innerHTML = renderText(full);
+            tokenCount++;
+            bubble.innerHTML = renderMarkdown(full);
+            bubble._rawText = full;
             chat.scrollTop = chat.scrollHeight;
           }
-          if (d.error) {
-            bubble.textContent = 'Error: ' + d.error;
-          }
+          if (d.error) { bubble.textContent = 'Error: ' + d.error; }
         } catch(e) {}
       }
     }
+
+    var elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    var tps = (tokenCount / elapsed).toFixed(0);
+    statsEl.textContent = elapsed + 's · ' + tps + ' tok/s';
     history.push({ role: 'assistant', content: full });
+
   } catch(e) {
-    bubble.textContent = 'Network error: ' + e.message;
+    hideTyping();
+    if (e.name !== 'AbortError') bubble.textContent = 'Network error: ' + e.message;
+    else { bubble.innerHTML = renderMarkdown(full) || '<em style="color:#555">Stopped.</em>'; bubble._rawText = full; }
   }
 
-  sendBtn.disabled = false;
-  input.focus();
+  finishStream(true);
 }
 
+function finishStream(focusInput) {
+  isStreaming = false;
+  currentAbort = null;
+  sendBtn.textContent = 'Send ➤';
+  sendBtn.className = isClaude() ? 'claude-mode' : '';
+  sendBtn.disabled = false;
+  if (focusInput) input.focus();
+}
+
+// Image generation
 async function generateImage() {
   var prompt = input.value.trim().replace(/^\/image\s*/i, '');
-  if (!prompt) { alert('Type a prompt first, e.g: a futuristic city at night'); return; }
+  if (!prompt) { setStatus('Type a prompt first, then click 🎨', 3000); return; }
 
   var imgBtn = document.getElementById('img-btn');
+  var sizeVal = parseInt(document.getElementById('img-size').value);
   imgBtn.disabled = true; imgBtn.textContent = '⏳';
   input.value = ''; input.style.height = '44px';
 
-  addMsg('user', false).innerHTML = '🎨 ' + escHtml(prompt);
+  var ub = addMsg('user', false);
+  ub.bubble.innerHTML = '🎨 ' + escHtml(prompt);
 
-  var bubble = addMsg('bot', false);
-  bubble.textContent = 'Generating image with FLUX.1-schnell...';
+  var { bubble, statsEl } = addMsg('bot', false);
+  var t0 = Date.now();
+  bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Generating ' + sizeVal + '×' + sizeVal + ' with FLUX.1-schnell…';
 
   try {
     var res = await fetch('/imagine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, steps: 4, width: 1024, height: 1024 })
+      body: JSON.stringify({ prompt: prompt, steps: 4, width: sizeVal, height: sizeVal })
     });
     var data = await res.json();
     if (data.error) {
       bubble.textContent = 'Error: ' + data.error;
     } else {
-      bubble.innerHTML = '<img class="gen-img" src="data:image/png;base64,' + data.image + '" alt="' + escHtml(prompt) + '">';
+      var src = 'data:image/png;base64,' + data.image;
+      bubble.innerHTML = '<img class="gen-img" src="' + src + '" alt="' + escHtml(prompt) + '" onclick="openLightbox(this.src)">';
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1) + 's';
     }
   } catch(e) {
     bubble.textContent = 'Network error: ' + e.message;
@@ -250,12 +551,23 @@ async function generateImage() {
   input.focus();
 }
 
-// Auto-detect /image command in chat
-var _origSend = send;
-send = async function() {
-  if (input.value.trim().startsWith('/image')) { generateImage(); return; }
-  _origSend();
-};
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+// Route /image to image generation
+var send = sendOrStop;
+input.addEventListener('keydown', function(e) {}, true);
+var origKeydown = input.onkeydown;
+document.getElementById('inputbar-row').querySelector('textarea').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey && input.value.trim().startsWith('/image')) {
+    e.preventDefault(); generateImage();
+  }
+}, true);
 </script>
 </body>
 </html>
