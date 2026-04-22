@@ -1,14 +1,13 @@
 #!/bin/bash
-# Start 3 Cloudflare quick tunnels: Chat, ComfyUI, Obsidian
-# Waits for all 3 URLs then sends one WhatsApp message
+# Start 2 Cloudflare quick tunnels: Chat, ComfyUI
+# Waits for both URLs then sends one WhatsApp message
 
 LOGDIR="/home/work/fraqtoos-chat"
 CF="/usr/local/bin/cloudflared"
 
 > "$LOGDIR/tunnel_chat.log"
 > "$LOGDIR/tunnel_comfyui.log"
-> "$LOGDIR/tunnel_obsidian.log"
-rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_obsidian
+rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui
 
 # Start a tunnel and write its URL to a file when detected
 start_tunnel() {
@@ -22,28 +21,21 @@ start_tunnel() {
     done &
 }
 
-start_tunnel 8080 /tmp/cf_url_chat     "$LOGDIR/tunnel_chat.log"
-start_tunnel 8188 /tmp/cf_url_comfyui  "$LOGDIR/tunnel_comfyui.log"
-start_tunnel 6080 /tmp/cf_url_obsidian "$LOGDIR/tunnel_obsidian.log"
+start_tunnel 8080 /tmp/cf_url_chat    "$LOGDIR/tunnel_chat.log"
+start_tunnel 8188 /tmp/cf_url_comfyui "$LOGDIR/tunnel_comfyui.log"
 
 echo "Tunnels started. Waiting for URLs (up to 90s)..."
 
-# Wait up to 90s for all 3 URLs
 for i in $(seq 1 90); do
   sleep 1
   CHAT=$(cat /tmp/cf_url_chat 2>/dev/null)
   COMFY=$(cat /tmp/cf_url_comfyui 2>/dev/null)
-  OBS=$(cat /tmp/cf_url_obsidian 2>/dev/null)
-  [ -n "$CHAT" ] && [ -n "$COMFY" ] && [ -n "$OBS" ] && break
+  [ -n "$CHAT" ] && [ -n "$COMFY" ] && break
 done
 
-echo "Chat:     ${CHAT:-not found}"
-echo "ComfyUI:  ${COMFY:-not found}"
-echo "Obsidian: ${OBS:-not found}"
+echo "Chat:    ${CHAT:-not found}"
+echo "ComfyUI: ${COMFY:-not found}"
 
-# Send one WhatsApp with all URLs
-/usr/bin/python3 /home/work/fraqtoos-chat/notify_url.py \
-  "${CHAT:-}" "${COMFY:-}" "${OBS:-}" &
+/usr/bin/python3 /home/work/fraqtoos-chat/notify_url.py "${CHAT:-}" "${COMFY:-}" &
 
-# Keep alive — tunnels are background subshells of this process
 wait
