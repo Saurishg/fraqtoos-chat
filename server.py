@@ -40,25 +40,42 @@ async def chat(req: Request):
 
 @app.post("/imagine")
 async def imagine(req: Request):
-    """Generate image via ComfyUI FLUX.1-schnell."""
-    data   = await req.json()
-    prompt = data.get("prompt", "")
-    steps  = data.get("steps", 4)
-    width  = data.get("width", 1024)
-    height = data.get("height", 1024)
+    data        = await req.json()
+    prompt      = data.get("prompt", "")
+    steps       = data.get("steps", None)
+    width       = data.get("width", 1024)
+    height      = data.get("height", 1024)
+    image_model = data.get("image_model", "flux-schnell")
+    negative    = data.get("negative", "")
 
     if not prompt:
         return JSONResponse({"error": "prompt required"}, 400)
-
-    comfy_up = _comfyui_ready()
-    if not comfy_up:
-        return JSONResponse({"error": "Image generator not ready. Start it first."}, 503)
+    if not _comfyui_ready():
+        return JSONResponse({"error": "Image generator not ready."}, 503)
 
     try:
-        image_b64 = _flux_generate(prompt, steps, width, height)
-        return JSONResponse({"image": image_b64, "prompt": prompt})
+        image_b64 = _generate(prompt, image_model, steps, width, height, negative)
+        return JSONResponse({"image": image_b64, "prompt": prompt, "model": image_model})
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
+
+
+@app.get("/imagine/models")
+async def imagine_models():
+    """Return which image models are available (file exists on disk)."""
+    base = "/home/work/ComfyUI/models"
+    available = []
+    checks = {
+        "flux-schnell": f"{base}/unet/flux1-schnell-Q8_0.gguf",
+        "flux-dev":     f"{base}/unet/flux1-dev-Q4_0.gguf",
+        "sdxl":         f"{base}/checkpoints/sd_xl_base_1.0.safetensors",
+        "sd15":         f"{base}/checkpoints/v1-5-pruned-emaonly.safetensors",
+        "juggernaut":   f"{base}/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
+    }
+    for name, path in checks.items():
+        if os.path.exists(path) and os.path.getsize(path) > 1024*1024:
+            available.append(name)
+    return {"models": available}
 
 
 @app.get("/imagine/status")
@@ -90,11 +107,9 @@ def _comfyui_ready() -> bool:
         return False
 
 
-def _flux_generate(prompt: str, steps: int = 4, width: int = 1024, height: int = 1024) -> str:
-    """Run FLUX.1-schnell via ComfyUI API, return base64 image."""
-    client_id = str(uuid.uuid4())
-    workflow = {
-        "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": "flux1-schnell-Q8_0.gguf"}},
+def _build_flux_workflow(unet_file: str, prompt: str, steps: int, width: int, height: int) -> dict:
+    return {
+        "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": unet_file}},
         "2": {"class_type": "DualCLIPLoaderGGUF", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
         "4": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
@@ -105,24 +120,63 @@ def _flux_generate(prompt: str, steps: int = 4, width: int = 1024, height: int =
         "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "fraqtoos"}},
     }
 
-    # Queue prompt
-    r = requests.post(f"{COMFYUI}/prompt", json={"prompt": workflow, "client_id": client_id}, timeout=10)
-    prompt_id = r.json()["prompt_id"]
 
-    # Wait for completion (max 120s)
-    for _ in range(120):
+def _build_sdxl_workflow(ckpt_file: str, prompt: str, negative: str, steps: int, width: int, height: int) -> dict:
+    return {
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt_file}},
+        "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+        "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative or "ugly, blurry, watermark, text, low quality", "clip": ["1", 1]}},
+        "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
+        "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": int(time.time()), "steps": steps, "cfg": 7.0, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0}},
+        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+        "7": {"class_type": "SaveImage", "inputs": {"images": ["6", 0], "filename_prefix": "fraqtoos"}},
+    }
+
+
+def _build_sd15_workflow(ckpt_file: str, prompt: str, negative: str, steps: int, width: int, height: int) -> dict:
+    return {
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt_file}},
+        "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
+        "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative or "ugly, blurry, watermark, low quality", "clip": ["1", 1]}},
+        "4": {"class_type": "EmptyLatentImage", "inputs": {"width": min(width, 768), "height": min(height, 768), "batch_size": 1}},
+        "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": int(time.time()), "steps": steps, "cfg": 7.5, "sampler_name": "euler_ancestral", "scheduler": "normal", "denoise": 1.0}},
+        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
+        "7": {"class_type": "SaveImage", "inputs": {"images": ["6", 0], "filename_prefix": "fraqtoos"}},
+    }
+
+
+def _generate(prompt: str, model: str, steps, width: int, height: int, negative: str = "") -> str:
+    """Route to correct workflow based on model name, return base64 PNG."""
+    if model == "flux-schnell":
+        wf = _build_flux_workflow("flux1-schnell-Q8_0.gguf", prompt, steps or 4, width, height)
+    elif model == "flux-dev":
+        wf = _build_flux_workflow("flux1-dev-Q4_0.gguf", prompt, steps or 20, width, height)
+    elif model == "sdxl":
+        wf = _build_sdxl_workflow("sd_xl_base_1.0.safetensors", prompt, negative, steps or 25, width, height)
+    elif model == "juggernaut":
+        wf = _build_sdxl_workflow("Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors", prompt, negative, steps or 25, width, height)
+    elif model == "sd15":
+        wf = _build_sd15_workflow("v1-5-pruned-emaonly.safetensors", prompt, negative, steps or 20, width, height)
+    else:
+        raise ValueError(f"Unknown image model: {model}")
+
+    client_id = str(uuid.uuid4())
+    r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
+    resp = r.json()
+    if "error" in resp:
+        raise RuntimeError(resp["error"].get("message", str(resp["error"])))
+    prompt_id = resp["prompt_id"]
+
+    for _ in range(180):
         time.sleep(1)
         hist = requests.get(f"{COMFYUI}/history/{prompt_id}", timeout=5).json()
         if prompt_id in hist and hist[prompt_id].get("outputs"):
-            outputs = hist[prompt_id]["outputs"]
-            for node_id, node_out in outputs.items():
+            for node_out in hist[prompt_id]["outputs"].values():
                 if "images" in node_out:
                     img = node_out["images"][0]
-                    img_r = requests.get(
-                        f"{COMFYUI}/view",
+                    img_r = requests.get(f"{COMFYUI}/view",
                         params={"filename": img["filename"], "subfolder": img["subfolder"], "type": img["type"]},
-                        timeout=10
-                    )
+                        timeout=10)
                     return base64.b64encode(img_r.content).decode()
     raise TimeoutError("Image generation timed out")
 

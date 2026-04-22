@@ -180,13 +180,24 @@
 <div id="inputbar">
   <div id="inputbar-row">
     <textarea id="input" placeholder="Ask anything… or /image your prompt" rows="1"></textarea>
+    <select id="img-model" title="Image model">
+      <option value="flux-schnell">FLUX Schnell ⚡</option>
+      <option value="flux-dev">FLUX Dev ✨</option>
+      <option value="sdxl">SDXL 1.0</option>
+      <option value="juggernaut">Juggernaut XL</option>
+      <option value="sd15">SD 1.5</option>
+    </select>
     <select id="img-size" title="Image size">
       <option value="512">512²</option>
       <option value="768">768²</option>
       <option value="1024" selected>1024²</option>
     </select>
-    <button id="img-btn" onclick="generateImage()" title="Generate Image (FLUX.1-schnell)">🎨</button>
+    <button id="img-btn" onclick="generateImage()" title="Generate Image">🎨</button>
     <button id="send-btn" onclick="sendOrStop()">Send ➤</button>
+  </div>
+  <div id="neg-row" style="display:none; gap:8px; align-items:center;">
+    <label style="font-size:11px;color:#555;white-space:nowrap;">Negative:</label>
+    <input id="neg-prompt" placeholder="ugly, blurry, watermark…" style="flex:1;background:#222;border:1px solid #333;color:#aaa;padding:4px 10px;border-radius:6px;font-size:12px;outline:none;">
   </div>
 </div>
 
@@ -200,6 +211,26 @@ const sendBtn     = document.getElementById('send-btn');
 const modelSelect = document.getElementById('model-select');
 const modelLabel  = document.getElementById('model-name');
 const statusBar   = document.getElementById('status-bar');
+const imgModelSel = document.getElementById('img-model');
+
+// Show negative prompt row only for non-FLUX models
+imgModelSel.addEventListener('change', function() {
+  var isFlux = imgModelSel.value.startsWith('flux');
+  document.getElementById('neg-row').style.display = isFlux ? 'none' : 'flex';
+  localStorage.setItem('fraqtoos_img_model', imgModelSel.value);
+});
+(function(){ var s=localStorage.getItem('fraqtoos_img_model'); if(s) imgModelSel.value=s; imgModelSel.dispatchEvent(new Event('change')); })();
+
+// Load available image models from server and disable missing ones
+fetch('/imagine/models').then(r=>r.json()).then(function(d) {
+  var avail = new Set(d.models || []);
+  Array.from(imgModelSel.options).forEach(function(opt) {
+    if (!avail.has(opt.value)) {
+      opt.text += ' ⏳';
+      opt.disabled = true;
+    }
+  });
+}).catch(function(){});
 
 const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001']);
 let history = [];
@@ -517,23 +548,26 @@ async function generateImage() {
   var prompt = input.value.trim().replace(/^\/image\s*/i, '');
   if (!prompt) { setStatus('Type a prompt first, then click 🎨', 3000); return; }
 
-  var imgBtn = document.getElementById('img-btn');
+  var imgBtn  = document.getElementById('img-btn');
   var sizeVal = parseInt(document.getElementById('img-size').value);
+  var imgMod  = imgModelSel.value;
+  var negPmt  = document.getElementById('neg-prompt').value.trim();
   imgBtn.disabled = true; imgBtn.textContent = '⏳';
   input.value = ''; input.style.height = '44px';
 
+  var modelNames = {'flux-schnell':'FLUX Schnell','flux-dev':'FLUX Dev','sdxl':'SDXL 1.0','juggernaut':'Juggernaut XL','sd15':'SD 1.5'};
   var ub = addMsg('user', false);
   ub.bubble.innerHTML = '🎨 ' + escHtml(prompt);
 
   var { bubble, statsEl } = addMsg('bot', false);
   var t0 = Date.now();
-  bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Generating ' + sizeVal + '×' + sizeVal + ' with FLUX.1-schnell…';
+  bubble.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Generating ' + sizeVal + '×' + sizeVal + ' · ' + (modelNames[imgMod]||imgMod) + '…';
 
   try {
     var res = await fetch('/imagine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, steps: 4, width: sizeVal, height: sizeVal })
+      body: JSON.stringify({ prompt: prompt, image_model: imgMod, width: sizeVal, height: sizeVal, negative: negPmt })
     });
     var data = await res.json();
     if (data.error) {
@@ -541,7 +575,7 @@ async function generateImage() {
     } else {
       var src = 'data:image/png;base64,' + data.image;
       bubble.innerHTML = '<img class="gen-img" src="' + src + '" alt="' + escHtml(prompt) + '" onclick="openLightbox(this.src)">';
-      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1) + 's';
+      statsEl.textContent = (modelNames[imgMod]||imgMod) + ' · ' + ((Date.now()-t0)/1000).toFixed(1) + 's';
     }
   } catch(e) {
     bubble.textContent = 'Network error: ' + e.message;
