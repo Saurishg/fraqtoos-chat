@@ -93,8 +93,8 @@ def _flux_generate(prompt: str, steps: int = 4, width: int = 1024, height: int =
     """Run FLUX.1-schnell via ComfyUI API, return base64 image."""
     client_id = str(uuid.uuid4())
     workflow = {
-        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux1-schnell-Q8_0.gguf", "weight_dtype": "fp8_e4m3fn"}},
-        "2": {"class_type": "DualCLIPLoader", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux", "device": "default"}},
+        "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": "flux1-schnell-Q8_0.gguf"}},
+        "2": {"class_type": "DualCLIPLoaderGGUF", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
         "4": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
         "5": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
