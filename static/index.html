@@ -55,6 +55,10 @@
   #send-btn:disabled { background: #222; color: #444; cursor: not-allowed; }
   #send-btn.claude-mode { background: #6d28d9; }
   #send-btn.claude-mode:hover { background: #7c3aed; }
+  #img-btn { background: #065f46; color: #fff; border: none; border-radius: 8px; padding: 10px 14px; font-size: 18px; cursor: pointer; height: 44px; }
+  #img-btn:hover { background: #047857; }
+  #img-btn:disabled { background: #222; color: #444; cursor: not-allowed; }
+  .gen-img { max-width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid #2a2a2a; }
 
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
@@ -92,7 +96,8 @@
 <div id="model-label">Using: <span id="model-name">phi4</span></div>
 
 <div id="inputbar">
-  <textarea id="input" placeholder="Ask anything... (Shift+Enter for new line)" rows="1"></textarea>
+  <textarea id="input" placeholder="Ask anything... or type /image your prompt to generate an image" rows="1"></textarea>
+  <button id="img-btn" onclick="generateImage()" title="Generate Image (FLUX.1-schnell)">🎨</button>
   <button id="send-btn" onclick="send()">Send ➤</button>
 </div>
 
@@ -211,6 +216,46 @@ async function send() {
   sendBtn.disabled = false;
   input.focus();
 }
+
+async function generateImage() {
+  var prompt = input.value.trim().replace(/^\/image\s*/i, '');
+  if (!prompt) { alert('Type a prompt first, e.g: a futuristic city at night'); return; }
+
+  var imgBtn = document.getElementById('img-btn');
+  imgBtn.disabled = true; imgBtn.textContent = '⏳';
+  input.value = ''; input.style.height = '44px';
+
+  addMsg('user', false).innerHTML = '🎨 ' + escHtml(prompt);
+
+  var bubble = addMsg('bot', false);
+  bubble.textContent = 'Generating image with FLUX.1-schnell...';
+
+  try {
+    var res = await fetch('/imagine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, steps: 4, width: 1024, height: 1024 })
+    });
+    var data = await res.json();
+    if (data.error) {
+      bubble.textContent = 'Error: ' + data.error;
+    } else {
+      bubble.innerHTML = '<img class="gen-img" src="data:image/png;base64,' + data.image + '" alt="' + escHtml(prompt) + '">';
+    }
+  } catch(e) {
+    bubble.textContent = 'Network error: ' + e.message;
+  }
+
+  imgBtn.disabled = false; imgBtn.textContent = '🎨';
+  input.focus();
+}
+
+// Auto-detect /image command in chat
+var _origSend = send;
+send = async function() {
+  if (input.value.trim().startsWith('/image')) { generateImage(); return; }
+  _origSend();
+};
 </script>
 </body>
 </html>
