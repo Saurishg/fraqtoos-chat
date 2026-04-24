@@ -5,6 +5,7 @@ Access: http://192.168.2.108:8080
 Supports: Ollama models + Claude API + FLUX.1-schnell image generation
 """
 import json, os, requests, base64, uuid, time
+from collections import defaultdict, deque
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,21 @@ CLAUDE_MODELS = {"claude-sonnet-4-6", "claude-opus-4-7", "claude-haiku-4-5-20251
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+_RATE_BUCKETS: dict[str, dict[str, deque]] = defaultdict(lambda: defaultdict(deque))
+_RATE_LIMITS = {"chat": (20, 60), "imagine": (5, 60)}
+
+
+def _rate_ok(ip: str, bucket: str) -> bool:
+    limit, window = _RATE_LIMITS[bucket]
+    now = time.time()
+    dq = _RATE_BUCKETS[bucket][ip]
+    while dq and now - dq[0] > window:
+        dq.popleft()
+    if len(dq) >= limit:
+        return False
+    dq.append(now)
+    return True
+
 
 @app.get("/")
 async def index():
@@ -29,6 +45,9 @@ async def index():
 
 @app.post("/chat")
 async def chat(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "chat"):
+        return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
     data     = await req.json()
     model    = data.get("model", "phi4")
     messages = data.get("messages", [])[-12:]
@@ -40,6 +59,9 @@ async def chat(req: Request):
 
 @app.post("/imagine")
 async def imagine(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
     data        = await req.json()
     prompt      = data.get("prompt", "")
     steps       = data.get("steps", None)
