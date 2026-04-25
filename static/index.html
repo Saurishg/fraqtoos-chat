@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#cc7722">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <title>FraqtoOS Chat</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -26,7 +32,7 @@
     --radius:    12px;
   }
 
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; font-size: 15px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; font-size: 15px; -webkit-tap-highlight-color: transparent; }
 
   /* ── SIDEBAR ── */
   #sidebar {
@@ -74,7 +80,7 @@
   .sidebar-action:hover { background: var(--surface); color: var(--text); }
 
   /* ── MAIN ── */
-  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
   /* top bar */
   #topbar {
@@ -199,9 +205,9 @@
   /* ── INPUT AREA ── */
   #inputwrap { padding: 12px 24px 20px; background: var(--bg); flex-shrink: 0; }
   #input-outer {
-    max-width: 720px; margin: 0 auto;
+    max-width: 720px; margin: 0 auto; position: relative;
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; overflow: hidden;
+    border-radius: 14px;
     transition: border-color 0.15s;
   }
   #input-outer:focus-within { border-color: var(--accent); }
@@ -267,6 +273,289 @@
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
+  /* tool buttons in input row */
+  .tool-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    width: 32px; height: 32px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .tool-btn:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
+  .tool-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tool-btn.recording { background: #991b1b; color: #fff; border-color: #991b1b; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+  /* attachment chips */
+  #attach-row { padding: 0 16px 6px; display: none; flex-wrap: wrap; gap: 6px; }
+  #attach-row.has-attach { display: flex; }
+  .attach-chip {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    padding: 4px 10px 4px 8px; border-radius: 14px; font-size: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .attach-chip .x { cursor: pointer; color: var(--text3); font-size: 14px; line-height: 1; }
+  .attach-chip .x:hover { color: var(--text); }
+
+  /* conversations sidebar */
+  .conv-list { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; margin-bottom: 4px; }
+  .conv-item {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+    border-radius: 6px; cursor: pointer; color: var(--text2); font-size: 12px;
+    border: 1px solid transparent;
+  }
+  .conv-item:hover { background: var(--surface); color: var(--text); }
+  .conv-item.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
+  .conv-item .conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv-item .conv-del { opacity: 0; color: var(--text3); cursor: pointer; padding: 0 4px; }
+  .conv-item:hover .conv-del { opacity: 1; }
+  .conv-item .conv-del:hover { color: #ef4444; }
+
+  /* edit-mode user bubble */
+  .user-bubble.editing {
+    background: var(--surface); color: var(--text); border: 1px solid var(--accent);
+    padding: 8px; min-width: 280px;
+  }
+  .edit-textarea {
+    width: 100%; background: transparent; border: none; color: var(--text);
+    font-size: 15px; font-family: inherit; resize: vertical; outline: none;
+    line-height: 1.5; min-height: 60px;
+  }
+  .edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+  .edit-actions button {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  }
+  .edit-actions button.save { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .user-bubble { cursor: pointer; }
+  .user-bubble[data-uneditable="1"] { cursor: default; }
+
+  /* token counter */
+  #token-counter { font-size: 11px; color: var(--text3); margin-left: 4px; }
+  #token-counter.warn { color: #f59e0b; }
+
+  /* auto-route badge on bot avatar */
+  .model-btn.auto-model.active .model-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .route-pill {
+    display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 10px;
+    background: var(--surface2); color: var(--accent2); border: 1px solid var(--border);
+    margin-left: 6px; vertical-align: middle;
+  }
+
+  /* hljs override — fits dark palette, no extra padding */
+  .bot-text pre { background: #0d0c08; padding: 14px 16px; }
+  .bot-text pre code.hljs { background: transparent; padding: 0; }
+
+  /* jump-to-bottom pill */
+  #jump-bottom {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #fff; border: none;
+    padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    display: none; z-index: 10; transition: opacity 0.15s;
+  }
+  #jump-bottom.show { display: block; }
+  #jump-bottom:hover { background: var(--accent2); }
+
+  /* memory modal */
+  #mem-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  #mem-modal.open { display: flex; }
+  #mem-modal .mem-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  #mem-modal .mem-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  #mem-modal .mem-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+  #mem-modal .mem-x {
+    background: none; border: none; color: var(--text2);
+    font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px;
+  }
+  #mem-modal .mem-x:hover { background: var(--surface); color: var(--text); }
+  #mem-modal .mem-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+  .mem-item {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 10px 12px; border-radius: 8px; margin-bottom: 6px;
+    display: flex; align-items: flex-start; gap: 8px; font-size: 13px;
+  }
+  .mem-item .mem-fact { flex: 1; line-height: 1.4; }
+  .mem-item .mem-rm {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 14px; padding: 0 4px;
+  }
+  .mem-item .mem-rm:hover { color: #ef4444; }
+  #mem-modal .mem-foot {
+    padding: 12px 18px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center;
+  }
+  #mem-input {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit;
+  }
+  #mem-input:focus { border-color: var(--accent); }
+  #mem-add {
+    background: var(--accent); color: #fff; border: none; padding: 8px 14px;
+    border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500;
+  }
+  #mem-add:hover { background: var(--accent2); }
+  .mem-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
+  .mem-toggle-row { padding: 6px 18px 12px; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+  .mem-count-badge {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    padding: 1px 7px; border-radius: 10px; font-size: 11px; margin-left: auto;
+  }
+
+  /* status light */
+  #status-light {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    background: #6b6864; margin-left: 8px; flex-shrink: 0;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0); transition: background 0.3s;
+  }
+  #status-light.online { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.6); animation: pulse-green 2s infinite; }
+  #status-light.offline { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); animation: pulse-red 1s infinite; }
+  @keyframes pulse-green { 0%,100%{box-shadow:0 0 4px rgba(34,197,94,0.4)} 50%{box-shadow:0 0 10px rgba(34,197,94,0.8)} }
+  @keyframes pulse-red   { 0%,100%{box-shadow:0 0 4px rgba(239,68,68,0.5)} 50%{box-shadow:0 0 12px rgba(239,68,68,0.9)} }
+
+  /* image attachment thumb */
+  .attach-chip.image { padding: 3px 8px 3px 4px; }
+  .attach-chip .thumb {
+    width: 28px; height: 28px; border-radius: 6px; object-fit: cover;
+    border: 1px solid var(--border);
+  }
+
+  /* conversation search */
+  #conv-search {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px;
+    outline: none; margin-bottom: 6px; font-family: inherit;
+  }
+  #conv-search:focus { border-color: var(--accent); }
+  .conv-snippet { font-size: 10.5px; color: var(--text3); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* slash command menu */
+  #slash-menu {
+    position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 6px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    max-height: 280px; overflow-y: auto; padding: 4px;
+    display: none; z-index: 30;
+  }
+  #slash-menu.open { display: block; }
+  .slash-item {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .slash-item.active, .slash-item:hover { background: var(--bg3); }
+  .slash-cmd { color: var(--accent); font-weight: 600; min-width: 110px; font-family: monospace; font-size: 12.5px; }
+  .slash-desc { color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 768px) {
+    .slash-cmd { min-width: 90px; font-size: 12px; }
+    .slash-desc { font-size: 12px; }
+  }
+
+  /* follow-up suggestion chips */
+  .followup-row {
+    display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px 38px;
+    max-width: calc(100% - 50px);
+  }
+  .followup-chip {
+    background: var(--surface); color: var(--text2);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 5px 12px; font-size: 12.5px; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    user-select: none;
+  }
+  .followup-chip:hover { background: var(--bg3); border-color: var(--accent); color: var(--text); }
+  @media (max-width: 768px) {
+    .followup-row { margin: 4px 0 10px 8px; }
+    .followup-chip { font-size: 12px; padding: 4px 10px; }
+  }
+
+  /* drop overlay */
+  #drop-overlay {
+    position: fixed; inset: 0; background: rgba(204, 119, 34, 0.15);
+    border: 3px dashed var(--accent); pointer-events: none;
+    display: none; align-items: center; justify-content: center;
+    font-size: 24px; color: var(--accent2); z-index: 200;
+  }
+  #drop-overlay.show { display: flex; }
+
+  /* hamburger + backdrop */
+  #menu-btn {
+    display: none;
+    background: none; border: none; color: var(--text); font-size: 22px;
+    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
+    align-items: center; justify-content: center; padding: 0;
+  }
+  #menu-btn:hover { background: var(--surface); }
+  #sidebar-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 49;
+  }
+  #sidebar-backdrop.show { display: block; }
+
+  /* ── MOBILE (≤768px) ── */
+  @media (max-width: 768px) {
+    body { font-size: 14px; }
+    #menu-btn { display: flex; }
+
+    #sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
+      transform: translateX(-100%); transition: transform 0.22s ease-out;
+      width: 280px; min-width: 280px;
+    }
+    #sidebar.open { transform: translateX(0); }
+
+    #topbar { padding: 10px 12px; gap: 8px; }
+    #current-model-label { font-size: 13px; gap: 6px; flex: 1; min-width: 0; overflow: hidden; }
+    #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge { display: none; }
+    #token-counter { display: none; }
+    #topbar-actions { display: none; }
+
+    #chat { padding: 14px 0 12px; }
+    .chat-inner { padding: 0 14px; }
+    .user-bubble { max-width: 92%; font-size: 14px; padding: 10px 14px; }
+    .bot-text { font-size: 14px; line-height: 1.6; }
+    .bot-avatar { width: 28px; height: 28px; font-size: 13px; }
+    .msg-group.bot { gap: 9px; }
+
+    #inputwrap { padding: 8px 10px 14px; }
+    #input-outer { border-radius: 12px; }
+    #input { padding: 11px 12px 4px; font-size: 16px; min-height: 46px; }
+    #input-bottom { padding: 4px 6px 6px; gap: 4px; flex-wrap: wrap; }
+    .tool-btn { width: 36px; height: 36px; font-size: 16px; }
+    .ctrl-select { font-size: 11px; padding: 6px; max-width: 90px; }
+    #img-controls { gap: 4px; }
+    #img-btn, #send-btn { width: 40px; height: 40px; font-size: 17px; }
+    #hint { display: none; }
+
+    .suggestion-grid { grid-template-columns: 1fr; gap: 8px; }
+    #welcome { margin: 30px auto; padding: 0 14px; }
+    #welcome h2 { font-size: 20px; }
+    #welcome p { font-size: 13px; margin-bottom: 18px; }
+    #welcome .w-icon { width: 48px; height: 48px; font-size: 22px; margin-bottom: 14px; }
+
+    #sysprompt-bar { padding: 8px 12px; flex-wrap: wrap; }
+    #sysprompt-bar label { width: 100%; }
+
+    .code-block { margin: 8px -6px; border-radius: 8px; }
+    pre { padding: 10px 12px; }
+    code { font-size: 12px; }
+  }
+
+  /* very small phones */
+  @media (max-width: 380px) {
+    #img-controls { display: none; }
+    #img-btn { display: none; }
+    .tool-btn { width: 34px; height: 34px; }
+  }
+
   /* welcome screen */
   #welcome {
     max-width: 720px; margin: 60px auto; padding: 0 24px; text-align: center;
@@ -297,6 +586,12 @@
     <span>FraqtoOS Chat</span>
   </div>
 
+  <div class="sidebar-label">Auto Mode</div>
+  <button class="model-btn auto-model" data-model="auto" onclick="selectModel(this)">
+    <span class="model-dot"></span>
+    <span class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 routes to best model</span></span>
+  </button>
+
   <div class="sidebar-label">Local Models</div>
   <button class="model-btn active" data-model="phi4" onclick="selectModel(this)">
     <span class="model-dot"></span>
@@ -323,22 +618,23 @@
     <span class="model-info"><span class="model-name">llama4</span><span class="model-size">Meta · 67 GB · Best</span></span>
   </button>
 
-  <div class="sidebar-label">Claude API</div>
-  <button class="model-btn claude-model" data-model="claude-sonnet-4-6" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">Sonnet 4.6</span><span class="model-size">Anthropic · Fast ⚡</span></span>
+  <div class="sidebar-divider"></div>
+
+  <div class="sidebar-label">Conversations</div>
+  <button class="sidebar-action" onclick="newConversation()" style="color:var(--accent2)">
+    <span>+</span> New Chat
   </button>
-  <button class="model-btn claude-model" data-model="claude-opus-4-7" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">Opus 4.7</span><span class="model-size">Anthropic · Best 🧠</span></span>
+  <button class="sidebar-action" onclick="saveCurrentConversation()">
+    <span>💾</span> Rename Current
   </button>
-  <button class="model-btn claude-model" data-model="claude-haiku-4-5-20251001" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">Haiku 4.5</span><span class="model-size">Anthropic · Fastest 💨</span></span>
-  </button>
+  <input id="conv-search" placeholder="🔍 Search conversations…" oninput="onConvSearch(this.value)">
+  <div class="conv-list" id="conv-list"></div>
 
   <div class="sidebar-divider"></div>
 
+  <button class="sidebar-action" onclick="openMemoryModal()" id="memory-action">
+    <span>🧠</span> Memory <span class="mem-count-badge" id="mem-count">0</span>
+  </button>
   <button class="sidebar-action" onclick="toggleSysPrompt()">
     <span>⚙</span> System Prompt
   </button>
@@ -353,15 +649,19 @@
 <!-- MAIN -->
 <div id="main">
   <div id="topbar">
+    <button id="menu-btn" onclick="toggleSidebar()" title="Menu">☰</button>
     <div id="current-model-label">
       <span id="model-display">phi4</span>
       <span class="badge" id="model-badge">Local · Ollama</span>
+      <span id="token-counter" title="Approx tokens (chars/4)">0 tok</span>
+      <span id="status-light" title="Checking…"></span>
     </div>
     <div id="topbar-actions">
       <button class="icon-btn" onclick="toggleSysPrompt()">⚙ System</button>
       <button class="icon-btn" onclick="exportChat()">↓ Export</button>
     </div>
   </div>
+  <div id="sidebar-backdrop" onclick="closeSidebar()"></div>
 
   <div id="sysprompt-bar">
     <label>System Prompt</label>
@@ -374,30 +674,56 @@
       <div id="welcome">
         <div class="w-icon">✦</div>
         <h2>How can I help you today?</h2>
-        <p>Powered by local AI on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4, and Claude.</p>
+        <p>Powered by local AI on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4.</p>
         <div class="suggestion-grid">
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>Summarize this text</strong>Paste anything for a clean summary
+            <strong>/competitor</strong>Top-10 ASIN snapshot from your bot
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>Write Python code</strong>Describe what you want to build
+            <strong>/watchdog</strong>Live bot health + AI diagnosis
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>/image a futuristic city</strong>Generate an image with FLUX
+            <strong>/digest</strong>Today's per-bot summaries
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>Analyze my Amazon listings</strong>Get SEO and sales advice
+            <strong>/image a futuristic city</strong>Generate with FLUX (text → image)
+          </div>
+          <div class="suggestion" onclick="fillInput('Drop an image and toggle ✏️ Edit, then describe a change')">
+            <strong>✏️ Edit Image</strong>FLUX Kontext — change clothes, bg, colors
+          </div>
+          <div class="suggestion" onclick="fillInput('Drop your face photo, toggle 🪄 Avatar, then describe a scene')">
+            <strong>🪄 Avatar in Scene</strong>PuLID-FLUX — generate you anywhere
+          </div>
+          <div class="suggestion" onclick="fillInput('Drop two photos: 🔄 Source = your face, 🎯 Target = where to paste it')">
+            <strong>🔄 Face Swap</strong>insightface — paste face onto a photo
+          </div>
+          <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
+            <strong>/remember</strong>Save a fact (e.g. "I sell on Amazon")
+          </div>
+          <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
+            <strong>/listing microfiber cloth GTF</strong>Draft Amazon listing copy
+          </div>
+          <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
+            <strong>/btc</strong>Bitcoin price + recent activity
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <button id="jump-bottom" onclick="scrollBottomForce()">↓ Jump to latest</button>
+
   <div id="inputwrap">
     <div id="input-outer">
+      <div id="slash-menu" role="listbox" aria-label="Slash commands"></div>
       <textarea id="input" placeholder="Ask anything… or /image your prompt" rows="1"></textarea>
+      <div id="attach-row"></div>
       <div id="neg-row"><input id="neg-prompt" placeholder="Negative prompt: ugly, blurry, watermark…"></div>
       <div id="input-bottom">
+        <button class="tool-btn" id="web-toggle" onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
+        <button class="tool-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file (txt/md/pdf/code)">📎</button>
+        <button class="tool-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
+        <input type="file" id="file-input" style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
         <div id="img-controls">
           <select id="img-model" class="ctrl-select" title="Image model">
             <option value="flux-schnell">FLUX Schnell ⚡</option>
@@ -418,11 +744,30 @@
         </div>
       </div>
     </div>
-    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Esc to stop &nbsp;·&nbsp; /image to generate</div>
+    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Esc to stop &nbsp;·&nbsp; /image to generate &nbsp;·&nbsp; Click your message to edit</div>
   </div>
 </div>
 
 <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt=""></div>
+<div id="drop-overlay">📎 Drop file or image here</div>
+
+<div id="mem-modal" onclick="if(event.target.id==='mem-modal')closeMemoryModal()">
+  <div class="mem-card">
+    <div class="mem-head">
+      <h3>🧠 Memory — what the bot remembers about you</h3>
+      <button class="mem-x" onclick="closeMemoryModal()">✕</button>
+    </div>
+    <div class="mem-toggle-row">
+      <input type="checkbox" id="mem-auto-toggle" onchange="setAutoMemory(this.checked)">
+      <label for="mem-auto-toggle">Auto-detect facts from my messages (uses phi4)</label>
+    </div>
+    <div class="mem-body" id="mem-body"></div>
+    <div class="mem-foot">
+      <input id="mem-input" placeholder="Add a fact… (e.g., 'I prefer Python over JS')" onkeydown="if(event.key==='Enter')addMemoryFromInput()">
+      <button id="mem-add" onclick="addMemoryFromInput()">Add</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const chatEl    = document.getElementById('chat');
@@ -437,6 +782,10 @@ const QWEN          = new Set(['qwen3:14b']);
 const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-7':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
 
 let currentModel = localStorage.getItem('fraqtoos_model') || 'phi4';
+if (currentModel.startsWith('claude-')) {
+  currentModel = 'phi4';
+  localStorage.setItem('fraqtoos_model', currentModel);
+}
 let systemPrompt = localStorage.getItem('fraqtoos_sysprompt') || '';
 let history      = [];
 let currentAbort = null;
@@ -451,7 +800,8 @@ function selectModel(btn) {
   currentModel = btn.dataset.model;
   localStorage.setItem('fraqtoos_model', currentModel);
   document.getElementById('model-display').textContent = btn.querySelector('.model-name').textContent;
-  document.getElementById('model-badge').textContent = MODEL_BADGE[currentModel] || 'Local · Ollama';
+  var badge = MODEL_BADGE[currentModel] || (currentModel === 'auto' ? 'Smart Router' : 'Local · Ollama');
+  document.getElementById('model-badge').textContent = badge;
   sendBtn.className = isClaude() ? 'claude-mode' : '';
 }
 
@@ -491,6 +841,24 @@ input.addEventListener('keydown', function(e) {
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isStreaming)stopStreaming();});
 
 function toggleSysPrompt() { document.getElementById('sysprompt-bar').classList.toggle('open'); }
+
+function toggleSidebar() {
+  var sb = document.getElementById('sidebar');
+  var bd = document.getElementById('sidebar-backdrop');
+  var open = !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  bd.classList.toggle('show', open);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('show');
+}
+// Auto-close drawer when picking model/conv on mobile
+document.addEventListener('click', function(e) {
+  if (window.innerWidth > 768) return;
+  var t = e.target.closest('.model-btn, .conv-item, .sidebar-action');
+  if (t) closeSidebar();
+});
 function saveSysPrompt() {
   systemPrompt = document.getElementById('sysprompt-input').value.trim();
   localStorage.setItem('fraqtoos_sysprompt', systemPrompt);
@@ -588,7 +956,10 @@ function addUserMsg(text) {
   var div = document.createElement('div');
   div.className = 'msg-group user';
   div.innerHTML = '<div class="user-bubble"></div>';
-  div.querySelector('.user-bubble').innerHTML = escHtml(text).replace(/\n/g,'<br>');
+  var bubble = div.querySelector('.user-bubble');
+  bubble.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+  bubble._rawText = text;
+  bubble.addEventListener('click', function(){ enterEditMode(bubble); });
   inner.appendChild(div);
   scrollBottom();
 }
@@ -636,7 +1007,31 @@ function getOrCreateInner() {
   return inner;
 }
 
-function scrollBottom(){ chatEl.scrollTop=chatEl.scrollHeight; }
+let _stickToBottom = true;
+function _isAtBottom(){ return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 60; }
+chatEl.addEventListener('scroll', function() {
+  _stickToBottom = _isAtBottom();
+  document.getElementById('jump-bottom').classList.toggle('show', !_stickToBottom);
+});
+function scrollBottom(){
+  if (_stickToBottom) chatEl.scrollTop = chatEl.scrollHeight;
+}
+function scrollBottomForce(){
+  _stickToBottom = true;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  document.getElementById('jump-bottom').classList.remove('show');
+}
+
+// Highlight code blocks after each render
+function highlightCode(el) {
+  if (!window.hljs || !el) return;
+  el.querySelectorAll('pre code:not(.hljs-done)').forEach(function(block){
+    try {
+      hljs.highlightElement(block);
+      block.classList.add('hljs-done');
+    } catch(e) {}
+  });
+}
 
 function copyBotMsg(btn) {
   var text = btn.closest('.bot-body').querySelector('.bot-text')._rawText || btn.closest('.bot-body').querySelector('.bot-text').textContent;
@@ -723,6 +1118,97 @@ function finishStream(){
   sendBtn.innerHTML='&#9654;';
   sendBtn.className=isClaude()?'claude-mode':'';
   sendBtn.disabled=false; input.focus();
+  maybeRenderFollowups();
+}
+
+// Slash-command autocomplete menu
+const SLASH_COMMANDS = [
+  { cmd: '/image',     args: '<prompt>',     desc: 'Generate image with FLUX/SDXL' },
+  { cmd: '/remember',  args: '<fact>',       desc: 'Save a persistent memory' },
+  { cmd: '/forget',    args: '<substring>',  desc: 'Delete memories matching text' },
+  { cmd: '/competitor',args: '',             desc: 'Top-10 ASIN snapshot' },
+  { cmd: '/watchdog',  args: '',             desc: 'Bot health + AI diagnosis' },
+  { cmd: '/digest',    args: '',             desc: 'Today\'s per-bot summaries' },
+  { cmd: '/bots',      args: '',             desc: 'List all FraqtoOS bots' },
+  { cmd: '/help',      args: '',             desc: 'Show available bridge commands' },
+];
+let _slashIdx = 0;
+function _slashMatches(text) {
+  var q = text.slice(1).toLowerCase();
+  return SLASH_COMMANDS.filter(function(c){ return c.cmd.slice(1).toLowerCase().startsWith(q); });
+}
+function renderSlashMenu() {
+  var menu = document.getElementById('slash-menu');
+  var v = input.value;
+  if (!v.startsWith('/') || /\s/.test(v)) { menu.classList.remove('open'); menu.innerHTML=''; return; }
+  var matches = _slashMatches(v);
+  if (!matches.length) { menu.classList.remove('open'); menu.innerHTML=''; return; }
+  if (_slashIdx >= matches.length) _slashIdx = 0;
+  menu.innerHTML = matches.map(function(c, i){
+    var arg = c.args ? ' <span style="color:var(--text3)">'+escHtml(c.args)+'</span>' : '';
+    return '<div class="slash-item'+(i===_slashIdx?' active':'')+'" data-cmd="'+c.cmd+'" data-hasargs="'+(c.args?'1':'0')+'">'
+      + '<span class="slash-cmd">'+c.cmd+'</span>'
+      + '<span class="slash-desc">'+arg+(arg?' — ':'')+escHtml(c.desc)+'</span>'
+      + '</div>';
+  }).join('');
+  menu.querySelectorAll('.slash-item').forEach(function(el, i){
+    el.onmousedown = function(e){ e.preventDefault(); _slashIdx = i; pickSlash(); };
+  });
+  menu.classList.add('open');
+}
+function pickSlash() {
+  var matches = _slashMatches(input.value);
+  if (!matches.length) return;
+  var c = matches[Math.min(_slashIdx, matches.length-1)];
+  input.value = c.cmd + (c.args ? ' ' : '');
+  _slashIdx = 0;
+  document.getElementById('slash-menu').classList.remove('open');
+  input.focus();
+  if (!c.args) input.dispatchEvent(new Event('input'));
+}
+input.addEventListener('input', function(){ _slashIdx = 0; renderSlashMenu(); });
+input.addEventListener('keydown', function(e){
+  var menu = document.getElementById('slash-menu');
+  if (!menu.classList.contains('open')) return;
+  var matches = _slashMatches(input.value);
+  if (e.key === 'ArrowDown') { e.preventDefault(); _slashIdx = (_slashIdx+1) % matches.length; renderSlashMenu(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _slashIdx = (_slashIdx-1+matches.length) % matches.length; renderSlashMenu(); }
+  else if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) { e.preventDefault(); pickSlash(); }
+  else if (e.key === 'Escape') { menu.classList.remove('open'); }
+}, true);
+input.addEventListener('blur', function(){ setTimeout(function(){ document.getElementById('slash-menu').classList.remove('open'); }, 120); });
+
+// Follow-up suggestion chips under the latest bot reply
+let _followupAbort = null;
+async function maybeRenderFollowups() {
+  if (!history.length || history[history.length-1].role !== 'assistant') return;
+  document.querySelectorAll('.followup-row').forEach(function(el){ el.remove(); });
+  if (_followupAbort) { try { _followupAbort.abort(); } catch(e){} }
+  _followupAbort = new AbortController();
+  var bubbles = document.querySelectorAll('.bot-bubble');
+  var lastBot = bubbles[bubbles.length-1];
+  if (!lastBot) return;
+  try {
+    var res = await fetch('/suggest', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: history.slice(-6) }),
+      signal: _followupAbort.signal,
+    });
+    var d = await res.json();
+    if (!d.suggestions || !d.suggestions.length) return;
+    var row = document.createElement('div');
+    row.className = 'followup-row';
+    d.suggestions.forEach(function(s){
+      var chip = document.createElement('div');
+      chip.className = 'followup-chip';
+      chip.textContent = s;
+      chip.onclick = function(){ input.value = s; input.focus(); row.remove(); };
+      row.appendChild(chip);
+    });
+    lastBot.parentNode.insertBefore(row, lastBot.nextSibling);
+  } catch(e) {
+    if (e.name !== 'AbortError') console.warn('followup fail:', e);
+  }
 }
 
 // Image generation
@@ -762,6 +1248,931 @@ function closeLightbox(){document.getElementById('lightbox').classList.remove('o
 document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey&&input.value.trim().startsWith('/image')){e.preventDefault();generateImage();}
 },true);
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 1: Web search toggle
+// ─────────────────────────────────────────────────────────────────
+let webSearchOn = localStorage.getItem('fraqtoos_web') === '1';
+function refreshWebToggle() {
+  var b = document.getElementById('web-toggle');
+  if (webSearchOn) b.classList.add('on'); else b.classList.remove('on');
+}
+function toggleWebSearch() {
+  webSearchOn = !webSearchOn;
+  localStorage.setItem('fraqtoos_web', webSearchOn ? '1' : '0');
+  refreshWebToggle();
+}
+refreshWebToggle();
+
+async function fetchWebContext(query) {
+  try {
+    var r = await fetch('/search', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query: query, n: 5})
+    });
+    if (!r.ok) return '';
+    var d = await r.json();
+    if (!d.results || !d.results.length) return '';
+    return '## Web search results for: ' + query + '\n\n' +
+      d.results.map((h,i) => (i+1)+'. '+(h.title||'')+' — '+(h.url||'')+'\n   '+(h.content||'')).join('\n\n');
+  } catch(e) { return ''; }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 2: File attach
+// ─────────────────────────────────────────────────────────────────
+let attachments = []; // [{kind:'text'|'image', name, text?, image_b64?, chars?}]
+function renderAttachRow() {
+  var row = document.getElementById('attach-row');
+  row.innerHTML = '';
+  if (!attachments.length) { row.classList.remove('has-attach'); return; }
+  row.classList.add('has-attach');
+  attachments.forEach(function(a, idx) {
+    var chip = document.createElement('div');
+    chip.className = 'attach-chip' + (a.kind==='image' ? ' image' : '');
+    if (a.kind === 'image') {
+      a.mode = a.mode || 'vision';
+      var modes = {
+        vision: {lbl:'👁 Vision',  bg:'var(--bg3)', fg:'var(--text2)'},
+        edit:   {lbl:'✏️ Edit',    bg:'#d97706',     fg:'#fff'},
+        avatar: {lbl:'🪄 Avatar',  bg:'#7c3aed',     fg:'#fff'},
+        source: {lbl:'🔄 Source',  bg:'#0ea5e9',     fg:'#fff'},
+        target: {lbl:'🎯 Target',  bg:'#10b981',     fg:'#fff'},
+      };
+      var order = ['vision','edit','avatar','source','target'];
+      var m = modes[a.mode];
+      var style = 'background:'+m.bg+';color:'+m.fg+';';
+      chip.innerHTML = '<img class="thumb" src="data:image/'+a.ext+';base64,'+a.image_b64+'"><span>'+escHtml(a.name)+'</span>'
+        + '<span class="mode-toggle" style="cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;margin-left:4px;'+style+'" title="Click to cycle: Vision → Edit (Kontext) → Avatar (PuLID) → Swap Source → Swap Target">'+m.lbl+'</span>'
+        + '<span class="x">×</span>';
+      chip.querySelector('.mode-toggle').onclick = function(){
+        var i = order.indexOf(a.mode); a.mode = order[(i+1) % order.length];
+        a.edit = (a.mode === 'edit');
+        renderAttachRow();
+      };
+    } else {
+      chip.innerHTML = '<span>📄 '+escHtml(a.name)+' <span style="color:var(--text3)">('+a.chars+'c)</span></span><span class="x">×</span>';
+    }
+    chip.querySelector('.x').onclick = function(){ attachments.splice(idx,1); renderAttachRow(); updateTokenCounter(); };
+    row.appendChild(chip);
+  });
+}
+async function uploadFile(file) {
+  if (!file) return null;
+  if (file.size > 10*1024*1024) { alert('File >10MB: '+file.name); return null; }
+  var fd = new FormData(); fd.append('file', file);
+  try {
+    var r = await fetch('/upload', {method:'POST', body: fd});
+    var d = await r.json();
+    if (d.error) { alert('Upload error: '+d.error); return null; }
+    return d;
+  } catch(e) { alert('Upload failed: '+e.message); return null; }
+}
+async function attachFromFile(file) {
+  var d = await uploadFile(file); if (!d) return;
+  if (d.kind === 'image') {
+    attachments.push({kind:'image', name:d.name, ext:d.ext, image_b64:d.image_b64, chars:0});
+  } else {
+    attachments.push({kind:'text', name:d.name, text:d.text, chars:d.chars});
+  }
+  renderAttachRow(); updateTokenCounter();
+}
+async function handleFileAttach(ev) {
+  var files = ev.target.files;
+  for (var i = 0; i < files.length; i++) await attachFromFile(files[i]);
+  ev.target.value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 3: Voice input (Web Speech API)
+// ─────────────────────────────────────────────────────────────────
+let recognition = null, isRecording = false, voiceBaseline = '', voiceFinal = '';
+function initRecognition() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  var r = new SR();
+  r.continuous = true; r.interimResults = true; r.lang = 'en-US';
+  r.onresult = function(ev) {
+    var interim = '';
+    for (var i = ev.resultIndex; i < ev.results.length; i++) {
+      var t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) voiceFinal += t;
+      else interim += t;
+    }
+    var sep = voiceBaseline && !voiceBaseline.endsWith(' ') ? ' ' : '';
+    input.value = voiceBaseline + sep + voiceFinal + interim;
+    input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight,200)+'px';
+    updateTokenCounter();
+  };
+  r.onend = function(){
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+  };
+  r.onerror = function(e){ console.warn('voice error', e); };
+  return r;
+}
+function toggleVoice() {
+  if (!recognition) recognition = initRecognition();
+  if (!recognition) { alert('Speech recognition not supported in this browser. Try Chrome/Edge.'); return; }
+  if (isRecording) {
+    recognition.stop();
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+  } else {
+    voiceBaseline = input.value || '';
+    voiceFinal = '';
+    try { recognition.start(); } catch(e) { console.warn(e); return; }
+    isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 4: Conversation history (server-side persistent)
+// ─────────────────────────────────────────────────────────────────
+let currentConvId = localStorage.getItem('fraqtoos_last_conv') || null;
+let currentConvTitle = '';
+let convListCache = [];
+
+async function fetchConvList() {
+  try {
+    var r = await fetch('/conversations');
+    var d = await r.json();
+    convListCache = d.conversations || [];
+  } catch(e) { convListCache = []; }
+  renderConvList();
+}
+
+function renderConvList() {
+  var list = document.getElementById('conv-list');
+  if (!list) return;
+  list.innerHTML = '';
+  convListCache.forEach(function(c) {
+    var item = document.createElement('div');
+    item.className = 'conv-item' + (c.id===currentConvId ? ' active' : '');
+    var subtitle = c.msg_count ? ' <span style="color:var(--text3);font-size:10px">('+c.msg_count+')</span>' : '';
+    item.innerHTML = '<span class="conv-title">'+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-del" title="Delete">✕</span>';
+    item.querySelector('.conv-title').onclick = function(){ loadConversation(c.id); };
+    item.querySelector('.conv-del').onclick = async function(e){
+      e.stopPropagation();
+      if (!confirm('Delete "'+(c.title||'Untitled')+'"?')) return;
+      try { await fetch('/conversations/'+encodeURIComponent(c.id), {method:'DELETE'}); } catch(_){}
+      if (c.id===currentConvId) { currentConvId=null; localStorage.removeItem('fraqtoos_last_conv'); }
+      fetchConvList();
+    };
+    list.appendChild(item);
+  });
+}
+
+function newConversation() {
+  currentConvId = null;
+  currentConvTitle = '';
+  localStorage.removeItem('fraqtoos_last_conv');
+  history = []; lastUserMsg = ''; attachments = [];
+  chatEl.innerHTML = '<div class="chat-inner"><div id="welcome"><div class="w-icon">✦</div><h2>How can I help you today?</h2><p>Start a new conversation.</p></div></div>';
+  renderAttachRow();
+  updateTokenCounter();
+  renderConvList();
+}
+
+async function saveCurrentConversation() {
+  if (!history.length) { alert('Nothing to save yet.'); return; }
+  var firstUser = history.find(function(m){ return m.role==='user'; });
+  var defaultTitle = currentConvTitle || (firstUser ? firstUser.content.slice(0,60) : 'Chat');
+  var title = prompt('Conversation title:', defaultTitle);
+  if (!title) return;
+  currentConvTitle = title;
+  await persistConversation(true);
+}
+
+async function loadConversation(id) {
+  try {
+    var r = await fetch('/conversations/'+encodeURIComponent(id));
+    if (!r.ok) { alert('Failed to load conversation'); return; }
+    var c = await r.json();
+    currentConvId = c.id;
+    currentConvTitle = c.title || '';
+    localStorage.setItem('fraqtoos_last_conv', currentConvId);
+    history = (c.history || []).slice();
+    if (c.model) {
+      var btn = document.querySelector('.model-btn[data-model="'+c.model+'"]');
+      if (btn) selectModel(btn);
+    }
+    chatEl.innerHTML = '<div class="chat-inner"></div>';
+    history.forEach(function(m) {
+      if (m.role === 'user') {
+        addUserMsg(m.content);
+        lastUserMsg = m.content;
+      } else if (m.role === 'assistant') {
+        var b = addBotMsg(c.model || currentModel);
+        b.textEl.innerHTML = renderMarkdown(m.content);
+        b.textEl._rawText = m.content;
+      }
+    });
+    renderConvList();
+    updateTokenCounter();
+  } catch(e) { alert('Load failed: '+e.message); }
+}
+
+async function persistConversation(refreshList) {
+  if (!history.length) return;
+  if (!currentConvTitle) {
+    var firstUser = history.find(function(m){ return m.role==='user'; });
+    currentConvTitle = firstUser ? firstUser.content.slice(0,60) : 'Chat';
+  }
+  try {
+    var r = await fetch('/conversations', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        id:      currentConvId,
+        title:   currentConvTitle,
+        history: history,
+        model:   currentModel,
+      })
+    });
+    var d = await r.json();
+    if (d.id) {
+      currentConvId = d.id;
+      localStorage.setItem('fraqtoos_last_conv', currentConvId);
+    }
+    if (refreshList) fetchConvList();
+  } catch(e) { console.warn('persist failed', e); }
+}
+
+// Auto-save called after every assistant turn — silent, list refreshed periodically
+let _persistTimer = null;
+function autoPersist() {
+  if (!history.length) return;
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(function(){ persistConversation(true); }, 300);
+}
+
+// On boot: fetch list, restore last conversation if it still exists
+fetchConvList().then(function() {
+  if (currentConvId && convListCache.some(function(c){ return c.id === currentConvId; })) {
+    loadConversation(currentConvId);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// System status light (polls /health)
+// ─────────────────────────────────────────────────────────────────
+async function pollHealth() {
+  var dot = document.getElementById('status-light');
+  if (!dot) return;
+  try {
+    var ctl = new AbortController();
+    var timer = setTimeout(function(){ ctl.abort(); }, 4000);
+    var r = await fetch('/health', {signal: ctl.signal, cache: 'no-store'});
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    var d = await r.json();
+    var ollama = (d.ollama_models||[]).length > 0;
+    var parts = [
+      'Ollama: '   + (ollama ? '✓ '+d.ollama_models.length+' models' : '✗ down'),
+      'Search: '   + (d.search_ready ? '✓ SearXNG' : '✗ down'),
+      'Images: '   + (d.image_ready  ? '✓ ComfyUI' : '✗ down'),
+      'Claude: '   + (d.claude_ready ? '✓ key set' : '✗ no key'),
+    ];
+    var allCore = ollama; // ollama is the only essential — others are optional
+    dot.classList.remove('offline');
+    dot.classList.add(allCore ? 'online' : 'offline');
+    dot.title = (allCore ? 'System online' : 'System degraded') + '\n' + parts.join('\n');
+  } catch(e) {
+    dot.classList.remove('online');
+    dot.classList.add('offline');
+    dot.title = 'System OFFLINE — server unreachable\n('+e.message+')';
+  }
+}
+pollHealth();
+setInterval(pollHealth, 15000);
+
+// ─────────────────────────────────────────────────────────────────
+// Code highlighting — debounced, runs during streaming
+// ─────────────────────────────────────────────────────────────────
+let _hlTimer = null;
+function highlightAll() {
+  if (!window.hljs) return;
+  document.querySelectorAll('.bot-text pre code:not(.hljs-done)').forEach(function(block){
+    try { hljs.highlightElement(block); block.classList.add('hljs-done'); } catch(e) {}
+  });
+}
+function scheduleHighlight() {
+  if (_hlTimer) return;
+  _hlTimer = setTimeout(function(){ _hlTimer = null; highlightAll(); }, 600);
+}
+// Watch for new code blocks
+const _hlObserver = new MutationObserver(scheduleHighlight);
+_hlObserver.observe(chatEl, {childList: true, subtree: true});
+
+// ─────────────────────────────────────────────────────────────────
+// Smart auto-routing — phi4 picks the model when model="auto"
+// ─────────────────────────────────────────────────────────────────
+async function classifyAndRoute(text) {
+  try {
+    var r = await fetch('/classify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: text.slice(0, 1500)})
+    });
+    var d = await r.json();
+    return d; // {category, model}
+  } catch(e) { return {category:'general', model:'phi4'}; }
+}
+
+// Wrap sendMsg again to inject auto-routing
+const _sendBeforeAuto = sendMsg;
+sendMsg = async function() {
+  var text = (input.value || '').trim();
+  if (currentModel === 'auto' && text && !text.startsWith('/') && !attachments.some(a=>a.kind==='image')) {
+    // Show "routing…" hint
+    var origLabel = document.getElementById('model-display').textContent;
+    document.getElementById('model-display').textContent = '… routing';
+    var route = await classifyAndRoute(text);
+    document.getElementById('model-display').textContent = origLabel;
+    if (route && route.model) {
+      // Temporarily swap currentModel for this turn
+      var saved = currentModel;
+      currentModel = route.model;
+      _autoRouteHint = route.category + ' → ' + getModelName(route.model);
+      try { await _sendBeforeAuto(); }
+      finally { currentModel = saved; _autoRouteHint = ''; }
+      return;
+    }
+  }
+  await _sendBeforeAuto();
+};
+let _autoRouteHint = '';
+
+// Inject the route badge into addBotMsg by wrapping it
+const _origAddBotMsg = addBotMsg;
+addBotMsg = function(model) {
+  var ret = _origAddBotMsg(model);
+  if (_autoRouteHint) {
+    var bn = ret.textEl.parentElement.querySelector('.bot-name');
+    if (bn) bn.innerHTML += ' <span class="route-pill">'+escHtml(_autoRouteHint)+'</span>';
+  }
+  return ret;
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Persistent user memory
+// ─────────────────────────────────────────────────────────────────
+let memoryItems = [];
+let autoMemory = localStorage.getItem('fraqtoos_auto_memory') === '1';
+
+async function fetchMemory() {
+  try {
+    var r = await fetch('/memory');
+    var d = await r.json();
+    memoryItems = d.memory || [];
+    document.getElementById('mem-count').textContent = memoryItems.length;
+  } catch(e) { console.warn('fetchMemory', e); }
+}
+
+function renderMemoryList() {
+  var body = document.getElementById('mem-body');
+  if (!memoryItems.length) {
+    body.innerHTML = '<div class="mem-empty">No memories yet. Add a fact below or say <code>/remember &lt;something&gt;</code> in chat.</div>';
+    return;
+  }
+  body.innerHTML = '';
+  memoryItems.forEach(function(m) {
+    var div = document.createElement('div');
+    div.className = 'mem-item';
+    div.innerHTML = '<div class="mem-fact"></div><button class="mem-rm" title="Forget">✕</button>';
+    div.querySelector('.mem-fact').textContent = m.fact;
+    div.querySelector('.mem-rm').onclick = function(){ deleteMemory(m.id); };
+    body.appendChild(div);
+  });
+}
+
+async function openMemoryModal() {
+  await fetchMemory();
+  renderMemoryList();
+  document.getElementById('mem-auto-toggle').checked = autoMemory;
+  document.getElementById('mem-modal').classList.add('open');
+  setTimeout(function(){ document.getElementById('mem-input').focus(); }, 100);
+}
+function closeMemoryModal() {
+  document.getElementById('mem-modal').classList.remove('open');
+}
+
+async function addMemory(fact) {
+  fact = (fact || '').trim();
+  if (!fact) return null;
+  try {
+    var r = await fetch('/memory', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({fact: fact})
+    });
+    var d = await r.json();
+    if (d.error) return null;
+    await fetchMemory();
+    return d;
+  } catch(e) { return null; }
+}
+
+async function addMemoryFromInput() {
+  var inp = document.getElementById('mem-input');
+  var fact = inp.value.trim();
+  if (!fact) return;
+  await addMemory(fact);
+  inp.value = '';
+  renderMemoryList();
+}
+
+async function deleteMemory(id) {
+  try {
+    await fetch('/memory/'+encodeURIComponent(id), {method:'DELETE'});
+    await fetchMemory();
+    renderMemoryList();
+  } catch(e) {}
+}
+
+function setAutoMemory(on) {
+  autoMemory = !!on;
+  localStorage.setItem('fraqtoos_auto_memory', autoMemory ? '1' : '0');
+}
+
+// /remember slash command
+const _origMaybeSlash = maybeHandleSlash;
+maybeHandleSlash = async function(text) {
+  var lower = text.trim().toLowerCase();
+  if (lower.startsWith('/remember') || lower.startsWith('/forget')) {
+    var isForget = lower.startsWith('/forget');
+    var arg = text.replace(/^\/(remember|forget)\s*/i, '').trim();
+    addUserMsg(text);
+    history.push({role:'user', content: text});
+    lastUserMsg = text;
+    input.value = ''; input.style.height = '52px';
+    var b = addBotMsg('phi4');
+    if (isForget && !arg) {
+      b.textEl.innerHTML = renderMarkdown('Use `/forget <substring>` to delete a specific memory, or open the 🧠 Memory panel.');
+    } else if (isForget) {
+      await fetchMemory();
+      var hits = memoryItems.filter(function(m){ return m.fact.toLowerCase().includes(arg.toLowerCase()); });
+      for (var i = 0; i < hits.length; i++) await deleteMemory(hits[i].id);
+      var msg = hits.length ? 'Forgot '+hits.length+' fact(s) matching "'+arg+'".' : 'No memories matched "'+arg+'".';
+      b.textEl.innerHTML = renderMarkdown(msg);
+      history.push({role:'assistant', content: msg});
+    } else if (!arg) {
+      b.textEl.innerHTML = renderMarkdown('Use `/remember <fact>` — e.g. `/remember I prefer Python over JS`.');
+    } else {
+      var added = await addMemory(arg);
+      var msg = added ? '✓ Saved: **'+arg+'**\n\n_('+memoryItems.length+' total memories)_' : 'Failed to save.';
+      b.textEl.innerHTML = renderMarkdown(msg);
+      history.push({role:'assistant', content: msg});
+    }
+    autoPersist();
+    updateTokenCounter();
+    return true;
+  }
+  return await _origMaybeSlash(text);
+};
+
+// Auto-extract facts from user messages after each turn (background)
+async function maybeAutoExtract(userMsg) {
+  if (!autoMemory) return;
+  if (!userMsg || userMsg.length < 20) return;
+  if (userMsg.startsWith('/')) return;
+  try {
+    var r = await fetch('/memory/extract', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: userMsg})
+    });
+    var d = await r.json();
+    var facts = (d.facts || []).filter(function(f){
+      return memoryItems.every(function(m){ return m.fact.toLowerCase() !== f.toLowerCase(); });
+    });
+    for (var i = 0; i < facts.length; i++) await addMemory(facts[i]);
+    if (facts.length) {
+      console.log('🧠 Auto-saved', facts.length, 'fact(s):', facts);
+    }
+  } catch(e) {}
+}
+
+// Wrap sendMsg one more time to fire auto-extract after each user turn
+const _sendBeforeMem = sendMsg;
+sendMsg = async function() {
+  var typed = (input.value || '').trim();
+  await _sendBeforeMem();
+  if (typed && !typed.startsWith('/')) maybeAutoExtract(typed);
+};
+
+// Expose suggestion in welcome
+fetchMemory();
+
+// ─────────────────────────────────────────────────────────────────
+// Service worker (PWA)
+// ─────────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/service-worker.js').catch(function(e){
+      console.warn('SW register failed', e);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 5: Edit-and-resend on user bubble
+// ─────────────────────────────────────────────────────────────────
+function enterEditMode(bubble) {
+  if (isStreaming) return;
+  if (bubble.dataset.uneditable === '1' || bubble.classList.contains('editing')) return;
+  var orig = bubble._rawText || bubble.textContent;
+  bubble.classList.add('editing');
+  bubble.innerHTML =
+    '<textarea class="edit-textarea"></textarea>' +
+    '<div class="edit-actions">' +
+      '<button onclick="cancelEdit(this)">Cancel</button>' +
+      '<button class="save" onclick="saveEdit(this)">Resend</button>' +
+    '</div>';
+  var ta = bubble.querySelector('.edit-textarea');
+  ta.value = orig;
+  ta.focus();
+  ta.style.height = 'auto'; ta.style.height = ta.scrollHeight+'px';
+  bubble._origText = orig;
+}
+function cancelEdit(btn) {
+  var bubble = btn.closest('.user-bubble');
+  bubble.classList.remove('editing');
+  bubble.innerHTML = escHtml(bubble._origText).replace(/\n/g,'<br>');
+  bubble._rawText = bubble._origText;
+}
+function saveEdit(btn) {
+  var bubble = btn.closest('.user-bubble');
+  var newText = bubble.querySelector('.edit-textarea').value.trim();
+  if (!newText) return;
+  // Find this bubble's index in chat
+  var groups = Array.from(chatEl.querySelectorAll('.msg-group'));
+  var thisGroup = bubble.closest('.msg-group');
+  var idx = groups.indexOf(thisGroup);
+  // Remove this group + everything after
+  for (var i = groups.length - 1; i >= idx; i--) groups[i].remove();
+  // Trim history: count user messages up to (not including) this one
+  var userCount = 0;
+  for (var i = 0; i < idx; i++) if (groups[i].classList.contains('user')) userCount++;
+  // Find position in history matching userCount-th user msg
+  var newHistory = [];
+  var seen = 0;
+  for (var i = 0; i < history.length; i++) {
+    if (history[i].role === 'user') {
+      if (seen === userCount) break;
+      seen++;
+    }
+    newHistory.push(history[i]);
+  }
+  history = newHistory;
+  input.value = newText;
+  sendMsg();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FEATURE 6: Token counter
+// ─────────────────────────────────────────────────────────────────
+function updateTokenCounter() {
+  var chars = 0;
+  history.forEach(function(m){ chars += (m.content||'').length; });
+  chars += (input.value||'').length;
+  attachments.forEach(function(a){ chars += a.chars||0; });
+  if (systemPrompt) chars += systemPrompt.length;
+  var tok = Math.round(chars/4);
+  var el = document.getElementById('token-counter');
+  if (!el) return;
+  el.textContent = tok.toLocaleString() + ' tok';
+  if (tok > 30000) el.classList.add('warn'); else el.classList.remove('warn');
+}
+input.addEventListener('input', updateTokenCounter);
+updateTokenCounter();
+
+// ─────────────────────────────────────────────────────────────────
+// Slash commands → bot bridge
+// ─────────────────────────────────────────────────────────────────
+const BRIDGE_CMDS = ['competitor','watchdog','digest','bots','help'];
+async function maybeHandleSlash(text) {
+  if (!text.startsWith('/')) return false;
+  var firstWord = text.slice(1).split(/\s+/)[0].toLowerCase();
+  if (!BRIDGE_CMDS.includes(firstWord)) return false;
+  addUserMsg(text);
+  history.push({role:'user', content: text});
+  lastUserMsg = text;
+  input.value = ''; input.style.height = '52px';
+  var b = addBotMsg('phi4');
+  b.textEl.innerHTML = '<em style="color:var(--text3)">fetching '+firstWord+'…</em>';
+  try {
+    var r = await fetch('/bridge/'+firstWord);
+    var d = await r.json();
+    var reply = d.text || ('Error: '+(d.error||'unknown'));
+    b.textEl.innerHTML = renderMarkdown(reply);
+    b.textEl._rawText = reply;
+    history.push({role:'assistant', content: reply});
+  } catch(e) {
+    b.textEl.textContent = 'Bridge error: '+e.message;
+  }
+  autoPersist();
+  updateTokenCounter();
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Hook attachments + web context + slash + images into sendMsg
+// ─────────────────────────────────────────────────────────────────
+const _origSendMsg = sendMsg;
+sendMsg = async function() {
+  var text = input.value.trim();
+  if (!text && !attachments.length) return;
+
+  // 1) Slash command short-circuit
+  if (text && await maybeHandleSlash(text)) return;
+
+  // 2) Split attachments by kind
+  var imgAttach = attachments.filter(function(a){ return a.kind==='image'; });
+  var txtAttach = attachments.filter(function(a){ return a.kind==='text'; });
+
+  // 2a) Face-swap short-circuit: source + target chips → /face-swap
+  var srcImg = imgAttach.find(function(a){ return a.mode==='source'; });
+  var tgtImg = imgAttach.find(function(a){ return a.mode==='target'; });
+  if (srcImg && tgtImg) {
+    addUserMsg('🔄 Swap face from '+srcImg.name+' onto '+tgtImg.name);
+    history.push({role:'user', content:'[face swap: '+srcImg.name+' → '+tgtImg.name+']'});
+    input.value=''; input.style.height='52px';
+    attachments = []; renderAttachRow(); updateTokenCounter();
+    addTyping(); isStreaming=true;
+    sendBtn.innerHTML='&#9632;'; sendBtn.className='stop-mode';
+    var {textEl,statsEl} = addBotMsg('inswapper-128');
+    textEl.innerHTML = '<em style="color:var(--text3)">Swapping face (~5-15s)…</em>';
+    var t0 = Date.now();
+    try {
+      var fd = new FormData();
+      function blobOf(a){ var b=atob(a.image_b64),u=new Uint8Array(b.length); for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i); return new Blob([u],{type:'image/'+a.ext}); }
+      fd.append('source', blobOf(srcImg), srcImg.name);
+      fd.append('target', blobOf(tgtImg), tgtImg.name);
+      var res = await fetch('/face-swap', {method:'POST', body:fd});
+      var d = await res.json();
+      removeTyping();
+      if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Swap failed: '+escHtml(d.error)+'</span>';
+      else {
+        textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        textEl._rawText='[face-swap result]';
+        history.push({role:'assistant', content:'[face-swap returned]'});
+      }
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · inswapper-128';
+    } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">Swap error: '+escHtml(e.message)+'</span>'; }
+    finishStream(); autoPersist(); updateTokenCounter();
+    return;
+  }
+
+  // 2b) Avatar (PuLID-FLUX) short-circuit: avatar mode + prompt
+  var avatarImg = imgAttach.find(function(a){ return a.mode==='avatar'; });
+  if (avatarImg && text) {
+    addUserMsg('🪄 '+text+' (face: '+avatarImg.name+')');
+    history.push({role:'user', content:'[avatar gen: '+avatarImg.name+'] '+text});
+    lastUserMsg = text;
+    input.value=''; input.style.height='52px';
+    attachments=[]; renderAttachRow(); updateTokenCounter();
+    addTyping(); isStreaming=true;
+    sendBtn.innerHTML='&#9632;'; sendBtn.className='stop-mode';
+    var {textEl,statsEl} = addBotMsg('pulid-flux');
+    textEl.innerHTML = '<em style="color:var(--text3)">Generating with PuLID-FLUX (~60-120s)…</em>';
+    var t0 = Date.now();
+    try {
+      var bin=atob(avatarImg.image_b64), u=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+      var fd = new FormData();
+      fd.append('face', new Blob([u],{type:'image/'+avatarImg.ext}), avatarImg.name);
+      fd.append('prompt', text);
+      fd.append('steps', '25');
+      fd.append('weight', '1.0');
+      var res = await fetch('/avatar',{method:'POST', body:fd});
+      var d = await res.json();
+      removeTyping();
+      if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Avatar failed: '+escHtml(d.error)+'</span>';
+      else {
+        textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        textEl._rawText='[avatar result]';
+        history.push({role:'assistant', content:'[avatar returned]'});
+      }
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · pulid-flux';
+    } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">Avatar error: '+escHtml(e.message)+'</span>'; }
+    finishStream(); autoPersist(); updateTokenCounter();
+    return;
+  }
+
+  // 2c) Image-edit short-circuit: any image with mode='edit' → FLUX Kontext
+  var editImg = imgAttach.find(function(a){ return a.mode==='edit' || a.edit; });
+  if (editImg && text) {
+    addUserMsg('✏️ '+text+' — '+editImg.name);
+    history.push({role:'user', content:'[edit image: '+editImg.name+'] '+text});
+    lastUserMsg = text;
+    input.value=''; input.style.height='52px';
+    attachments = []; renderAttachRow(); updateTokenCounter();
+    addTyping();
+    isStreaming = true;
+    sendBtn.innerHTML='&#9632;'; sendBtn.className='stop-mode';
+    var {textEl,statsEl} = addBotMsg('flux-kontext');
+    textEl.innerHTML = '<em style="color:var(--text3)">Editing with FLUX Kontext (~30-60s)…</em>';
+    var t0 = Date.now();
+    try {
+      var bin = atob(editImg.image_b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      var blob = new Blob([bytes], {type:'image/'+editImg.ext});
+      var fd = new FormData();
+      fd.append('image', blob, editImg.name);
+      fd.append('prompt', text);
+      fd.append('steps', '20');
+      var res = await fetch('/edit-image', {method:'POST', body:fd});
+      var d = await res.json();
+      removeTyping();
+      if (d.error) {
+        textEl.innerHTML = '<span style="color:#dc2626">Edit failed: '+escHtml(d.error)+'</span>';
+      } else {
+        var html = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        textEl.innerHTML = html;
+        textEl._rawText = '[edited image]';
+        history.push({role:'assistant', content:'[edited image returned]'});
+      }
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · flux-kontext';
+    } catch(e) {
+      removeTyping();
+      textEl.innerHTML = '<span style="color:#dc2626">Edit error: '+escHtml(e.message)+'</span>';
+    }
+    finishStream();
+    autoPersist();
+    updateTokenCounter();
+    return;
+  }
+
+  // 3) Build augmented prompt for text-attached / web-search
+  var augmented = text;
+  if (txtAttach.length) {
+    var attached = txtAttach.map(function(a){
+      return '## Attached: '+a.name+'\n```\n'+a.text+'\n```';
+    }).join('\n\n');
+    augmented = attached + '\n\n' + text;
+  }
+  if (webSearchOn && text) {
+    var ctx = await fetchWebContext(text);
+    if (ctx) augmented = ctx + '\n\n---\n\n' + augmented;
+  }
+
+  var hasExtras = (augmented !== text) || imgAttach.length > 0;
+
+  if (hasExtras) {
+    addUserMsg(text || (imgAttach.length ? '🖼 '+imgAttach.map(a=>a.name).join(', ') : ''));
+    history.push({role:'user', content: augmented});
+    lastUserMsg = text;
+    input.value = ''; input.style.height = '52px';
+    var imgPayload = imgAttach.map(function(a){ return a.image_b64; });
+    attachments = []; renderAttachRow();
+
+    addTyping();
+    isStreaming=true;
+    sendBtn.innerHTML='&#9632;';
+    sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
+
+    var startTime=Date.now(), tokenCount=0;
+    currentAbort=new AbortController();
+    var displayModel = imgPayload.length ? 'llava:7b' : currentModel;
+    var {textEl,statsEl}=addBotMsg(displayModel);
+    var full='';
+    var msgs=history.slice();
+    if(systemPrompt&&!isClaude()) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
+
+    try {
+      var body = {model:currentModel, messages:msgs, system:systemPrompt};
+      if (imgPayload.length) body.images = imgPayload;
+      var res=await fetch('/chat',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+        signal:currentAbort.signal
+      });
+      removeTyping();
+      if(!res.ok){textEl.textContent='HTTP Error: '+res.status;finishStream();updateTokenCounter();return;}
+      var reader=res.body.getReader(),decoder=new TextDecoder();
+      textEl.innerHTML='';
+      while(true){
+        var r=await reader.read(); if(r.done)break;
+        var lines=decoder.decode(r.value).split('\n');
+        for(var i=0;i<lines.length;i++){
+          var line=lines[i].trim(); if(!line)continue;
+          try{
+            var d=JSON.parse(line);
+            if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+            if(d.error){textEl.textContent='Error: '+d.error;}
+          }catch(e){}
+        }
+      }
+      var elapsed=((Date.now()-startTime)/1000).toFixed(1);
+      statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s';
+      history.push({role:'assistant',content:full});
+    } catch(e) {
+      removeTyping();
+      if(e.name!=='AbortError') textEl.textContent='Network error: '+e.message;
+      else{textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;}
+    }
+    finishStream();
+    autoPersist();
+    maybeAutoTitle();
+    updateTokenCounter();
+    return;
+  }
+
+  // No extras — fall through
+  await _origSendMsg();
+  autoPersist();
+  maybeAutoTitle();
+  updateTokenCounter();
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Auto-title (ask phi4 after first reply)
+// ─────────────────────────────────────────────────────────────────
+let _titleAttempted = new Set();
+async function maybeAutoTitle() {
+  if (!currentConvId) return;
+  if (_titleAttempted.has(currentConvId)) return;
+  // Only on first user+assistant exchange
+  var userTurns = history.filter(m => m.role === 'user').length;
+  var asstTurns = history.filter(m => m.role === 'assistant').length;
+  if (userTurns < 1 || asstTurns < 1) return;
+  if (currentConvTitle && currentConvTitle.length > 0 && currentConvTitle.length < 50 && !currentConvTitle.includes(' the ')) {
+    // already has a short title — skip if user-set, generate if generic
+    if (history[0] && currentConvTitle === history[0].content.slice(0,60)) {
+      // generic auto-slice — replace
+    } else { _titleAttempted.add(currentConvId); return; }
+  }
+  _titleAttempted.add(currentConvId);
+  try {
+    var r = await fetch('/conversations/'+encodeURIComponent(currentConvId)+'/autotitle', {method:'POST'});
+    var d = await r.json();
+    if (d.title) {
+      currentConvTitle = d.title;
+      fetchConvList();
+    }
+  } catch(e) { console.warn('autotitle failed', e); }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Conversation search
+// ─────────────────────────────────────────────────────────────────
+let _searchTimer = null;
+function onConvSearch(q) {
+  if (_searchTimer) clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(function(){ doConvSearch(q); }, 200);
+}
+async function doConvSearch(q) {
+  q = (q||'').trim();
+  if (!q) { fetchConvList(); return; }
+  try {
+    var r = await fetch('/conversations/search/q?q='+encodeURIComponent(q));
+    var d = await r.json();
+    var list = document.getElementById('conv-list');
+    list.innerHTML = '';
+    (d.matches || []).forEach(function(c) {
+      var item = document.createElement('div');
+      item.className = 'conv-item' + (c.id===currentConvId ? ' active' : '');
+      var snip = c.snippet ? '<div class="conv-snippet">'+escHtml(c.snippet)+'</div>' : '';
+      item.innerHTML = '<div style="flex:1;min-width:0"><div class="conv-title">'+escHtml(c.title||'Untitled')+'</div>'+snip+'</div>';
+      item.onclick = function(){ loadConversation(c.id); };
+      list.appendChild(item);
+    });
+    if (!d.matches || !d.matches.length) {
+      list.innerHTML = '<div style="padding:8px;color:var(--text3);font-size:12px">No matches.</div>';
+    }
+  } catch(e) { console.warn(e); }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Drag-and-drop + clipboard paste
+// ─────────────────────────────────────────────────────────────────
+const dropOverlay = document.getElementById('drop-overlay');
+let _dragDepth = 0;
+window.addEventListener('dragenter', function(e){
+  if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+  _dragDepth++; dropOverlay.classList.add('show');
+});
+window.addEventListener('dragleave', function(){
+  _dragDepth = Math.max(0, _dragDepth-1);
+  if (_dragDepth === 0) dropOverlay.classList.remove('show');
+});
+window.addEventListener('dragover', function(e){ e.preventDefault(); });
+window.addEventListener('drop', async function(e){
+  e.preventDefault();
+  _dragDepth = 0; dropOverlay.classList.remove('show');
+  if (!e.dataTransfer || !e.dataTransfer.files) return;
+  for (var i = 0; i < e.dataTransfer.files.length; i++) await attachFromFile(e.dataTransfer.files[i]);
+});
+input.addEventListener('paste', async function(e){
+  if (!e.clipboardData) return;
+  for (var i = 0; i < e.clipboardData.items.length; i++) {
+    var it = e.clipboardData.items[i];
+    if (it.kind === 'file') {
+      var f = it.getAsFile();
+      if (f) { e.preventDefault(); await attachFromFile(f); }
+    }
+  }
+});
 </script>
 </body>
 </html>

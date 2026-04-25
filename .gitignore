@@ -1,4 +1,12 @@
 .env
 tunnel.log
+tunnel_*.log
 __pycache__/
 *.pyc
+
+# user data — never commit
+conversations/
+memory.json
+
+# local agent config
+.claude/
