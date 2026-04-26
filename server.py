@@ -405,7 +405,7 @@ def _avatar_image(face_bytes: bytes, face_filename: str, prompt: str, steps: int
     r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
     resp = r.json()
     if "error" in resp:
-        raise RuntimeError(resp["error"].get("message", str(resp["error"])))
+        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
     prompt_id = resp["prompt_id"]
     for _ in range(360):
         time.sleep(1)
@@ -541,7 +541,7 @@ def _bridge_watchdog() -> str:
     p = "/home/work/fraqtoos/logs/watchdog_latest.json"
     if not os.path.exists(p):
         return "No watchdog report."
-    d = json.load(open(p))
+    with open(p) as _f: d = json.load(_f)
     snap = d.get("snapshot", {})
     out = [f"## Watchdog — {snap.get('timestamp','?')}",
            f"**System**: disk={snap.get('system',{}).get('disk','?')[:60]}",
@@ -559,7 +559,7 @@ def _bridge_digest() -> str:
     p = "/home/work/fraqtoos/logs/ai_context.json"
     if not os.path.exists(p):
         return "No ai_context yet."
-    d = json.load(open(p))
+    with open(p) as _f: d = json.load(_f)
     if not d:
         return "ai_context is empty."
     today = sorted(d.keys())[-1]
@@ -574,7 +574,8 @@ def _bridge_bots() -> str:
     p = "/home/work/fraqtoos/logs/state.json"
     state = {}
     if os.path.exists(p):
-        try: state = json.load(open(p))
+        try:
+            with open(p) as _f: state = json.load(_f)
         except Exception: pass
     out = ["## Bot State"]
     if not state:
@@ -613,7 +614,7 @@ def _bridge_btc() -> str:
     ctx = "/home/work/fraqtoos/logs/ai_context.json"
     if os.path.exists(ctx):
         try:
-            d = json.load(open(ctx))
+            with open(ctx) as _f: d = json.load(_f)
             today = sorted(d.keys())[-1]
             btc_summary = d[today].get("BTC Strategy Bot", "")
             if btc_summary:
@@ -628,7 +629,7 @@ def _bridge_portfolio() -> str:
     if not os.path.exists(ctx):
         return "No portfolio data yet — run portfolio_bot.py first."
     try:
-        d = json.load(open(ctx))
+        with open(ctx) as _f: d = json.load(_f)
         today = sorted(d.keys())[-1]
         summary = d[today].get("Portfolio Bot", "")
         if not summary:
@@ -845,7 +846,7 @@ def _load_memory() -> list:
     if not os.path.exists(MEMORY_FILE):
         return []
     try:
-        return json.load(open(MEMORY_FILE))
+        with open(MEMORY_FILE) as _f: return json.load(_f)
     except Exception:
         return []
 
@@ -1070,7 +1071,7 @@ def _generate(prompt: str, model: str, steps, width: int, height: int, negative:
     r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
     resp = r.json()
     if "error" in resp:
-        raise RuntimeError(resp["error"].get("message", str(resp["error"])))
+        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
     prompt_id = resp["prompt_id"]
 
     for _ in range(180):
@@ -1119,7 +1120,7 @@ def _edit_image(image_bytes: bytes, image_filename: str, prompt: str, steps: int
     r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
     resp = r.json()
     if "error" in resp:
-        raise RuntimeError(resp["error"].get("message", str(resp["error"])))
+        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
     prompt_id = resp["prompt_id"]
 
     for _ in range(240):

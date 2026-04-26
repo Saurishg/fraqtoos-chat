@@ -1511,7 +1511,7 @@ function addBotMsg(model) {
         '<span class="msg-stats" id="stats-'+_msgId+'"></span>'+
         '<button class="act-btn" title="Copy" onclick="copyBotMsg(this)">⧉</button>'+
         '<button class="act-btn" title="Read aloud" onclick="speakMsg(this)">🔊</button>'+
-        '<button class="act-btn" title="Star this message" onclick="toggleStar(this)">☆</button>'+
+        '<button class="act-btn star-btn" title="Star this message" onclick="toggleStar(this)">☆</button>'+
         '<button class="act-btn" title="Regenerate" onclick="regenerate()">↺</button>'+
       '</div>'+
     '</div>';
@@ -1915,7 +1915,7 @@ async function sendMsg() {
       signal:currentAbort.signal
     });
     removeTyping();
-    if(!res.ok){textEl.textContent='HTTP Error: '+res.status;finishStream();return;}
+    if(!res.ok){textEl.textContent='HTTP Error: '+res.status;finishStream();autoPersist();updateTokenCounter();return;}
     var reader=res.body.getReader(),decoder=new TextDecoder();
     textEl.innerHTML='';
     while(true){
@@ -2027,8 +2027,8 @@ async function maybeRenderFollowups() {
       body: JSON.stringify({ messages: history.slice(-6) }),
       signal: _followupAbort.signal,
     });
-    var d = await res.json();
-    if (!d.suggestions || !d.suggestions.length) return;
+    var d = await safeJson(res);
+    if (!d || !d.suggestions || !d.suggestions.length) return;
     var row = document.createElement('div');
     row.className = 'followup-row';
     d.suggestions.forEach(function(s){
@@ -2414,7 +2414,7 @@ async function pollGpu() {
     widget.style.display = 'flex';
     var usedGB  = (d.vram_used  / 1024).toFixed(1);
     var totalGB = (d.vram_total / 1024).toFixed(1);
-    var pct     = Math.round(d.vram_used / d.vram_total * 100);
+    var pct     = d.vram_total > 0 ? Math.round(d.vram_used / d.vram_total * 100) : 0;
     bar.style.width = pct + '%';
     bar.style.background = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : 'var(--accent)';
     label.textContent = usedGB + '/' + totalGB + 'GB · ' + d.gpu_util + '%';
@@ -2473,8 +2473,8 @@ sendMsg = async function() {
     // Show "routing…" hint
     var origLabel = document.getElementById('model-display').textContent;
     document.getElementById('model-display').textContent = '… routing';
-    var route = await classifyAndRoute(text);
-    document.getElementById('model-display').textContent = origLabel;
+    var route;
+    try { route = await classifyAndRoute(text); } finally { document.getElementById('model-display').textContent = origLabel; }
     if (route && route.model) {
       // Temporarily swap currentModel for this turn
       var saved = currentModel;
@@ -3155,7 +3155,7 @@ function _syncStarButtons() {
   var stars = _loadStars();
   var ids = new Set(stars.map(function(s){ return s.id; }));
   document.querySelectorAll('.msg-group.bot').forEach(function(g){
-    var btn = g.querySelector('.act-btn[title*="tar"]');
+    var btn = g.querySelector('.star-btn');
     if (!btn) return;
     var starred = ids.has(g.id);
     btn.textContent = starred ? '⭐' : '☆';
