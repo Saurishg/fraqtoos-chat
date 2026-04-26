@@ -4,7 +4,7 @@ FraqtoOS Chat — Tailscale chatbot.
 Access: http://192.168.2.108:8080
 Supports: Ollama models + Claude API + FLUX.1-schnell image generation
 """
-import json, os, requests, base64, uuid, time, sys, io
+import json, os, requests, base64, uuid, time, sys, io, subprocess
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
@@ -108,11 +108,12 @@ async def chat(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "chat"):
         return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
-    data     = await req.json()
-    model    = data.get("model", "phi4")
-    messages = data.get("messages", [])
-    system   = data.get("system", "")
-    images   = data.get("images") or []
+    data        = await req.json()
+    model       = data.get("model", "phi4")
+    messages    = data.get("messages", [])
+    system      = data.get("system", "")
+    images      = data.get("images") or []
+    temperature = max(0.0, min(2.0, float(data.get("temperature", 0.7))))
 
     messages, system = _trim_history(messages, system)
 
@@ -131,8 +132,8 @@ async def chat(req: Request):
             ollama_stream(vision, messages, system, images=images),
             media_type="text/plain")
     if model in CLAUDE_MODELS:
-        return StreamingResponse(claude_stream(model, messages, system), media_type="text/plain")
-    return StreamingResponse(ollama_stream(model, messages, system), media_type="text/plain")
+        return StreamingResponse(claude_stream(model, messages, system, temperature=min(temperature,1.0)), media_type="text/plain")
+    return StreamingResponse(ollama_stream(model, messages, system, images=images, temperature=temperature), media_type="text/plain")
 
 
 # ─── Smart auto-routing ──────────────────────────────────────────────
@@ -219,7 +220,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v1';
+    sw = """const CACHE = 'fraqtoos-v2';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -234,12 +235,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // Never cache API calls — always go to network
-  if (url.pathname.startsWith('/chat') || url.pathname.startsWith('/imagine') ||
-      url.pathname.startsWith('/search') || url.pathname.startsWith('/upload') ||
-      url.pathname.startsWith('/conversations') || url.pathname.startsWith('/bridge') ||
-      url.pathname.startsWith('/classify') || url.pathname.startsWith('/health')) {
-    return; // default network fetch
-  }
+  const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
+    '/bridge','/classify','/health','/gpu','/memory','/suggest',
+    '/edit-image','/face-swap','/avatar','/manifest.json'];
+  if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request).then(hit => hit || fetch(e.request).then(resp => {
@@ -560,11 +559,67 @@ def _bridge_bots() -> str:
     return "\n".join(out)
 
 
+def _bridge_btc() -> str:
+    import glob as _glob
+    cache = "/home/work/crypto-trading-bot/btc_1h_cache.csv"
+    out = ["## BTC Live Snapshot"]
+    if os.path.exists(cache):
+        try:
+            import csv
+            with open(cache) as f:
+                rows = list(csv.DictReader(f))
+            if rows:
+                last = rows[-1]
+                price = float(last.get("close", 0))
+                ts    = last.get("timestamp", "")[:16]
+                # simple 24h change: last row vs row 24h ago
+                prev = rows[-25] if len(rows) >= 25 else rows[0]
+                prev_price = float(prev.get("close", price))
+                chg = (price - prev_price) / prev_price * 100 if prev_price else 0
+                sign = "+" if chg >= 0 else ""
+                out.append(f"**Price:** ${price:,.2f}  ({sign}{chg:.2f}% 24h)")
+                out.append(f"**As of:** {ts} UTC")
+                out.append(f"**Candles cached:** {len(rows)}")
+        except Exception as e:
+            out.append(f"Cache read error: {e}")
+    else:
+        out.append("Cache not found — run btc_strategy.py first.")
+    # attach latest backtest summary from ai_context
+    ctx = "/home/work/fraqtoos/logs/ai_context.json"
+    if os.path.exists(ctx):
+        try:
+            d = json.load(open(ctx))
+            today = sorted(d.keys())[-1]
+            btc_summary = d[today].get("BTC Strategy Bot", "")
+            if btc_summary:
+                out.append(f"\n**Last backtest:** {btc_summary}")
+        except Exception:
+            pass
+    return "\n".join(out)
+
+
+def _bridge_portfolio() -> str:
+    ctx = "/home/work/fraqtoos/logs/ai_context.json"
+    if not os.path.exists(ctx):
+        return "No portfolio data yet — run portfolio_bot.py first."
+    try:
+        d = json.load(open(ctx))
+        today = sorted(d.keys())[-1]
+        summary = d[today].get("Portfolio Bot", "")
+        if not summary:
+            return f"No portfolio entry for {today}."
+        return f"## Portfolio Summary — {today}\n\n{summary}"
+    except Exception as e:
+        return f"Portfolio read error: {e}"
+
+
 def _bridge_help() -> str:
     return ("## Bot bridge commands\n"
             "- `/watchdog` — bot health + AI diagnosis\n"
             "- `/digest` — today's per-bot summaries\n"
             "- `/bots` — orchestrator state\n"
+            "- `/btc` — Bitcoin price + backtest summary\n"
+            "- `/portfolio` — portfolio P&L from 5Paisa + Kite\n"
             "- `/help` — this message")
 
 
@@ -572,6 +627,8 @@ _BRIDGE = {
     "watchdog":   _bridge_watchdog,
     "digest":     _bridge_digest,
     "bots":       _bridge_bots,
+    "btc":        _bridge_btc,
+    "portfolio":  _bridge_portfolio,
     "help":       _bridge_help,
 }
 
@@ -879,6 +936,32 @@ async def conv_delete(conv_id: str, req: Request):
     return JSONResponse({"error": "not found"}, 404)
 
 
+@app.get("/gpu")
+async def gpu_stats():
+    try:
+        out = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu',
+             '--format=csv,noheader,nounits'], timeout=3
+        ).decode().strip()
+        gpus = []
+        for line in out.splitlines():
+            parts = [p.strip() for p in line.split(',')]
+            if len(parts) >= 4:
+                gpus.append({"vram_used": int(parts[0]), "vram_total": int(parts[1]),
+                             "gpu_util": int(parts[2]), "temp": int(parts[3])})
+        if not gpus:
+            return JSONResponse({"error": "no gpu data"}, 500)
+        total_used  = sum(g["vram_used"]  for g in gpus)
+        total_vram  = sum(g["vram_total"] for g in gpus)
+        avg_util    = round(sum(g["gpu_util"] for g in gpus) / len(gpus))
+        max_temp    = max(g["temp"] for g in gpus)
+        return {"vram_used": total_used, "vram_total": total_vram,
+                "gpu_util": avg_util, "temp": max_temp,
+                "gpu_count": len(gpus), "gpus": gpus}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
 @app.get("/health")
 async def health():
     try:
@@ -1026,7 +1109,7 @@ def _edit_image(image_bytes: bytes, image_filename: str, prompt: str, steps: int
     raise TimeoutError("Image edit timed out")
 
 
-def ollama_stream(model, messages, system="", images=None):
+def ollama_stream(model, messages, system="", images=None, temperature=0.7):
     chat_msgs = [m for m in messages if m["role"] in ("user", "assistant")]
     if images and chat_msgs:
         for m in reversed(chat_msgs):
@@ -1037,7 +1120,7 @@ def ollama_stream(model, messages, system="", images=None):
         chat_msgs = [{"role": "system", "content": system}] + chat_msgs
     payload = {
         "model": model, "messages": chat_msgs, "stream": True,
-        "options": {"temperature": 0.7, "num_predict": 2000}
+        "options": {"temperature": temperature, "num_predict": 2000}
     }
     try:
         r = requests.post(f"{OLLAMA}/api/chat", json=payload, stream=True, timeout=300)
@@ -1053,14 +1136,14 @@ def ollama_stream(model, messages, system="", images=None):
         yield json.dumps({"error": str(e)}) + "\n"
 
 
-def claude_stream(model, messages, system=""):
+def claude_stream(model, messages, system="", temperature=0.7):
     if not ANTHROPIC_KEY:
         yield json.dumps({"error": "Add ANTHROPIC_API_KEY to /home/work/fraqtoos-chat/.env"}) + "\n"
         return
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-        kwargs = dict(model=model, max_tokens=4096, messages=messages)
+        kwargs = dict(model=model, max_tokens=4096, messages=messages, temperature=round(temperature,2))
         if system:
             kwargs["system"] = system
         with client.messages.stream(**kwargs) as stream:

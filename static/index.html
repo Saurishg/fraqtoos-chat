@@ -30,6 +30,7 @@
     --claude-accent: #8b5cf6;
     --green:     #2d6a4f;
     --radius:    12px;
+    --bg3:       #3a3835;
   }
 
   body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; font-size: 15px; -webkit-tap-highlight-color: transparent; }
@@ -80,7 +81,7 @@
   .sidebar-action:hover { background: var(--surface); color: var(--text); }
 
   /* ── MAIN ── */
-  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-width: 0; }
 
   /* top bar */
   #topbar {
@@ -101,6 +102,91 @@
     padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;
   }
   .icon-btn:hover { background: var(--surface); color: var(--text); }
+  #ctx-btn { border-color: var(--surface2); color: var(--text3); font-size: 11px; }
+  #ctx-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
+  #compact-btn.on { background: var(--surface2); color: var(--accent2); border-color: var(--accent); }
+
+  /* ── COMPACT MODE ── */
+  body.compact #chat { padding: 12px 0 8px; }
+  body.compact .chat-inner { padding: 0 16px; }
+  body.compact .msg-group { padding: 2px 0; margin-bottom: 1px; }
+  body.compact .user-bubble { padding: 7px 12px; font-size: 14px; }
+  body.compact .bot-text { font-size: 14px; line-height: 1.55; }
+  body.compact .bot-avatar { width: 26px; height: 26px; font-size: 12px; }
+  body.compact .msg-group.bot { gap: 8px; }
+  body.compact .bot-name { font-size: 11px; margin-bottom: 2px; }
+  body.compact .followup-row { margin: 2px 0 8px 34px; }
+  body.compact #inputwrap { padding: 8px 16px 14px; }
+
+  /* ── TEMPERATURE BADGE ── */
+  #temp-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text3);
+    padding: 4px 9px; border-radius: 7px; font-size: 11px; cursor: pointer;
+    white-space: nowrap; transition: all 0.15s; font-family: inherit;
+  }
+  #temp-btn:hover { border-color: var(--accent); color: var(--text2); }
+  #temp-btn.precise { color: #60a5fa; border-color: rgba(96,165,250,0.4); }
+  #temp-btn.creative { color: #f59e0b; border-color: rgba(245,158,11,0.4); }
+  #temp-btn.wild { color: #ec4899; border-color: rgba(236,72,153,0.4); }
+
+  /* ── QUICK ACTIONS ── */
+  #quick-actions {
+    max-width: 720px; margin: 0 auto 4px; padding: 0 4px;
+    display: none; flex-wrap: wrap; gap: 5px;
+  }
+  #quick-actions.show { display: flex; }
+  .qa-btn {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text2);
+    padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer;
+    transition: all 0.12s; white-space: nowrap;
+  }
+  .qa-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
+
+  /* ── STARRED MESSAGES MODAL ── */
+  #star-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  #star-modal.open { display: flex; }
+  #star-modal .sm-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 580px; max-height: 80vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #star-modal .sm-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  #star-modal .sm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+  #star-modal .sm-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; }
+  #star-modal .sm-x:hover { background: var(--surface); color: var(--text); }
+  #star-modal .sm-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+  .star-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
+  }
+  .star-item .si-meta { font-size: 11px; color: var(--text3); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .star-item .si-text { color: var(--text); line-height: 1.5; max-height: 100px; overflow: hidden; position: relative; }
+  .star-item .si-text::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: linear-gradient(transparent, var(--surface)); }
+  .star-item .si-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 13px; padding: 0 3px; }
+  .star-item .si-rm:hover { color: #ef4444; }
+  .star-empty { color: var(--text3); font-size: 13px; padding: 24px 0; text-align: center; }
+  .act-btn.starred { color: #f59e0b; }
+  #gpu-widget {
+    display: flex; align-items: center; gap: 6px; margin-left: 8px;
+    font-size: 11px; color: var(--text3); cursor: default; user-select: none;
+    padding: 4px 8px; border-radius: 7px; border: 1px solid var(--surface2);
+    background: var(--surface); transition: border-color 0.3s;
+  }
+  #gpu-widget:hover { border-color: var(--border); color: var(--text2); }
+  #gpu-bar-outer {
+    width: 42px; height: 6px; border-radius: 3px;
+    background: var(--surface2); overflow: hidden;
+  }
+  #gpu-bar-inner {
+    height: 100%; border-radius: 3px; width: 0%;
+    background: var(--accent); transition: width 0.4s, background 0.4s;
+  }
 
   /* system prompt */
   #sysprompt-bar {
@@ -194,6 +280,7 @@
   .msg-stats { font-size: 11px; color: var(--accent); }
   .act-btn { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
   .act-btn:hover { background: var(--surface); color: var(--text2); }
+  .act-btn.speaking { color: var(--accent2); animation: pulse 1s infinite; }
 
   /* typing */
   .typing-dots { display: inline-flex; gap: 5px; padding: 6px 0; }
@@ -261,6 +348,7 @@
 
   /* images */
   .gen-img { max-width: 100%; border-radius: 10px; margin-top: 8px; border: 1px solid var(--border); display: block; cursor: zoom-in; }
+  .img-actions { display: flex; gap: 6px; margin-top: 6px; }
 
   /* lightbox */
   #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 100; align-items: center; justify-content: center; cursor: zoom-out; }
@@ -476,6 +564,150 @@
     .followup-chip { font-size: 12px; padding: 4px 10px; }
   }
 
+  /* ── SIDEBAR COLLAPSE ── */
+  #sidebar {
+    transition: width 0.2s, min-width 0.2s, padding 0.2s, border-color 0.2s;
+  }
+  #sidebar.collapsed {
+    width: 0; min-width: 0; padding-left: 0; padding-right: 0;
+    overflow: hidden; border-right-color: transparent;
+  }
+  #sidebar-toggle-btn {
+    position: fixed; left: 248px; top: 50%; transform: translateY(-50%);
+    width: 20px; height: 36px; border-radius: 0 6px 6px 0;
+    background: var(--surface2); border: 1px solid var(--border); border-left: none;
+    color: var(--text2); font-size: 10px; cursor: pointer; z-index: 51;
+    display: flex; align-items: center; justify-content: center;
+    transition: left 0.2s, background 0.15s;
+  }
+  #sidebar-toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  @media (max-width: 768px) { #sidebar-toggle-btn { display: none; } }
+
+  /* ── IN-CHAT SEARCH BAR ── */
+  #chat-search-bar {
+    display: none; position: absolute; top: 8px; right: 16px; z-index: 50;
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 6px 10px; gap: 6px;
+    align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    min-width: 280px;
+  }
+  #chat-search-bar.open { display: flex; }
+  #chat-search-input {
+    flex: 1; background: transparent; border: none; color: var(--text);
+    font-size: 13px; outline: none; font-family: inherit;
+  }
+  #chat-search-input::placeholder { color: var(--text3); }
+  .chat-search-nav { background: none; border: 1px solid var(--border); color: var(--text2);
+    border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+  .chat-search-nav:hover { background: var(--surface2); }
+  #chat-search-count { font-size: 11px; color: var(--text3); white-space: nowrap; }
+  .search-highlight { background: rgba(204,119,34,0.35); border-radius: 2px; color: var(--text); }
+  .search-highlight.current { background: var(--accent); color: #fff; border-radius: 2px; }
+
+  /* ── FEATURES MODAL ── */
+  #features-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 100; align-items: flex-start; justify-content: center; padding: 20px;
+    overflow-y: auto;
+  }
+  #features-modal.open { display: flex; }
+  #features-modal .fm-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 820px; margin: auto;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #features-modal .fm-head {
+    padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  #features-modal .fm-head h2 { font-size: 17px; font-weight: 600; flex: 1; color: var(--text); }
+  #features-modal .fm-head p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  #features-modal .fm-x {
+    background: none; border: none; color: var(--text2);
+    font-size: 20px; cursor: pointer; width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  #features-modal .fm-x:hover { background: var(--surface); color: var(--text); }
+  #features-modal .fm-body { padding: 18px 22px 24px; overflow-y: auto; }
+  .fm-section { margin-bottom: 22px; }
+  .fm-section-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  }
+  .fm-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .fm-card-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 13px; display: flex; gap: 10px; align-items: flex-start;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .fm-card-item:hover { border-color: var(--accent); background: var(--surface2); }
+  .fm-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; line-height: 1; }
+  .fm-info { flex: 1; min-width: 0; }
+  .fm-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .fm-desc { font-size: 12px; color: var(--text2); line-height: 1.45; }
+  .fm-badge {
+    display: inline-block; font-size: 10px; font-family: monospace;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--accent2); padding: 1px 6px; border-radius: 4px; margin-top: 4px;
+    white-space: nowrap;
+  }
+  @media (max-width: 600px) {
+    #features-modal .fm-card { margin: 0; border-radius: 12px; }
+    .fm-grid { grid-template-columns: 1fr; }
+    #features-modal .fm-head, #features-modal .fm-body { padding: 14px 14px; }
+  }
+
+  /* ── PROMPT LIBRARY MODAL ── */
+  #prompt-modal {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; align-items: center; justify-content: center; padding: 20px;
+  }
+  #prompt-modal.open { display: flex; }
+  #prompt-modal .pm-card {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  #prompt-modal .pm-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  #prompt-modal .pm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+  #prompt-modal .pm-x {
+    background: none; border: none; color: var(--text2);
+    font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px;
+  }
+  #prompt-modal .pm-x:hover { background: var(--surface); color: var(--text); }
+  #prompt-modal .pm-body { padding: 10px 14px; overflow-y: auto; flex: 1; }
+  .pm-item {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;
+    display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .pm-item:hover { border-color: var(--accent); background: var(--surface2); }
+  .pm-item .pm-text { flex: 1; line-height: 1.4; color: var(--text); }
+  .pm-item .pm-use { color: var(--accent2); font-size: 11px; font-weight: 500; }
+  .pm-item .pm-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 4px; }
+  .pm-item .pm-rm:hover { color: #ef4444; }
+  #prompt-modal .pm-foot {
+    padding: 12px 18px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: flex-start; flex-direction: column;
+  }
+  #pm-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none;
+    font-family: inherit; resize: vertical; min-height: 60px;
+  }
+  #pm-input:focus { border-color: var(--accent); }
+  #pm-save {
+    background: var(--accent); color: #fff; border: none; padding: 8px 16px;
+    border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; align-self: flex-end;
+  }
+  #pm-save:hover { background: var(--accent2); }
+  .pm-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
+
   /* drop overlay */
   #drop-overlay {
     position: fixed; inset: 0; background: rgba(204, 119, 34, 0.15);
@@ -534,6 +766,9 @@
     #img-controls { gap: 4px; }
     #img-btn, #send-btn { width: 40px; height: 40px; font-size: 17px; }
     #hint { display: none; }
+    #quick-actions { display: none !important; }
+    #qa-toggle { display: none; }
+    #temp-btn { font-size: 10px; padding: 3px 6px; }
 
     .suggestion-grid { grid-template-columns: 1fr; gap: 8px; }
     #welcome { margin: 30px auto; padding: 0 14px; }
@@ -632,8 +867,14 @@
 
   <div class="sidebar-divider"></div>
 
+  <button class="sidebar-action" onclick="openStarModal()">
+    <span>⭐</span> Starred <span class="mem-count-badge" id="star-count">0</span>
+  </button>
   <button class="sidebar-action" onclick="openMemoryModal()" id="memory-action">
     <span>🧠</span> Memory <span class="mem-count-badge" id="mem-count">0</span>
+  </button>
+  <button class="sidebar-action" onclick="openPromptLib()">
+    <span>📚</span> Prompt Library <span class="mem-count-badge" id="prompt-count">0</span>
   </button>
   <button class="sidebar-action" onclick="toggleSysPrompt()">
     <span>⚙</span> System Prompt
@@ -644,7 +885,12 @@
   <button class="sidebar-action" onclick="clearChat()">
     <span>✕</span> Clear Chat
   </button>
+  <button class="sidebar-action" onclick="openFeaturesModal()" style="color:var(--accent2)">
+    <span>✦</span> Features Guide
+  </button>
+
 </div>
+<button id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">◀</button>
 
 <!-- MAIN -->
 <div id="main">
@@ -656,7 +902,13 @@
       <span id="token-counter" title="Approx tokens (chars/4)">0 tok</span>
       <span id="status-light" title="Checking…"></span>
     </div>
+    <div id="gpu-widget" title="GPU stats loading…" style="display:none">
+      <div id="gpu-bar-outer"><div id="gpu-bar-inner"></div></div>
+      <span id="gpu-label">GPU</span>
+    </div>
     <div id="topbar-actions">
+      <button class="icon-btn" id="ctx-btn" onclick="clearContext()" title="Clear AI context — messages stay visible but AI forgets them (Ctrl+Shift+X)">⟳ Context</button>
+      <button class="icon-btn" id="compact-btn" onclick="toggleCompact()" title="Toggle compact view">⊟ Compact</button>
       <button class="icon-btn" onclick="toggleSysPrompt()">⚙ System</button>
       <button class="icon-btn" onclick="exportChat()">↓ Export</button>
     </div>
@@ -667,6 +919,14 @@
     <label>System Prompt</label>
     <input id="sysprompt-input" placeholder="You are a helpful assistant…" />
     <button id="sysprompt-save" onclick="saveSysPrompt()">Save</button>
+  </div>
+
+  <div id="chat-search-bar" role="search">
+    <input id="chat-search-input" placeholder="Search messages…" oninput="runChatSearch(this.value)" onkeydown="chatSearchKey(event)">
+    <span id="chat-search-count"></span>
+    <button class="chat-search-nav" onclick="moveChatSearch(-1)" title="Previous">▲</button>
+    <button class="chat-search-nav" onclick="moveChatSearch(1)" title="Next">▼</button>
+    <button class="chat-search-nav" onclick="closeChatSearch()">✕</button>
   </div>
 
   <div id="chat">
@@ -717,6 +977,8 @@
         <button class="tool-btn" id="web-toggle" onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
         <button class="tool-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file (txt/md/pdf/code)">📎</button>
         <button class="tool-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
+        <button class="tool-btn" id="qa-toggle" onclick="toggleQuickActions()" title="Quick Actions">⚡</button>
+        <button id="temp-btn" onclick="cycleTemp()" title="Model temperature — click to cycle">🌡 Balanced</button>
         <input type="file" id="file-input" style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
         <div id="img-controls">
           <select id="img-model" class="ctrl-select" title="Image model">
@@ -738,12 +1000,281 @@
         </div>
       </div>
     </div>
-    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Esc to stop &nbsp;·&nbsp; /image to generate &nbsp;·&nbsp; Click your message to edit</div>
+    <div id="quick-actions">
+      <button class="qa-btn" onclick="quickAction('Summarize the above in 3 bullet points')">📝 Summarize</button>
+      <button class="qa-btn" onclick="quickAction('Explain this simply, as if to a beginner')">🔤 Simplify</button>
+      <button class="qa-btn" onclick="quickAction('Find and fix any bugs or errors in the code above')">🐛 Fix code</button>
+      <button class="qa-btn" onclick="quickAction('Make this shorter and more concise')">✂️ Shorten</button>
+      <button class="qa-btn" onclick="quickAction('Continue from where you left off')">▶ Continue</button>
+      <button class="qa-btn" onclick="quickAction('Rewrite this as a numbered step-by-step list')">🔢 Step by step</button>
+      <button class="qa-btn" onclick="quickAction('Translate this to English')">🌐 Translate</button>
+      <button class="qa-btn" onclick="quickAction('Give me 5 alternative approaches or variations')">🔀 Alternatives</button>
+    </div>
+    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Ctrl+N new chat &nbsp;·&nbsp; Ctrl+/ focus &nbsp;·&nbsp; /image to generate &nbsp;·&nbsp; 🔊 to read aloud</div>
   </div>
 </div>
 
 <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt=""></div>
+
+<div id="prompt-modal" onclick="if(event.target.id==='prompt-modal')closePromptLib()">
+  <div class="pm-card">
+    <div class="pm-head">
+      <h3>📚 Prompt Library</h3>
+      <button class="pm-x" onclick="closePromptLib()">✕</button>
+    </div>
+    <div class="pm-body" id="pm-body"></div>
+    <div class="pm-foot">
+      <textarea id="pm-input" placeholder="Type a prompt to save… (e.g. 'Summarize in 3 bullet points:')"></textarea>
+      <button id="pm-save" onclick="savePromptFromInput()">Save Prompt</button>
+    </div>
+  </div>
+</div>
+<div id="star-modal" onclick="if(event.target.id==='star-modal')closeStarModal()">
+  <div class="sm-card">
+    <div class="sm-head">
+      <h3>⭐ Starred Messages</h3>
+      <button class="sm-x" onclick="closeStarModal()">✕</button>
+    </div>
+    <div class="sm-body" id="star-body"></div>
+  </div>
+</div>
+
 <div id="drop-overlay">📎 Drop file or image here</div>
+
+<div id="features-modal" onclick="if(event.target.id==='features-modal')closeFeaturesModal()">
+  <div class="fm-card">
+    <div class="fm-head">
+      <div style="flex:1">
+        <h2>✦ FraqtoOS Chat — Features Guide</h2>
+        <p>Everything this chat can do, in one place.</p>
+      </div>
+      <button class="fm-x" onclick="closeFeaturesModal()">✕</button>
+    </div>
+    <div class="fm-body">
+
+      <div class="fm-section">
+        <div class="fm-section-title">AI Models</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">✨</div>
+            <div class="fm-info"><div class="fm-name">Auto-Routing</div><div class="fm-desc">phi4 classifies your message and picks the best model automatically.</div><span class="fm-badge">model: Auto ✨</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">φ</div>
+            <div class="fm-info"><div class="fm-name">phi4 — Fast</div><div class="fm-desc">Microsoft's 9 GB model. Default for quick Q&A, summaries, routing.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔵</div>
+            <div class="fm-info"><div class="fm-name">DeepSeek-R1</div><div class="fm-desc">14B reasoning model. Best for code, math, multi-step logic.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🟠</div>
+            <div class="fm-info"><div class="fm-name">qwen3:14b</div><div class="fm-desc">Alibaba's smart 9 GB model. Finance, analysis, research.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🟢</div>
+            <div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / llama4</div><div class="fm-desc">Google / OpenAI-OSS / Meta models for copy, long-form, and creative work.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">✦</div>
+            <div class="fm-info"><div class="fm-name">Claude (Sonnet / Opus / Haiku)</div><div class="fm-desc">Anthropic cloud models via API key. Requires ANTHROPIC_API_KEY.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Image Generation &amp; Editing</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">🎨</div>
+            <div class="fm-info"><div class="fm-name">Text → Image</div><div class="fm-desc">Generate images with FLUX Schnell, FLUX Dev, SDXL, Juggernaut XL, or SD 1.5.</div><span class="fm-badge">/image &lt;prompt&gt;</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">✏️</div>
+            <div class="fm-info"><div class="fm-name">Edit Image (FLUX Kontext)</div><div class="fm-desc">Attach a photo, cycle to ✏️ Edit mode, then describe your change.</div><span class="fm-badge">attach → ✏️ Edit</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🪄</div>
+            <div class="fm-info"><div class="fm-name">Avatar in Scene (PuLID-FLUX)</div><div class="fm-desc">Attach your face photo, cycle to 🪄 Avatar, then describe a scene.</div><span class="fm-badge">attach → 🪄 Avatar</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔄</div>
+            <div class="fm-info"><div class="fm-name">Face Swap (insightface)</div><div class="fm-desc">Attach two images: set one as 🔄 Source (face) and one as 🎯 Target.</div><span class="fm-badge">attach → 🔄/🎯</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">⚡</div>
+            <div class="fm-info"><div class="fm-name">Size &amp; Model Controls</div><div class="fm-desc">Choose image size (512/768/1024) and model from the input bar dropdowns.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Input &amp; Attachments</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">📎</div>
+            <div class="fm-info"><div class="fm-name">File Attach</div><div class="fm-desc">Attach .txt, .md, .pdf, .json, .csv, code files — text is extracted and sent as context.</div><span class="fm-badge">📎 button</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🖼</div>
+            <div class="fm-info"><div class="fm-name">Image Vision</div><div class="fm-desc">Attach an image in 👁 Vision mode to let a vision model describe or analyse it.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🎤</div>
+            <div class="fm-info"><div class="fm-name">Voice Input</div><div class="fm-desc">Click 🎤 to dictate. Live transcript appears in the input box as you speak.</div><span class="fm-badge">🎤 button</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">📋</div>
+            <div class="fm-info"><div class="fm-name">Paste &amp; Drag-Drop</div><div class="fm-desc">Paste images from clipboard or drag files/images directly onto the window.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Slash Commands</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">🌐</div>
+            <div class="fm-info"><div class="fm-name">Web Search</div><div class="fm-desc">Toggle 🔍 to attach live SearXNG results to your next message automatically.</div><span class="fm-badge">🔍 button</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">📡</div>
+            <div class="fm-info"><div class="fm-name">/watchdog</div><div class="fm-desc">Shows all FraqtoOS bot statuses + latest AI health diagnosis.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">📊</div>
+            <div class="fm-info"><div class="fm-name">/digest</div><div class="fm-desc">Today's per-bot summaries from the daily AI context log.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">₿</div>
+            <div class="fm-info"><div class="fm-name">/btc</div><div class="fm-desc">Live BTC price, 24h change, and latest backtest summary.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">💼</div>
+            <div class="fm-info"><div class="fm-name">/portfolio</div><div class="fm-desc">Portfolio P&amp;L summary from 5Paisa + Kite accounts.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🤖</div>
+            <div class="fm-info"><div class="fm-name">/bots &amp; /help</div><div class="fm-desc">/bots shows orchestrator state. /help lists all bridge commands.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Memory &amp; Conversations</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">🧠</div>
+            <div class="fm-info"><div class="fm-name">Persistent Memory</div><div class="fm-desc">Save facts the AI recalls in every future conversation. Enable auto-extract to let it save facts from your messages.</div><span class="fm-badge">/remember &lt;fact&gt;</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🗑</div>
+            <div class="fm-info"><div class="fm-name">Forget</div><div class="fm-desc">Delete specific memories by keyword. Or open 🧠 Memory panel and ✕ any entry.</div><span class="fm-badge">/forget &lt;keyword&gt;</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">💾</div>
+            <div class="fm-info"><div class="fm-name">Auto-Save Conversations</div><div class="fm-desc">Every reply is auto-saved to disk. Conversations survive page refresh and are listed in the sidebar.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🏷</div>
+            <div class="fm-info"><div class="fm-name">Auto-Title</div><div class="fm-desc">phi4 automatically generates a short title for each conversation after the first reply.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔍</div>
+            <div class="fm-info"><div class="fm-name">Conversation Search</div><div class="fm-desc">Type in the sidebar search box to search all saved conversation titles and content.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Chat Tools</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">✏</div>
+            <div class="fm-info"><div class="fm-name">Edit &amp; Resend</div><div class="fm-desc">Click any of your past messages to edit the text and resend from that point.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">↺</div>
+            <div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔊</div>
+            <div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">⧉</div>
+            <div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">💡</div>
+            <div class="fm-info"><div class="fm-name">Follow-up Chips</div><div class="fm-desc">After each reply, phi4 suggests 3 follow-up questions as clickable chips.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">⟳</div>
+            <div class="fm-info"><div class="fm-name">Clear Context</div><div class="fm-desc">Resets AI memory for the current chat while keeping messages visible on screen.</div><span class="fm-badge">Ctrl+Shift+X</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔎</div>
+            <div class="fm-info"><div class="fm-name">In-Chat Search</div><div class="fm-desc">Search and highlight text across all messages. Navigate with ▲▼ buttons.</div><span class="fm-badge">Ctrl+F</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">↓</div>
+            <div class="fm-info"><div class="fm-name">Export Chat</div><div class="fm-desc">Download the current conversation as a Markdown (.md) file.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">📚</div>
+            <div class="fm-info"><div class="fm-name">Prompt Library</div><div class="fm-desc">Save and reuse your favourite prompts. Press Ctrl+S in the input to save the current text.</div><span class="fm-badge">Ctrl+S to save</span></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">⚙</div>
+            <div class="fm-info"><div class="fm-name">System Prompt</div><div class="fm-desc">Set a persistent system instruction for every message in the current session.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">System &amp; UI</div>
+        <div class="fm-grid">
+          <div class="fm-card-item">
+            <div class="fm-icon">🖥</div>
+            <div class="fm-info"><div class="fm-name">GPU VRAM Widget</div><div class="fm-desc">Live GPU VRAM used/total and utilisation % in the topbar. Updates every 10 s. Hover for per-GPU detail.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🟢</div>
+            <div class="fm-info"><div class="fm-name">Status Light</div><div class="fm-desc">Green = Ollama up. Red = server unreachable. Hover to see Ollama / Claude / Search / Image status.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">🔢</div>
+            <div class="fm-info"><div class="fm-name">Token Counter</div><div class="fm-desc">Approximate token usage for the current context. Turns amber above 30 k tokens.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">📱</div>
+            <div class="fm-info"><div class="fm-name">PWA — Install as App</div><div class="fm-desc">Add to your home screen / desktop. Works offline for the UI shell.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">◀</div>
+            <div class="fm-info"><div class="fm-name">Collapsible Sidebar</div><div class="fm-desc">Click ◀/▶ to hide/show the sidebar. State is remembered across sessions.</div></div>
+          </div>
+          <div class="fm-card-item">
+            <div class="fm-icon">⌨</div>
+            <div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div>
+              <div class="fm-desc">
+                <span class="fm-badge">Enter</span> send &nbsp;
+                <span class="fm-badge">Shift+Enter</span> newline<br>
+                <span class="fm-badge">Ctrl+N</span> new chat &nbsp;
+                <span class="fm-badge">Ctrl+/</span> focus input<br>
+                <span class="fm-badge">Ctrl+F</span> search &nbsp;
+                <span class="fm-badge">Ctrl+S</span> save prompt<br>
+                <span class="fm-badge">Ctrl+Shift+X</span> clear context
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <div id="mem-modal" onclick="if(event.target.id==='mem-modal')closeMemoryModal()">
   <div class="mem-card">
@@ -931,9 +1462,10 @@ function getAvatarLabel(model) {
   return '✦';
 }
 function getModelName(model) {
+  if (!model) return 'AI';
   var names = {
     'phi4':'phi4','gemma4:latest':'gemma4','qwen3:14b':'qwen3','deepseek-r1:14b':'DeepSeek-R1',
-    'gpt-oss:20b':'GPT-OSS','llama4:latest':'llama4',
+    'gpt-oss:20b':'GPT-OSS','llama4:latest':'llama4','auto':'Auto',
     'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-7':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
   };
   return names[model] || model;
@@ -961,6 +1493,8 @@ function addUserMsg(text) {
 function addBotMsg(model) {
   var inner = getOrCreateInner();
   var div = document.createElement('div');
+  var _msgId = 'msg-' + Math.random().toString(36).slice(2, 8);
+  div.id = _msgId;
   div.className = 'msg-group bot';
   var avatarClass = getAvatarClass(model);
   var avatarLabel = getAvatarLabel(model);
@@ -973,8 +1507,10 @@ function addBotMsg(model) {
       '<div class="bot-text"></div>'+
       '<div class="msg-actions">'+
         '<span class="msg-time">'+now+'</span>'+
-        '<span class="msg-stats" id="stats-'+div.id+'"></span>'+
+        '<span class="msg-stats" id="stats-'+_msgId+'"></span>'+
         '<button class="act-btn" title="Copy" onclick="copyBotMsg(this)">⧉</button>'+
+        '<button class="act-btn" title="Read aloud" onclick="speakMsg(this)">🔊</button>'+
+        '<button class="act-btn" title="Star this message" onclick="toggleStar(this)">☆</button>'+
         '<button class="act-btn" title="Regenerate" onclick="regenerate()">↺</button>'+
       '</div>'+
     '</div>';
@@ -1032,23 +1568,273 @@ function copyBotMsg(btn) {
   navigator.clipboard.writeText(text).then(function(){btn.textContent='✓';setTimeout(()=>btn.textContent='⧉',1500);});
 }
 
+// ── Read Aloud (TTS) ──────────────────────────────────────────────
+function speakMsg(btn) {
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+    document.querySelectorAll('.act-btn.speaking').forEach(function(b){ b.textContent='🔊'; b.classList.remove('speaking'); });
+    return;
+  }
+  var text = btn.closest('.bot-body').querySelector('.bot-text')._rawText
+             || btn.closest('.bot-body').querySelector('.bot-text').textContent;
+  // strip markdown symbols for cleaner speech
+  text = text.replace(/[#*`_~>]/g, '').replace(/\s+/g, ' ').trim();
+  var utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.05; utt.pitch = 1.0;
+  utt.onend = function(){ btn.textContent='🔊'; btn.classList.remove('speaking'); };
+  utt.onerror = function(){ btn.textContent='🔊'; btn.classList.remove('speaking'); };
+  btn.textContent = '⏹'; btn.classList.add('speaking');
+  speechSynthesis.speak(utt);
+}
+
+// ── Clear Context (keeps visible messages, resets AI history) ─────
+function clearContext() {
+  if (!history.length) return;
+  history = []; lastUserMsg = '';
+  // Dissociate from saved conversation so autoPersist won't overwrite it with empty history
+  currentConvId = null;
+  currentConvTitle = '';
+  localStorage.removeItem('fraqtoos_last_conv');
+  var inner = getOrCreateInner();
+  var sep = document.createElement('div');
+  sep.style.cssText = 'text-align:center;font-size:11px;color:var(--text3);padding:8px 0;border-top:1px dashed var(--border);margin:8px 0';
+  sep.textContent = '— context cleared — AI starts fresh below —';
+  inner.appendChild(sep);
+  updateTokenCounter();
+  var btn = document.getElementById('ctx-btn');
+  if (btn) { btn.textContent = '✓ Cleared'; setTimeout(function(){ btn.textContent = '⟳ Context'; }, 1500); }
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  // Ctrl+N → new conversation
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'n') {
+    e.preventDefault(); newConversation(); return;
+  }
+  // Ctrl+/ → focus input
+  if (e.ctrlKey && e.key === '/') {
+    e.preventDefault(); input.focus(); return;
+  }
+  // Ctrl+Shift+X → clear context
+  if (e.ctrlKey && e.shiftKey && e.key === 'X') {
+    e.preventDefault(); clearContext(); return;
+  }
+  // Ctrl+F → in-chat search
+  if (e.ctrlKey && e.key === 'f') {
+    e.preventDefault(); toggleChatSearch(); return;
+  }
+});
+
 function clearChat() {
-  history=[]; lastUserMsg='';
+  history=[]; lastUserMsg=''; attachments=[];
+  currentConvId=null; currentConvTitle='';
+  localStorage.removeItem('fraqtoos_last_conv');
   var inner = chatEl.querySelector('.chat-inner');
   if(inner) inner.innerHTML='';
   chatEl.innerHTML='<div class="chat-inner"><div id="welcome"><div class="w-icon">✦</div><h2>How can I help you today?</h2><p>Start a new conversation.</p></div></div>';
+  renderAttachRow(); updateTokenCounter(); renderConvList();
 }
 
+// ── Sidebar collapse ──────────────────────────────────────────────
+function toggleSidebarCollapse() {
+  var sb = document.getElementById('sidebar');
+  var btn = document.getElementById('sidebar-toggle-btn');
+  var collapsed = sb.classList.toggle('collapsed');
+  if (btn) { btn.textContent = collapsed ? '▶' : '◀'; btn.style.left = collapsed ? '0' : '248px'; }
+  localStorage.setItem('fraqtoos_sidebar_collapsed', collapsed ? '1' : '0');
+}
+(function(){
+  if (window.innerWidth > 768 && localStorage.getItem('fraqtoos_sidebar_collapsed') === '1') {
+    var sb = document.getElementById('sidebar');
+    var btn = document.getElementById('sidebar-toggle-btn');
+    sb.classList.add('collapsed');
+    if (btn) { btn.textContent = '▶'; btn.style.left = '0'; }
+  }
+})();
+
+// ── Page title + browser notification when AI finishes ───────────
+const _PAGE_TITLE = document.title;
+function _notifyDone(text) {
+  document.title = _PAGE_TITLE;
+  if (!document.hidden) return;
+  if (!('Notification' in window)) return;
+  var snippet = (text || '').replace(/[#*`_~]/g,'').trim().slice(0,120);
+  if (Notification.permission === 'granted') {
+    new Notification('FraqtoOS Chat — done', { body: snippet, icon: '/static/icon-192.png' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission().then(function(p){
+      if (p === 'granted') new Notification('FraqtoOS Chat — done', { body: snippet, icon: '/static/icon-192.png' });
+    });
+  }
+}
+// Request permission early (silent — browser shows banner only if we actually call requestPermission)
+if ('Notification' in window && Notification.permission === 'default') {
+  // We'll request on first finish rather than on page load (less intrusive)
+}
+
+// ── In-chat message search ────────────────────────────────────────
+var _chatSearchMatches = [];
+var _chatSearchIdx = 0;
+
+function toggleChatSearch() {
+  var bar = document.getElementById('chat-search-bar');
+  var open = bar.classList.toggle('open');
+  if (open) {
+    document.getElementById('chat-search-input').focus();
+  } else {
+    clearChatSearch();
+  }
+}
+function closeChatSearch() {
+  document.getElementById('chat-search-bar').classList.remove('open');
+  clearChatSearch();
+}
+function clearChatSearch() {
+  document.querySelectorAll('.search-highlight').forEach(function(el){
+    if (el.parentNode) el.parentNode.replaceChild(document.createTextNode(el.textContent), el);
+  });
+  _chatSearchMatches = []; _chatSearchIdx = 0;
+  document.getElementById('chat-search-count').textContent = '';
+}
+function runChatSearch(q) {
+  clearChatSearch();
+  q = (q || '').trim();
+  if (!q || q.length < 2) return;
+  var re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+  // Search in text nodes of bot-text and user-bubble
+  document.querySelectorAll('.bot-text, .user-bubble').forEach(function(container){
+    highlightInNode(container, re);
+  });
+  _chatSearchMatches = Array.from(document.querySelectorAll('.search-highlight'));
+  _chatSearchIdx = 0;
+  if (_chatSearchMatches.length) {
+    _chatSearchMatches[0].classList.add('current');
+    _chatSearchMatches[0].scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  document.getElementById('chat-search-count').textContent =
+    _chatSearchMatches.length ? '1 / '+_chatSearchMatches.length : 'no results';
+}
+function highlightInNode(node, re) {
+  if (node.nodeType === 3) {
+    var t = node.textContent;
+    if (!re.test(t)) return;
+    re.lastIndex = 0;
+    var span = document.createElement('span');
+    span.innerHTML = t.replace(re, function(m){ return '<mark class="search-highlight">'+escHtml(m)+'</mark>'; });
+    node.parentNode.replaceChild(span, node);
+    return;
+  }
+  if (node.tagName === 'MARK' || node.tagName === 'SCRIPT' || node.tagName === 'STYLE') return;
+  Array.from(node.childNodes).forEach(function(child){ highlightInNode(child, re); });
+}
+function moveChatSearch(dir) {
+  if (!_chatSearchMatches.length) return;
+  _chatSearchMatches[_chatSearchIdx].classList.remove('current');
+  _chatSearchIdx = (_chatSearchIdx + dir + _chatSearchMatches.length) % _chatSearchMatches.length;
+  _chatSearchMatches[_chatSearchIdx].classList.add('current');
+  _chatSearchMatches[_chatSearchIdx].scrollIntoView({behavior:'smooth', block:'center'});
+  document.getElementById('chat-search-count').textContent =
+    (_chatSearchIdx+1)+' / '+_chatSearchMatches.length;
+}
+function chatSearchKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); moveChatSearch(e.shiftKey ? -1 : 1); }
+  if (e.key === 'Escape') { e.preventDefault(); closeChatSearch(); }
+}
+
+// ── Prompt Library ────────────────────────────────────────────────
+function _loadPrompts() { try { return JSON.parse(localStorage.getItem('fraqtoos_prompts')||'[]'); } catch(e){ return []; } }
+function _savePrompts(arr) { localStorage.setItem('fraqtoos_prompts', JSON.stringify(arr)); document.getElementById('prompt-count').textContent = arr.length; }
+
+function renderPromptLib() {
+  var prompts = _loadPrompts();
+  var body = document.getElementById('pm-body');
+  if (!prompts.length) {
+    body.innerHTML = '<div class="pm-empty">No saved prompts yet.<br>Save your most-used prompts below.</div>';
+    return;
+  }
+  body.innerHTML = '';
+  prompts.forEach(function(p, idx) {
+    var div = document.createElement('div');
+    div.className = 'pm-item';
+    div.innerHTML = '<div class="pm-text"></div><span class="pm-use">use →</span><button class="pm-rm" title="Delete">✕</button>';
+    div.querySelector('.pm-text').textContent = p;
+    div.onclick = function(e){ if(e.target.classList.contains('pm-rm')) return; usePrompt(p); };
+    div.querySelector('.pm-rm').onclick = function(e){ e.stopPropagation(); deletePrompt(idx); };
+    body.appendChild(div);
+  });
+}
+function openPromptLib() {
+  renderPromptLib();
+  document.getElementById('prompt-modal').classList.add('open');
+  setTimeout(function(){ document.getElementById('pm-input').focus(); }, 100);
+}
+function closePromptLib() { document.getElementById('prompt-modal').classList.remove('open'); }
+function usePrompt(text) {
+  closePromptLib();
+  fillInput(text);
+}
+function savePromptFromInput() {
+  var val = document.getElementById('pm-input').value.trim();
+  if (!val) return;
+  var arr = _loadPrompts();
+  if (!arr.includes(val)) { arr.unshift(val); _savePrompts(arr); }
+  document.getElementById('pm-input').value = '';
+  renderPromptLib();
+}
+function deletePrompt(idx) {
+  var arr = _loadPrompts();
+  arr.splice(idx, 1);
+  _savePrompts(arr);
+  renderPromptLib();
+}
+// Save current input as a prompt via Ctrl+S in textarea
+input.addEventListener('keydown', function(e){
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    var val = input.value.trim();
+    if (!val) return;
+    var arr = _loadPrompts();
+    if (!arr.includes(val)) { arr.unshift(val); _savePrompts(arr); }
+    var hint = document.getElementById('hint');
+    var orig = hint.textContent;
+    hint.textContent = '✓ Prompt saved to library';
+    setTimeout(function(){ hint.innerHTML = 'Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Ctrl+N new chat &nbsp;·&nbsp; Ctrl+/ focus &nbsp;·&nbsp; /image to generate &nbsp;·&nbsp; 🔊 to read aloud'; }, 1500);
+  }
+});
+// Init prompt count badge
+document.getElementById('prompt-count').textContent = _loadPrompts().length;
+
 function exportChat() {
-  var lines=['FraqtoOS Chat — '+new Date().toLocaleString(),''];
-  history.forEach(function(m){ lines.push((m.role==='user'?'You':'AI')+': '+m.content,''); });
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain'}));
-  a.download='chat-'+Date.now()+'.txt'; a.click();
+  var md = '# FraqtoOS Chat\n_Exported: ' + new Date().toLocaleString() + '_\n\n---\n\n';
+  history.forEach(function(m) {
+    if (m.role === 'user') {
+      md += '**You:** ' + m.content + '\n\n';
+    } else {
+      var label = m.model ? getModelName(m.model) : getModelName(currentModel);
+      md += '**' + label + ':** ' + m.content + '\n\n---\n\n';
+    }
+  });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md], {type: 'text/markdown'}));
+  a.download = 'chat-' + Date.now() + '.md';
+  a.click();
 }
 
 function stopStreaming(){ if(currentAbort){currentAbort.abort();currentAbort=null;} }
 function sendOrStop(){ if(isStreaming){stopStreaming();}else{sendMsg();} }
+
+// Safe JSON parse — throws a readable error if server returns HTML/non-JSON
+async function safeJson(res) {
+  var ct = (res.headers.get('content-type') || '');
+  if (!ct.includes('application/json') && !ct.includes('text/plain')) {
+    var body = await res.text().catch(function(){ return ''; });
+    throw new Error('Server returned HTTP ' + res.status +
+      (body ? ' — ' + body.replace(/<[^>]*>/g,'').trim().slice(0,120) : ''));
+  }
+  var text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error('Bad JSON from server (HTTP '+res.status+'): '+text.slice(0,80)); }
+}
 function regenerate(){
   if(!lastUserMsg||isStreaming)return;
   if(history.length&&history[history.length-1].role==='assistant') history.pop();
@@ -1063,6 +1849,7 @@ async function sendMsg() {
 
   addTyping();
   isStreaming=true;
+  document.title = '● Thinking… — FraqtoOS Chat';
   sendBtn.innerHTML='&#9632;';
   sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
 
@@ -1077,7 +1864,7 @@ async function sendMsg() {
   try {
     var res=await fetch('/chat',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:currentModel,messages:msgs,system:systemPrompt}),
+      body:JSON.stringify({model:currentModel,messages:msgs,system:systemPrompt,temperature:currentTemp}),
       signal:currentAbort.signal
     });
     removeTyping();
@@ -1097,8 +1884,9 @@ async function sendMsg() {
       }
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
-    statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s';
-    history.push({role:'assistant',content:full});
+    var words=full.trim().split(/\s+/).filter(Boolean).length;
+    statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s · '+words+'w';
+    history.push({role:'assistant', content:full, model:currentModel});
   } catch(e) {
     removeTyping();
     if(e.name!=='AbortError') textEl.textContent='Network error: '+e.message;
@@ -1113,6 +1901,9 @@ function finishStream(){
   sendBtn.className=isClaude()?'claude-mode':'';
   sendBtn.disabled=false; input.focus();
   maybeRenderFollowups();
+  // Restore title and notify if tab is in background
+  var lastReply = history.length && history[history.length-1].role==='assistant' ? history[history.length-1].content : '';
+  _notifyDone(lastReply);
 }
 
 // Slash-command autocomplete menu
@@ -1123,6 +1914,8 @@ const SLASH_COMMANDS = [
   { cmd: '/watchdog',  args: '',             desc: 'Bot health + AI diagnosis' },
   { cmd: '/digest',    args: '',             desc: 'Today\'s per-bot summaries' },
   { cmd: '/bots',      args: '',             desc: 'List all FraqtoOS bots' },
+  { cmd: '/btc',       args: '',             desc: 'Bitcoin price + recent backtest' },
+  { cmd: '/portfolio', args: '',             desc: 'Portfolio P&L from 5Paisa + Kite' },
   { cmd: '/help',      args: '',             desc: 'Show available bridge commands' },
 ];
 let _slashIdx = 0;
@@ -1178,7 +1971,7 @@ async function maybeRenderFollowups() {
   document.querySelectorAll('.followup-row').forEach(function(el){ el.remove(); });
   if (_followupAbort) { try { _followupAbort.abort(); } catch(e){} }
   _followupAbort = new AbortController();
-  var bubbles = document.querySelectorAll('.bot-bubble');
+  var bubbles = document.querySelectorAll('.bot-body');
   var lastBot = bubbles[bubbles.length-1];
   if (!lastBot) return;
   try {
@@ -1195,10 +1988,10 @@ async function maybeRenderFollowups() {
       var chip = document.createElement('div');
       chip.className = 'followup-chip';
       chip.textContent = s;
-      chip.onclick = function(){ input.value = s; input.focus(); row.remove(); };
+      chip.onclick = function(){ input.value = s; input.focus(); input.dispatchEvent(new Event('input')); row.remove(); };
       row.appendChild(chip);
     });
-    lastBot.parentNode.insertBefore(row, lastBot.nextSibling);
+    if (lastBot && lastBot.parentNode) lastBot.parentNode.insertBefore(row, lastBot.nextSibling);
   } catch(e) {
     if (e.name !== 'AbortError') console.warn('followup fail:', e);
   }
@@ -1223,19 +2016,32 @@ async function generateImage() {
   try{
     var res=await fetch('/imagine',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt,image_model:imgMod,width:sizeVal,height:sizeVal,negative:negPmt})});
-    var data=await res.json();
-    if(data.error){textEl.textContent='Error: '+data.error;}
-    else{
+    var data=await safeJson(res);
+    if(data.error){
+      textEl.textContent='Error: '+data.error;
+      history.push({role:'assistant', content:'[image error: '+data.error+']', model:imgMod});
+    } else {
       var src='data:image/png;base64,'+data.image;
-      textEl.innerHTML='<img class="gen-img" src="'+src+'" alt="'+escHtml(prompt)+'" onclick="openLightbox(this.src)">';
+      textEl.innerHTML='<img class="gen-img" src="'+src+'" alt="'+escHtml(prompt)+'" onclick="openLightbox(this.src)">'
+        +'<div class="img-actions"><button class="icon-btn" onclick="downloadImg(this.previousElementSibling)" title="Download">↓ Save</button>'
+        +'<button class="icon-btn" onclick="openLightbox(this.previousElementSibling.previousElementSibling.src)" title="Fullscreen">⛶ Full</button></div>';
       statsEl.textContent=imgMod+' · '+((Date.now()-t0)/1000).toFixed(1)+'s';
+      textEl._rawText='[generated image: '+prompt+']';
+      history.push({role:'assistant', content:'[generated image: '+prompt+']', model:imgMod});
     }
-  }catch(e){textEl.textContent='Error: '+e.message;}
+  }catch(e){
+    textEl.textContent='Error: '+e.message;
+    history.push({role:'assistant', content:'[image error: '+e.message+']', model:imgMod});
+  }
   imgBtn.disabled=false; imgBtn.textContent='🎨'; input.focus();
+  autoPersist();
+  maybeAutoTitle();
+  updateTokenCounter();
 }
 
 function openLightbox(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
+function downloadImg(img){var a=document.createElement('a');a.href=img.src;a.download='fraqtoos-'+Date.now()+'.png';a.click();}
 
 // /image shortcut
 document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown',function(e){
@@ -1316,7 +2122,7 @@ async function uploadFile(file) {
   var fd = new FormData(); fd.append('file', file);
   try {
     var r = await fetch('/upload', {method:'POST', body: fd});
-    var d = await r.json();
+    var d = await safeJson(r);
     if (d.error) { alert('Upload error: '+d.error); return null; }
     return d;
   } catch(e) { alert('Upload failed: '+e.message); return null; }
@@ -1422,6 +2228,7 @@ function newConversation() {
   currentConvTitle = '';
   localStorage.removeItem('fraqtoos_last_conv');
   history = []; lastUserMsg = ''; attachments = [];
+  _titleAttempted.clear();
   chatEl.innerHTML = '<div class="chat-inner"><div id="welcome"><div class="w-icon">✦</div><h2>How can I help you today?</h2><p>Start a new conversation.</p></div></div>';
   renderAttachRow();
   updateTokenCounter();
@@ -1457,11 +2264,12 @@ async function loadConversation(id) {
         addUserMsg(m.content);
         lastUserMsg = m.content;
       } else if (m.role === 'assistant') {
-        var b = addBotMsg(c.model || currentModel);
+        var b = addBotMsg(m.model || c.model || currentModel);
         b.textEl.innerHTML = renderMarkdown(m.content);
         b.textEl._rawText = m.content;
       }
     });
+    highlightAll();
     renderConvList();
     updateTokenCounter();
   } catch(e) { alert('Load failed: '+e.message); }
@@ -1539,6 +2347,44 @@ async function pollHealth() {
 }
 pollHealth();
 setInterval(pollHealth, 15000);
+
+// ─────────────────────────────────────────────────────────────────
+// GPU VRAM live usage (polls /gpu every 10s)
+// ─────────────────────────────────────────────────────────────────
+async function pollGpu() {
+  var widget = document.getElementById('gpu-widget');
+  var bar    = document.getElementById('gpu-bar-inner');
+  var label  = document.getElementById('gpu-label');
+  if (!widget) return;
+  try {
+    var ctl = new AbortController();
+    var timer = setTimeout(function(){ ctl.abort(); }, 4000);
+    var r = await fetch('/gpu', {signal: ctl.signal, cache: 'no-store'});
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    var d = await r.json();
+    if (d.error) throw new Error(d.error);
+    widget.style.display = 'flex';
+    var usedGB  = (d.vram_used  / 1024).toFixed(1);
+    var totalGB = (d.vram_total / 1024).toFixed(1);
+    var pct     = Math.round(d.vram_used / d.vram_total * 100);
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : 'var(--accent)';
+    label.textContent = usedGB + '/' + totalGB + 'GB · ' + d.gpu_util + '%';
+    var tip = 'VRAM: ' + d.vram_used + ' / ' + d.vram_total + ' MiB (' + pct + '%)\n'
+            + 'Util: ' + d.gpu_util + '% · Temp: ' + d.temp + '°C';
+    if (d.gpus && d.gpus.length > 1) {
+      tip += '\n' + d.gpus.map(function(g,i){
+        return 'GPU'+i+': '+(g.vram_used/1024).toFixed(1)+'/'+(g.vram_total/1024).toFixed(1)+'GB '+g.gpu_util+'% '+g.temp+'°C';
+      }).join('\n');
+    }
+    widget.title = tip;
+  } catch(e) {
+    widget.style.display = 'none';
+  }
+}
+pollGpu();
+setInterval(pollGpu, 10000);
 
 // ─────────────────────────────────────────────────────────────────
 // Code highlighting — debounced, runs during streaming
@@ -1800,8 +2646,9 @@ function saveEdit(btn) {
   var groups = Array.from(chatEl.querySelectorAll('.msg-group'));
   var thisGroup = bubble.closest('.msg-group');
   var idx = groups.indexOf(thisGroup);
-  // Remove this group + everything after
+  // Remove this group + everything after (msg-groups + any followup chips)
   for (var i = groups.length - 1; i >= idx; i--) groups[i].remove();
+  chatEl.querySelectorAll('.followup-row').forEach(function(el){ el.remove(); });
   // Trim history: count user messages up to (not including) this one
   var userCount = 0;
   for (var i = 0; i < idx; i++) if (groups[i].classList.contains('user')) userCount++;
@@ -1841,7 +2688,7 @@ updateTokenCounter();
 // ─────────────────────────────────────────────────────────────────
 // Slash commands → bot bridge
 // ─────────────────────────────────────────────────────────────────
-const BRIDGE_CMDS = ['watchdog','digest','bots','help'];
+const BRIDGE_CMDS = ['watchdog','digest','bots','btc','portfolio','help'];
 async function maybeHandleSlash(text) {
   if (!text.startsWith('/')) return false;
   var firstWord = text.slice(1).split(/\s+/)[0].toLowerCase();
@@ -1854,7 +2701,7 @@ async function maybeHandleSlash(text) {
   b.textEl.innerHTML = '<em style="color:var(--text3)">fetching '+firstWord+'…</em>';
   try {
     var r = await fetch('/bridge/'+firstWord);
-    var d = await r.json();
+    var d = await safeJson(r);
     var reply = d.text || ('Error: '+(d.error||'unknown'));
     b.textEl.innerHTML = renderMarkdown(reply);
     b.textEl._rawText = reply;
@@ -1874,6 +2721,8 @@ const _origSendMsg = sendMsg;
 sendMsg = async function() {
   var text = input.value.trim();
   if (!text && !attachments.length) return;
+  // /image is handled by generateImage() via the capture keydown listener — skip here
+  if (text.toLowerCase().startsWith('/image')) return;
 
   // 1) Slash command short-circuit
   if (text && await maybeHandleSlash(text)) return;
@@ -1901,17 +2750,17 @@ sendMsg = async function() {
       fd.append('source', blobOf(srcImg), srcImg.name);
       fd.append('target', blobOf(tgtImg), tgtImg.name);
       var res = await fetch('/face-swap', {method:'POST', body:fd});
-      var d = await res.json();
+      var d = await safeJson(res);
       removeTyping();
       if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Swap failed: '+escHtml(d.error)+'</span>';
       else {
         textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
         textEl._rawText='[face-swap result]';
-        history.push({role:'assistant', content:'[face-swap returned]'});
       }
+      history.push({role:'assistant', content:'[face-swap returned]'});
       statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · inswapper-128';
     } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">Swap error: '+escHtml(e.message)+'</span>'; }
-    finishStream(); autoPersist(); updateTokenCounter();
+    finishStream(); autoPersist(); maybeAutoTitle(); updateTokenCounter();
     return;
   }
 
@@ -1937,17 +2786,17 @@ sendMsg = async function() {
       fd.append('steps', '25');
       fd.append('weight', '1.0');
       var res = await fetch('/avatar',{method:'POST', body:fd});
-      var d = await res.json();
+      var d = await safeJson(res);
       removeTyping();
       if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Avatar failed: '+escHtml(d.error)+'</span>';
       else {
         textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
         textEl._rawText='[avatar result]';
-        history.push({role:'assistant', content:'[avatar returned]'});
       }
+      history.push({role:'assistant', content:'[avatar returned]'});
       statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · pulid-flux';
     } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">Avatar error: '+escHtml(e.message)+'</span>'; }
-    finishStream(); autoPersist(); updateTokenCounter();
+    finishStream(); autoPersist(); maybeAutoTitle(); updateTokenCounter();
     return;
   }
 
@@ -1975,7 +2824,7 @@ sendMsg = async function() {
       fd.append('prompt', text);
       fd.append('steps', '20');
       var res = await fetch('/edit-image', {method:'POST', body:fd});
-      var d = await res.json();
+      var d = await safeJson(res);
       removeTyping();
       if (d.error) {
         textEl.innerHTML = '<span style="color:#dc2626">Edit failed: '+escHtml(d.error)+'</span>';
@@ -1983,8 +2832,8 @@ sendMsg = async function() {
         var html = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
         textEl.innerHTML = html;
         textEl._rawText = '[edited image]';
-        history.push({role:'assistant', content:'[edited image returned]'});
       }
+      history.push({role:'assistant', content:'[edited image returned]'});
       statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · flux-kontext';
     } catch(e) {
       removeTyping();
@@ -1992,6 +2841,7 @@ sendMsg = async function() {
     }
     finishStream();
     autoPersist();
+    maybeAutoTitle();
     updateTokenCounter();
     return;
   }
@@ -2033,7 +2883,7 @@ sendMsg = async function() {
     if(systemPrompt&&!isClaude()) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
 
     try {
-      var body = {model:currentModel, messages:msgs, system:systemPrompt};
+      var body = {model:currentModel, messages:msgs, system:systemPrompt, temperature:currentTemp};
       if (imgPayload.length) body.images = imgPayload;
       var res=await fetch('/chat',{
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -2057,8 +2907,9 @@ sendMsg = async function() {
         }
       }
       var elapsed=((Date.now()-startTime)/1000).toFixed(1);
-      statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s';
-      history.push({role:'assistant',content:full});
+      var words=full.trim().split(/\s+/).filter(Boolean).length;
+      statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s · '+words+'w';
+      history.push({role:'assistant', content:full, model:currentModel});
     } catch(e) {
       removeTyping();
       if(e.name!=='AbortError') textEl.textContent='Network error: '+e.message;
@@ -2068,6 +2919,7 @@ sendMsg = async function() {
     autoPersist();
     maybeAutoTitle();
     updateTokenCounter();
+    if (text && !text.startsWith('/')) maybeAutoExtract(text);
     return;
   }
 
@@ -2165,6 +3017,165 @@ input.addEventListener('paste', async function(e){
       if (f) { e.preventDefault(); await attachFromFile(f); }
     }
   }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Temperature control
+// ─────────────────────────────────────────────────────────────────
+const TEMP_PRESETS = [
+  {label:'Precise', value:0.2, cls:'precise', tip:'Precise (0.2) — focused, deterministic'},
+  {label:'Balanced', value:0.7, cls:'',       tip:'Balanced (0.7) — default'},
+  {label:'Creative', value:1.2, cls:'creative',tip:'Creative (1.2) — varied, imaginative'},
+  {label:'Wild',     value:1.5, cls:'wild',    tip:'Wild (1.5) — unpredictable, experimental'},
+];
+var _tempIdx = parseInt(localStorage.getItem('fraqtoos_temp_idx') || '1');
+var currentTemp = TEMP_PRESETS[_tempIdx].value;
+function _applyTemp() {
+  var p = TEMP_PRESETS[_tempIdx];
+  var btn = document.getElementById('temp-btn');
+  btn.textContent = '🌡 ' + p.label;
+  btn.className = p.cls;
+  btn.title = p.tip;
+  currentTemp = p.value;
+}
+function cycleTemp() {
+  _tempIdx = (_tempIdx + 1) % TEMP_PRESETS.length;
+  localStorage.setItem('fraqtoos_temp_idx', _tempIdx);
+  _applyTemp();
+}
+_applyTemp();
+
+// ─────────────────────────────────────────────────────────────────
+// Compact mode
+// ─────────────────────────────────────────────────────────────────
+var _compact = localStorage.getItem('fraqtoos_compact') === '1';
+function _applyCompact() {
+  document.body.classList.toggle('compact', _compact);
+  var btn = document.getElementById('compact-btn');
+  if (btn) { btn.classList.toggle('on', _compact); btn.textContent = _compact ? '⊞ Normal' : '⊟ Compact'; }
+}
+function toggleCompact() {
+  _compact = !_compact;
+  localStorage.setItem('fraqtoos_compact', _compact ? '1' : '0');
+  _applyCompact();
+}
+_applyCompact();
+
+// ─────────────────────────────────────────────────────────────────
+// Quick Actions
+// ─────────────────────────────────────────────────────────────────
+var _qaOpen = false;
+function toggleQuickActions() {
+  _qaOpen = !_qaOpen;
+  document.getElementById('quick-actions').classList.toggle('show', _qaOpen);
+  document.getElementById('qa-toggle').classList.toggle('on', _qaOpen);
+}
+function quickAction(prompt) {
+  var cur = input.value.trim();
+  input.value = cur ? cur + '\n\n' + prompt : prompt;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+  input.focus();
+  updateTokenCounter();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Starred messages
+// ─────────────────────────────────────────────────────────────────
+function _loadStars() { try { return JSON.parse(localStorage.getItem('fraqtoos_stars') || '[]'); } catch(e){ return []; } }
+function _saveStars(arr) { localStorage.setItem('fraqtoos_stars', JSON.stringify(arr)); document.getElementById('star-count').textContent = arr.length; }
+
+function toggleStar(btn) {
+  var bodyEl = btn.closest('.bot-body');
+  var textEl = bodyEl.querySelector('.bot-text');
+  var nameEl = bodyEl.querySelector('.bot-name');
+  var msgId  = btn.closest('.msg-group').id;
+  var content = (textEl._rawText || textEl.textContent || '').slice(0, 2000);
+  var model   = (nameEl ? nameEl.textContent : '').replace(/\s.*$/,'');
+  var stars = _loadStars();
+  var existing = stars.findIndex(function(s){ return s.id === msgId; });
+  if (existing >= 0) {
+    stars.splice(existing, 1);
+    btn.textContent = '☆'; btn.classList.remove('starred'); btn.title = 'Star this message';
+  } else {
+    stars.unshift({id: msgId, content: content, model: model, ts: Date.now(), convTitle: currentConvTitle || 'Untitled'});
+    btn.textContent = '⭐'; btn.classList.add('starred'); btn.title = 'Unstar';
+  }
+  _saveStars(stars);
+}
+
+function _syncStarButtons() {
+  var stars = _loadStars();
+  var ids = new Set(stars.map(function(s){ return s.id; }));
+  document.querySelectorAll('.msg-group.bot').forEach(function(g){
+    var btn = g.querySelector('.act-btn[title*="tar"]');
+    if (!btn) return;
+    var starred = ids.has(g.id);
+    btn.textContent = starred ? '⭐' : '☆';
+    btn.classList.toggle('starred', starred);
+    btn.title = starred ? 'Unstar' : 'Star this message';
+  });
+}
+
+function openStarModal() {
+  var stars = _loadStars();
+  var body = document.getElementById('star-body');
+  if (!stars.length) {
+    body.innerHTML = '<div class="star-empty">No starred messages yet.<br>Click ☆ on any bot reply to star it.</div>';
+  } else {
+    body.innerHTML = '';
+    stars.forEach(function(s) {
+      var div = document.createElement('div');
+      div.className = 'star-item';
+      var d = new Date(s.ts);
+      var dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      div.innerHTML =
+        '<div class="si-meta"><span>' + escHtml(s.model||'AI') + ' · ' + escHtml(s.convTitle||'') + '</span>'
+        + '<span>' + dateStr + ' <button class="si-rm" title="Remove star">✕</button></span></div>'
+        + '<div class="si-text"></div>';
+      div.querySelector('.si-text').textContent = s.content;
+      div.querySelector('.si-rm').onclick = function(e) {
+        e.stopPropagation();
+        var arr = _loadStars().filter(function(x){ return x.id !== s.id; });
+        _saveStars(arr);
+        div.remove();
+        _syncStarButtons();
+        if (!document.getElementById('star-body').children.length)
+          document.getElementById('star-body').innerHTML = '<div class="star-empty">No starred messages.</div>';
+      };
+      div.onclick = function(e) {
+        if (e.target.tagName === 'BUTTON') return;
+        var el = document.getElementById(s.id);
+        if (el) { closeStarModal(); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+      };
+      body.appendChild(div);
+    });
+  }
+  document.getElementById('star-modal').classList.add('open');
+}
+function closeStarModal() { document.getElementById('star-modal').classList.remove('open'); }
+
+// Init star count badge
+document.getElementById('star-count').textContent = _loadStars().length;
+
+// Sync star buttons after loading a conversation
+const _origLoadConv = loadConversation;
+loadConversation = async function(id) {
+  await _origLoadConv(id);
+  _syncStarButtons();
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Features Guide modal
+// ─────────────────────────────────────────────────────────────────
+function openFeaturesModal() {
+  document.getElementById('features-modal').classList.add('open');
+}
+function closeFeaturesModal() {
+  document.getElementById('features-modal').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeFeaturesModal();
 });
 </script>
 </body>
