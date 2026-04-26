@@ -677,9 +677,6 @@
         <p>Powered by local AI on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4.</p>
         <div class="suggestion-grid">
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>/competitor</strong>Top-10 ASIN snapshot from your bot
-          </div>
-          <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/watchdog</strong>Live bot health + AI diagnosis
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
@@ -698,10 +695,7 @@
             <strong>🔄 Face Swap</strong>insightface — paste face onto a photo
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>/remember</strong>Save a fact (e.g. "I sell on Amazon")
-          </div>
-          <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>/listing microfiber cloth GTF</strong>Draft Amazon listing copy
+            <strong>/remember</strong>Save a fact for the AI to recall later
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/btc</strong>Bitcoin price + recent activity
@@ -1126,7 +1120,6 @@ const SLASH_COMMANDS = [
   { cmd: '/image',     args: '<prompt>',     desc: 'Generate image with FLUX/SDXL' },
   { cmd: '/remember',  args: '<fact>',       desc: 'Save a persistent memory' },
   { cmd: '/forget',    args: '<substring>',  desc: 'Delete memories matching text' },
-  { cmd: '/competitor',args: '',             desc: 'Top-10 ASIN snapshot' },
   { cmd: '/watchdog',  args: '',             desc: 'Bot health + AI diagnosis' },
   { cmd: '/digest',    args: '',             desc: 'Today\'s per-bot summaries' },
   { cmd: '/bots',      args: '',             desc: 'List all FraqtoOS bots' },
@@ -1848,7 +1841,7 @@ updateTokenCounter();
 // ─────────────────────────────────────────────────────────────────
 // Slash commands → bot bridge
 // ─────────────────────────────────────────────────────────────────
-const BRIDGE_CMDS = ['competitor','watchdog','digest','bots','help'];
+const BRIDGE_CMDS = ['watchdog','digest','bots','help'];
 async function maybeHandleSlash(text) {
   if (!text.startsWith('/')) return false;
   var firstWord = text.slice(1).split(/\s+/)[0].toLowerCase();

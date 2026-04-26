@@ -151,8 +151,8 @@ CLASSIFY_PROMPT = """Classify the user's request into ONE category. Reply with o
 Categories:
 - code: programming, debugging, code review, regex, scripts
 - reasoning: math, logic, multi-step problem solving, hard analysis
-- finance: stocks, crypto, trading, accounting, BSR/Amazon analytics
-- copy: marketing copy, listings, descriptions, emails, polish
+- finance: stocks, crypto, trading, accounting, market analytics
+- copy: marketing copy, descriptions, emails, polish
 - long: needs >500 word output (reports, full essays, deep research)
 - general: general Q&A, simple chat, summaries, quick lookups
 
@@ -513,22 +513,6 @@ async def upload(req: Request, file: UploadFile = File(...)):
 
 
 # ─── Bot bridge ───────────────────────────────────────────────────────
-def _bridge_competitor() -> str:
-    import glob
-    snaps = sorted(glob.glob("/home/work/amazon-bot/logs/competitor_history/*.json"))
-    if not snaps:
-        return "No competitor snapshots yet."
-    latest = json.load(open(snaps[-1]))
-    rows = latest.get("rows", [])
-    out = [f"## Competitor Watch — {latest.get('date','?')} ('{latest.get('keyword','?')}')",
-           f"Top {len(rows)} organic ASINs:\n"]
-    for i, r in enumerate(rows, 1):
-        out.append(f"{i}. **{r.get('asin')}** — {(r.get('brand') or '?')[:30]} · "
-                   f"₹{r.get('price') or '?'} · {r.get('rating') or '?'}★ · "
-                   f"{int(r.get('reviews') or 0)} reviews · BSR #{r.get('bsr') or '?'}")
-    return "\n".join(out)
-
-
 def _bridge_watchdog() -> str:
     p = "/home/work/fraqtoos/logs/watchdog_latest.json"
     if not os.path.exists(p):
@@ -578,7 +562,6 @@ def _bridge_bots() -> str:
 
 def _bridge_help() -> str:
     return ("## Bot bridge commands\n"
-            "- `/competitor` — latest top-10 ASIN snapshot\n"
             "- `/watchdog` — bot health + AI diagnosis\n"
             "- `/digest` — today's per-bot summaries\n"
             "- `/bots` — orchestrator state\n"
@@ -586,7 +569,6 @@ def _bridge_help() -> str:
 
 
 _BRIDGE = {
-    "competitor": _bridge_competitor,
     "watchdog":   _bridge_watchdog,
     "digest":     _bridge_digest,
     "bots":       _bridge_bots,
