@@ -312,6 +312,7 @@ async def imagine_models():
         "sdxl":         f"{base}/checkpoints/sd_xl_base_1.0.safetensors",
         "sd15":         f"{base}/checkpoints/v1-5-pruned-emaonly.safetensors",
         "juggernaut":   f"{base}/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
+        "juggernaut-xi": f"{base}/checkpoints/Juggernaut-XI-v11.safetensors",
     }
     for name, path in checks.items():
         if os.path.exists(path) and os.path.getsize(path) > 1024*1024:
@@ -1058,6 +1059,8 @@ def _generate(prompt: str, model: str, steps, width: int, height: int, negative:
         wf = _build_sdxl_workflow("sd_xl_base_1.0.safetensors", prompt, negative, steps or 25, width, height)
     elif model == "juggernaut":
         wf = _build_sdxl_workflow("Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors", prompt, negative, steps or 25, width, height)
+    elif model == "juggernaut-xi":
+        wf = _build_sdxl_workflow("Juggernaut-XI-v11.safetensors", prompt, negative, steps or 30, width, height)
     elif model == "sd15":
         wf = _build_sd15_workflow("v1-5-pruned-emaonly.safetensors", prompt, negative, steps or 20, width, height)
     else:
