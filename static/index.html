@@ -1835,6 +1835,40 @@ async function safeJson(res) {
   try { return JSON.parse(text); }
   catch(e) { throw new Error('Bad JSON from server (HTTP '+res.status+'): '+text.slice(0,80)); }
 }
+// Stream reader for long-running image endpoints — reads NDJSON, ignores progress pings,
+// returns final result. Keeps connection alive through Cloudflare tunnel (avoids HTTP 524).
+async function readImageStream(res, progressEl) {
+  if (!res.ok || !res.body) {
+    var body = await res.text().catch(function(){ return ''; });
+    throw new Error('Server returned HTTP ' + res.status +
+      (body ? ' — ' + body.replace(/<[^>]*>/g,'').trim().slice(0,120) : ''));
+  }
+  var reader = res.body.getReader();
+  var decoder = new TextDecoder();
+  var buf = '';
+  var lastData = null;
+  while (true) {
+    var rd = await reader.read();
+    if (rd.done) break;
+    buf += decoder.decode(rd.value, {stream: true});
+    var lines = buf.split('\n');
+    buf = lines.pop();
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      var d;
+      try { d = JSON.parse(line); } catch(e) { continue; }
+      if (d.error) throw new Error(d.error);
+      if ('progress' in d) {
+        if (progressEl) progressEl.innerHTML = '<em style="color:var(--text3)">⏳ ' + d.progress + 's elapsed…</em>';
+      } else {
+        lastData = d;
+      }
+    }
+  }
+  if (!lastData) throw new Error('No response from image server');
+  return lastData;
+}
 function regenerate(){
   if(!lastUserMsg||isStreaming)return;
   if(history.length&&history[history.length-1].role==='assistant') history.pop();
@@ -2016,7 +2050,7 @@ async function generateImage() {
   try{
     var res=await fetch('/imagine',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prompt,image_model:imgMod,width:sizeVal,height:sizeVal,negative:negPmt})});
-    var data=await safeJson(res);
+    var data=await readImageStream(res, textEl);
     if(data.error){
       textEl.textContent='Error: '+data.error;
       history.push({role:'assistant', content:'[image error: '+data.error+']', model:imgMod});
@@ -2786,7 +2820,7 @@ sendMsg = async function() {
       fd.append('steps', '25');
       fd.append('weight', '1.0');
       var res = await fetch('/avatar',{method:'POST', body:fd});
-      var d = await safeJson(res);
+      var d = await readImageStream(res, textEl);
       removeTyping();
       if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Avatar failed: '+escHtml(d.error)+'</span>';
       else {
@@ -2824,7 +2858,7 @@ sendMsg = async function() {
       fd.append('prompt', text);
       fd.append('steps', '20');
       var res = await fetch('/edit-image', {method:'POST', body:fd});
-      var d = await safeJson(res);
+      var d = await readImageStream(res, textEl);
       removeTyping();
       if (d.error) {
         textEl.innerHTML = '<span style="color:#dc2626">Edit failed: '+escHtml(d.error)+'</span>';

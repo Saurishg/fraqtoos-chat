@@ -4,6 +4,7 @@ FraqtoOS Chat — Tailscale chatbot.
 Access: http://192.168.2.108:8080
 Supports: Ollama models + Claude API + FLUX.1-schnell image generation
 """
+import asyncio
 import json, os, requests, base64, uuid, time, sys, io, subprocess
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, UploadFile, File
@@ -254,6 +255,29 @@ self.addEventListener('fetch', e => {
     return Response(content=sw, media_type="application/javascript")
 
 
+async def _stream_image_job(fn):
+    """Run blocking fn() in a thread executor, yield NDJSON progress pings every 5s,
+    then yield the final result dict or an error dict as the last line."""
+    loop = asyncio.get_running_loop()
+    fut = loop.run_in_executor(None, fn)
+    tick = 0
+    while not fut.done():
+        tick += 1
+        yield json.dumps({"progress": tick * 5}) + "\n"
+        try:
+            await asyncio.wait_for(asyncio.shield(fut), timeout=5.0)
+        except asyncio.TimeoutError:
+            continue
+        except Exception:
+            break
+        else:
+            break
+    try:
+        yield json.dumps(fut.result()) + "\n"
+    except Exception as e:
+        yield json.dumps({"error": str(e)}) + "\n"
+
+
 @app.post("/imagine")
 async def imagine(req: Request):
     ip = req.client.host if req.client else "unknown"
@@ -272,11 +296,9 @@ async def imagine(req: Request):
     if not _comfyui_ready():
         return JSONResponse({"error": "Image generator not ready."}, 503)
 
-    try:
-        image_b64 = _generate(prompt, image_model, steps, width, height, negative)
-        return JSONResponse({"image": image_b64, "prompt": prompt, "model": image_model})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 500)
+    fn = lambda: {"image": _generate(prompt, image_model, steps, width, height, negative),
+                  "prompt": prompt, "model": image_model}
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
 @app.get("/imagine/models")
@@ -422,9 +444,10 @@ async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", s
         if len(face_b) > 12 * 1024 * 1024:
             return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
         fname  = face.filename or f"face_{int(time.time())}.png"
-        edited = _avatar_image(face_b, fname, prompt, max(8, min(int(steps), 40)),
-                                int(width), int(height), float(weight))
-        return JSONResponse({"image": edited, "prompt": prompt, "model": "pulid-flux"})
+        fn = lambda: {"image": _avatar_image(face_b, fname, prompt, max(8, min(int(steps), 40)),
+                                              int(width), int(height), float(weight)),
+                      "prompt": prompt, "model": "pulid-flux"}
+        return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
 
@@ -451,8 +474,9 @@ async def edit_image(req: Request, image: UploadFile = File(...), prompt: str = 
         if len(img_bytes) > 12 * 1024 * 1024:
             return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
         fname = image.filename or f"upload_{int(time.time())}.png"
-        edited = _edit_image(img_bytes, fname, prompt, max(4, min(steps, 40)))
-        return JSONResponse({"image": edited, "prompt": prompt, "model": "flux-kontext"})
+        fn = lambda: {"image": _edit_image(img_bytes, fname, prompt, max(4, min(steps, 40))),
+                      "prompt": prompt, "model": "flux-kontext"}
+        return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
 
