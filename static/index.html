@@ -1838,10 +1838,22 @@ async function safeJson(res) {
 // Stream reader for long-running image endpoints — reads NDJSON, ignores progress pings,
 // returns final result. Keeps connection alive through Cloudflare tunnel (avoids HTTP 524).
 async function readImageStream(res, progressEl) {
-  if (!res.ok || !res.body) {
+  // Non-2xx: extract error from JSON body or show status
+  if (!res.ok) {
     var body = await res.text().catch(function(){ return ''; });
-    throw new Error('Server returned HTTP ' + res.status +
-      (body ? ' — ' + body.replace(/<[^>]*>/g,'').trim().slice(0,120) : ''));
+    var msg;
+    try { var ed = JSON.parse(body); msg = ed.error || ed.detail || ('HTTP ' + res.status); }
+    catch(e) { msg = 'Server returned HTTP ' + res.status + (body ? ' — ' + body.replace(/<[^>]*>/g,'').trim().slice(0,100) : ''); }
+    throw new Error(msg);
+  }
+  // No ReadableStream (rare — some proxies buffer whole response): fall back to one-shot json parse
+  if (!res.body) {
+    var text = await res.text().catch(function(){ return ''; });
+    var lines = text.trim().split('\n');
+    for (var i = lines.length - 1; i >= 0; i--) {
+      try { var d = JSON.parse(lines[i].trim()); if (!('progress' in d)) { if (d.error) throw new Error(d.error); return d; } } catch(e2) { if (e2.message && !e2.message.startsWith('{')) throw e2; }
+    }
+    throw new Error('No image data received');
   }
   var reader = res.body.getReader();
   var decoder = new TextDecoder();
@@ -1866,7 +1878,7 @@ async function readImageStream(res, progressEl) {
       }
     }
   }
-  if (!lastData) throw new Error('No response from image server');
+  if (!lastData) throw new Error('No image data received');
   return lastData;
 }
 function regenerate(){
