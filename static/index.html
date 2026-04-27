@@ -3063,15 +3063,18 @@ window.addEventListener('drop', async function(e){
   e.preventDefault();
   _dragDepth = 0; dropOverlay.classList.remove('show');
   var files = [];
-  // items covers both OS file drags and image drags from other browser windows
+  // Try items first (works for browser-to-browser drags)
   if (e.dataTransfer.items && e.dataTransfer.items.length) {
     for (var i = 0; i < e.dataTransfer.items.length; i++) {
       var item = e.dataTransfer.items[i];
       if (item.kind === 'file') { var f = item.getAsFile(); if (f) files.push(f); }
     }
-  } else if (e.dataTransfer.files && e.dataTransfer.files.length) {
+  }
+  // Fall back to .files (more reliable for OS file manager drags on Linux)
+  if (!files.length && e.dataTransfer.files && e.dataTransfer.files.length) {
     for (var i = 0; i < e.dataTransfer.files.length; i++) files.push(e.dataTransfer.files[i]);
   }
+  if (!files.length) { alert('Could not read dropped file — try the 📎 button instead.'); return; }
   for (var i = 0; i < files.length; i++) await attachFromFile(files[i]);
 });
 input.addEventListener('paste', async function(e){
