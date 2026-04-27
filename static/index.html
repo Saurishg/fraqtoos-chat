@@ -3040,20 +3040,39 @@ async function doConvSearch(q) {
 // ─────────────────────────────────────────────────────────────────
 const dropOverlay = document.getElementById('drop-overlay');
 let _dragDepth = 0;
+
+function _hasFiles(e) {
+  if (!e.dataTransfer) return false;
+  var types = Array.from(e.dataTransfer.types || []);
+  return types.some(function(t){ return t.toLowerCase() === 'files'; });
+}
+
 window.addEventListener('dragenter', function(e){
-  if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+  if (!_hasFiles(e)) return;
   _dragDepth++; dropOverlay.classList.add('show');
 });
 window.addEventListener('dragleave', function(){
-  _dragDepth = Math.max(0, _dragDepth-1);
+  _dragDepth = Math.max(0, _dragDepth - 1);
   if (_dragDepth === 0) dropOverlay.classList.remove('show');
 });
-window.addEventListener('dragover', function(e){ e.preventDefault(); });
+window.addEventListener('dragover', function(e){
+  if (_hasFiles(e)) e.preventDefault();
+});
 window.addEventListener('drop', async function(e){
+  if (!_hasFiles(e)) return;
   e.preventDefault();
   _dragDepth = 0; dropOverlay.classList.remove('show');
-  if (!e.dataTransfer || !e.dataTransfer.files) return;
-  for (var i = 0; i < e.dataTransfer.files.length; i++) await attachFromFile(e.dataTransfer.files[i]);
+  var files = [];
+  // items covers both OS file drags and image drags from other browser windows
+  if (e.dataTransfer.items && e.dataTransfer.items.length) {
+    for (var i = 0; i < e.dataTransfer.items.length; i++) {
+      var item = e.dataTransfer.items[i];
+      if (item.kind === 'file') { var f = item.getAsFile(); if (f) files.push(f); }
+    }
+  } else if (e.dataTransfer.files && e.dataTransfer.files.length) {
+    for (var i = 0; i < e.dataTransfer.files.length; i++) files.push(e.dataTransfer.files[i]);
+  }
+  for (var i = 0; i < files.length; i++) await attachFromFile(files[i]);
 });
 input.addEventListener('paste', async function(e){
   if (!e.clipboardData) return;
