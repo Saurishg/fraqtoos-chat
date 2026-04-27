@@ -2460,7 +2460,7 @@ async function classifyAndRoute(text) {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({text: text.slice(0, 1500)})
     });
-    var d = await r.json();
+    var d = await safeJson(r);
     return d; // {category, model}
   } catch(e) { return {category:'general', model:'phi4'}; }
 }
@@ -2997,7 +2997,7 @@ async function maybeAutoTitle() {
   _titleAttempted.add(currentConvId);
   try {
     var r = await fetch('/conversations/'+encodeURIComponent(currentConvId)+'/autotitle', {method:'POST'});
-    var d = await r.json();
+    var d = await safeJson(r);
     if (d.title) {
       currentConvTitle = d.title;
       fetchConvList();
