@@ -15,7 +15,5 @@ if comfyui_url:
 
 msg = "\n\n".join(lines)
 
-NUMBERS = [None, "+919821777908"]
-for phone in NUMBERS:
-    ok = send(msg, phone=phone) if phone else send(msg)
-    print(f"WhatsApp {'sent' if ok else 'FAILED'}: {phone or 'default'}")
+ok = send(msg)
+print(f"WhatsApp {'sent' if ok else 'FAILED'}: default")
