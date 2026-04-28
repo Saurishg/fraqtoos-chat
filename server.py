@@ -238,7 +238,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/gpu','/memory','/suggest',
-    '/edit-image','/face-swap','/avatar','/mimic-motion','/manifest.json'];
+    '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
@@ -455,6 +455,8 @@ async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", s
 
 MIMIC_VENV_PYTHON = "/home/work/MimicMotion/venv/bin/python"
 MIMIC_SCRIPT      = "/home/work/MimicMotion/run_api.py"
+AA_VENV_PYTHON    = "/home/work/AnimateAnyone/venv/bin/python"
+AA_SCRIPT         = "/home/work/AnimateAnyone/run_api.py"
 
 
 def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
@@ -533,6 +535,86 @@ async def mimic_motion_endpoint(req: Request, avatar: UploadFile = File(...), dr
                                     num_frames=num_frames, resolution=resolution, fps=fps,
                                     steps=steps, guidance=guidance, stride=stride),
         "model": "mimic-motion"
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+def _run_animate_anyone(avatar_bytes: bytes, avatar_name: str,
+                         driving_bytes: bytes, driving_name: str,
+                         width: int = 512, height: int = 784,
+                         chunk: int = 16, steps: int = 20,
+                         cfg: float = 3.5, fps: int = 30) -> str:
+    """Run AnimateAnyone in its own venv; return base64-encoded mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="aa_")
+    try:
+        avatar_path  = os.path.join(tmp, avatar_name)
+        driving_path = os.path.join(tmp, driving_name)
+        output_path  = os.path.join(tmp, "output.mp4")
+        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
+        with open(driving_path, "wb") as f: f.write(driving_bytes)
+        cmd = [
+            AA_VENV_PYTHON, AA_SCRIPT,
+            "--image",  avatar_path,
+            "--video",  driving_path,
+            "--output", output_path,
+            "--width",  str(width),
+            "--height", str(height),
+            "--chunk",  str(chunk),
+            "--steps",  str(steps),
+            "--cfg",    str(cfg),
+            "--fps",    str(fps),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "AnimateAnyone failed")[-1000:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("AnimateAnyone produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/animate-anyone")
+async def animate_anyone_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
+    """Animate `avatar` image with `driving` video via AnimateAnyone. Returns NDJSON → {video: base64_mp4}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(AA_VENV_PYTHON):
+        return JSONResponse({"error": "AnimateAnyone venv not found — check /home/work/AnimateAnyone/venv/"}, 503)
+
+    form = await req.form()
+    try:    width  = int(form.get("width")  or 512)
+    except (ValueError, TypeError): width  = 512
+    try:    height = int(form.get("height") or 784)
+    except (ValueError, TypeError): height = 784
+    try:    chunk  = max(8, min(int(form.get("chunk") or 16), 32))
+    except (ValueError, TypeError): chunk  = 16
+    try:    steps  = max(10, min(int(form.get("steps") or 20), 40))
+    except (ValueError, TypeError): steps  = 20
+    try:    cfg    = float(form.get("cfg") or 3.5)
+    except (ValueError, TypeError): cfg    = 3.5
+    try:    fps    = max(8, min(int(form.get("fps") or 30), 60))
+    except (ValueError, TypeError): fps    = 30
+
+    avatar_bytes  = await avatar.read()
+    driving_bytes = await driving.read()
+
+    if len(avatar_bytes) > 12 * 1024 * 1024:
+        return JSONResponse({"error": "avatar image too large (max 12 MB)"}, 413)
+    if len(driving_bytes) > 200 * 1024 * 1024:
+        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
+
+    avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
+    driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
+
+    fn = lambda: {
+        "video": _run_animate_anyone(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                      width=width, height=height, chunk=chunk,
+                                      steps=steps, cfg=cfg, fps=fps),
+        "model": "animate-anyone"
     }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 

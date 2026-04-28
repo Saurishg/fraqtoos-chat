@@ -2176,8 +2176,16 @@ function renderAttachRow() {
         renderAttachRow();
       };
     } else if (a.kind === 'video') {
+      a.animMode = a.animMode || 'mimic';
       var mb = (a.size / 1024 / 1024).toFixed(1);
-      chip.innerHTML = '<span>🎬 '+escHtml(a.name)+' <span style="color:var(--text3)">('+mb+'MB)</span></span><span class="x">×</span>';
+      var modeLabel = a.animMode === 'mimic' ? '🎬 MimicMotion' : '🕺 AnimateAnyone';
+      var modeBg    = a.animMode === 'mimic' ? '#b45309' : '#0e7490';
+      chip.innerHTML = '<span style="cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;background:'+modeBg+';color:#fff" class="anim-mode-toggle" title="Click to switch animation model">'+modeLabel+'</span>'
+        + ' <span>'+escHtml(a.name)+' <span style="color:var(--text3)">('+mb+'MB)</span></span><span class="x">×</span>';
+      chip.querySelector('.anim-mode-toggle').onclick = function(){
+        a.animMode = a.animMode === 'mimic' ? 'animateanyone' : 'mimic';
+        renderAttachRow();
+      };
     } else {
       chip.innerHTML = '<span>📄 '+escHtml(a.name)+' <span style="color:var(--text3)">('+a.chars+'c)</span></span><span class="x">×</span>';
     }
@@ -2884,18 +2892,23 @@ sendMsg = async function() {
     return;
   }
 
-  // 2b-2) MimicMotion: avatar image + driving video → /mimic-motion
+  // 2b-2) Animation: avatar image + driving video → MimicMotion or AnimateAnyone
   var videoAttach = attachments.find(function(a){ return a.kind === 'video'; });
   var mimicAvatar = imgAttach.find(function(a){ return a.mode === 'avatar'; });
   if (mimicAvatar && videoAttach) {
-    addUserMsg('🎬 MimicMotion: '+mimicAvatar.name+' + '+videoAttach.name);
-    history.push({role:'user', content:'[mimic-motion: avatar='+mimicAvatar.name+' driving='+videoAttach.name+']'});
+    var useAA = (videoAttach.animMode === 'animateanyone');
+    var apiEndpoint = useAA ? '/animate-anyone' : '/mimic-motion';
+    var modelLabel  = useAA ? 'animate-anyone' : 'mimic-motion';
+    var modelEmoji  = useAA ? '🕺' : '🎬';
+    var estTime     = useAA ? '3-8 min' : '2-5 min';
+    addUserMsg(modelEmoji+' '+modelLabel+': '+mimicAvatar.name+' + '+videoAttach.name);
+    history.push({role:'user', content:'['+modelLabel+': avatar='+mimicAvatar.name+' driving='+videoAttach.name+']'});
     input.value=''; input.style.height='52px';
     attachments=[]; renderAttachRow(); updateTokenCounter();
     addTyping(); isStreaming=true;
     sendBtn.innerHTML='&#9632;'; sendBtn.className='stop-mode';
-    var {textEl,statsEl} = addBotMsg('mimic-motion');
-    textEl.innerHTML = '<em style="color:var(--text3)">⏳ Extracting pose + running MimicMotion (~2-5 min)…</em>';
+    var {textEl,statsEl} = addBotMsg(modelLabel);
+    textEl.innerHTML = '<em style="color:var(--text3)">⏳ Extracting pose + running '+modelLabel+' (~'+estTime+')…</em>';
     var t0 = Date.now();
     try {
       var fd = new FormData();
@@ -2903,21 +2916,24 @@ sendMsg = async function() {
       for(var i=0;i<binA.length;i++) uA[i]=binA.charCodeAt(i);
       fd.append('avatar', new Blob([uA],{type:'image/'+mimicAvatar.ext}), mimicAvatar.name);
       fd.append('driving', videoAttach.file, videoAttach.name);
-      fd.append('num_frames', '16');
-      fd.append('steps', '25');
-      var res = await fetch('/mimic-motion', {method:'POST', body:fd});
+      if (useAA) {
+        fd.append('steps', '20'); fd.append('chunk', '16'); fd.append('cfg', '3.5');
+      } else {
+        fd.append('num_frames', '16'); fd.append('steps', '25');
+      }
+      var res = await fetch(apiEndpoint, {method:'POST', body:fd});
       var d = await readImageStream(res, textEl);
       removeTyping();
       if (d.error) {
-        textEl.innerHTML = '<span style="color:#dc2626">MimicMotion failed: '+escHtml(d.error)+'</span>';
+        textEl.innerHTML = '<span style="color:#dc2626">'+modelLabel+' failed: '+escHtml(d.error)+'</span>';
       } else {
         var vsrc = 'data:video/mp4;base64,'+d.video;
-        textEl.innerHTML = _videoHtml(vsrc, 'mimic-'+Date.now()+'.mp4');
-        textEl._rawText = '[mimic-motion video]';
+        textEl.innerHTML = _videoHtml(vsrc, modelLabel+'-'+Date.now()+'.mp4');
+        textEl._rawText = '['+modelLabel+' video]';
       }
-      history.push({role:'assistant', content:'[mimic-motion returned]'});
-      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · mimic-motion';
-    } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">MimicMotion error: '+escHtml(e.message)+'</span>'; }
+      history.push({role:'assistant', content:'['+modelLabel+' returned]'});
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · '+modelLabel;
+    } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">'+modelLabel+' error: '+escHtml(e.message)+'</span>'; }
     finishStream(); autoPersist(); maybeAutoTitle(); updateTokenCounter();
     return;
   }
@@ -2970,7 +2986,7 @@ sendMsg = async function() {
 
   // 2d) Stray video attachment — no avatar image in avatar mode
   if (videoAttach) {
-    alert('MimicMotion: also attach an image and set it to 🪄 Avatar mode, then press Send.');
+    alert('Animation: also attach an image, click its badge to set it to 🪄 Avatar mode, then press Send.\n\nThe video chip badge toggles between 🎬 MimicMotion and 🕺 AnimateAnyone.');
     return;
   }
 
