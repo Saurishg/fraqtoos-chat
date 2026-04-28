@@ -431,9 +431,9 @@ async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", s
         form = await req.form()
         prompt = (form.get("prompt") or "").strip()
         try:    steps = int(form.get("steps") or steps)
-        except: pass
+        except (ValueError, TypeError): pass
         try:    weight = float(form.get("weight") or weight)
-        except: pass
+        except (ValueError, TypeError): pass
     if not prompt:
         return JSONResponse({"error": "prompt required"}, 400)
     if not _comfyui_ready():
@@ -463,7 +463,7 @@ async def edit_image(req: Request, image: UploadFile = File(...), prompt: str = 
         form = await req.form()
         prompt = (form.get("prompt") or "").strip()
         try:    steps = int(form.get("steps") or steps)
-        except: pass
+        except (ValueError, TypeError): pass
     if not prompt:
         return JSONResponse({"error": "prompt required"}, 400)
     if not _comfyui_ready():
@@ -993,7 +993,7 @@ async def health():
     try:
         r = requests.get(f"{OLLAMA}/api/tags", timeout=3)
         models = [m["name"] for m in r.json().get("models", [])]
-    except:
+    except Exception:
         models = []
     return {
         "status":        "ok",

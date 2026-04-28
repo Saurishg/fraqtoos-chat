@@ -996,6 +996,7 @@
           </select>
         </div>
         <div id="actions-right">
+          <span id="char-counter" style="font-size:11px;color:var(--text3);display:none"></span>
           <button id="img-btn" onclick="generateImage()" title="Generate Image">🎨</button>
           <button id="send-btn" onclick="sendOrStop()">&#9654;</button>
         </div>
@@ -1359,6 +1360,10 @@ fetch('/imagine/models').then(r=>r.json()).then(function(d) {
 input.addEventListener('input', function() {
   input.style.height='auto';
   input.style.height=Math.min(input.scrollHeight,200)+'px';
+  var cc = document.getElementById('char-counter');
+  var len = input.value.length;
+  if (len > 0) { cc.textContent = len > 999 ? (len/1000).toFixed(1)+'k' : len; cc.style.display='inline'; }
+  else { cc.style.display='none'; }
 });
 input.addEventListener('keydown', function(e) {
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sendOrStop();}
@@ -1936,7 +1941,7 @@ async function sendMsg() {
     history.push({role:'assistant', content:full, model:currentModel});
   } catch(e) {
     removeTyping();
-    if(e.name!=='AbortError') textEl.textContent='Network error: '+e.message;
+    if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
     else{textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;}
   }
   finishStream();
@@ -2089,6 +2094,18 @@ async function generateImage() {
 function openLightbox(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
 function downloadImg(img){var a=document.createElement('a');a.href=img.src;a.download='fraqtoos-'+Date.now()+'.png';a.click();}
+function _imgHtml(src, alt) {
+  alt = alt || '';
+  return '<img class="gen-img" src="'+src+'" alt="'+escHtml(alt)+'" onclick="openLightbox(this.src)">'
+    +'<div class="img-actions">'
+    +'<button class="icon-btn" onclick="downloadImg(this.closest(\'.img-actions\').previousElementSibling)" title="Download">↓ Save</button>'
+    +'<button class="icon-btn" onclick="openLightbox(this.closest(\'.img-actions\').previousElementSibling.src)" title="Fullscreen">⛶ Full</button>'
+    +'</div>';
+}
+function showErrorWithRetry(textEl, message) {
+  textEl.innerHTML = '<span style="color:var(--text3)">'+escHtml(message)+'</span>'
+    +' <button onclick="regenerate()" style="margin-left:8px;padding:2px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;font-size:12px">↩ Retry</button>';
+}
 
 // /image shortcut
 document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown',function(e){
@@ -2801,7 +2818,7 @@ sendMsg = async function() {
       removeTyping();
       if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Swap failed: '+escHtml(d.error)+'</span>';
       else {
-        textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        textEl.innerHTML = _imgHtml('data:image/png;base64,'+d.image);
         textEl._rawText='[face-swap result]';
       }
       history.push({role:'assistant', content:'[face-swap returned]'});
@@ -2837,7 +2854,7 @@ sendMsg = async function() {
       removeTyping();
       if (d.error) textEl.innerHTML = '<span style="color:#dc2626">Avatar failed: '+escHtml(d.error)+'</span>';
       else {
-        textEl.innerHTML = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        textEl.innerHTML = _imgHtml('data:image/png;base64,'+d.image);
         textEl._rawText='[avatar result]';
       }
       history.push({role:'assistant', content:'[avatar returned]'});
@@ -2876,7 +2893,7 @@ sendMsg = async function() {
       if (d.error) {
         textEl.innerHTML = '<span style="color:#dc2626">Edit failed: '+escHtml(d.error)+'</span>';
       } else {
-        var html = '<img src="data:image/png;base64,'+d.image+'" style="max-width:100%;border-radius:8px;cursor:pointer" onclick="window.open(this.src)">';
+        var html = _imgHtml('data:image/png;base64,'+d.image);
         textEl.innerHTML = html;
         textEl._rawText = '[edited image]';
       }
@@ -2959,7 +2976,7 @@ sendMsg = async function() {
       history.push({role:'assistant', content:full, model:currentModel});
     } catch(e) {
       removeTyping();
-      if(e.name!=='AbortError') textEl.textContent='Network error: '+e.message;
+      if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
       else{textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;}
     }
     finishStream();
@@ -3244,7 +3261,11 @@ function closeFeaturesModal() {
   document.getElementById('features-modal').classList.remove('open');
 }
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeFeaturesModal();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('features-modal').classList.contains('open')) { closeFeaturesModal(); return; }
+  if (document.getElementById('star-modal').classList.contains('open'))     { closeStarModal();     return; }
+  if (document.getElementById('prompt-modal').classList.contains('open'))   { closePromptLib();     return; }
+  if (document.getElementById('mem-modal').classList.contains('open'))      { closeMemoryModal();   return; }
 });
 </script>
 </body>
