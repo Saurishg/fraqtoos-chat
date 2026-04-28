@@ -238,7 +238,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/gpu','/memory','/suggest',
-    '/edit-image','/face-swap','/avatar','/manifest.json'];
+    '/edit-image','/face-swap','/avatar','/mimic-motion','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
@@ -451,6 +451,90 @@ async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", s
         return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
+
+
+MIMIC_VENV_PYTHON = "/home/work/MimicMotion/venv/bin/python"
+MIMIC_SCRIPT      = "/home/work/MimicMotion/run_api.py"
+
+
+def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
+                       driving_bytes: bytes, driving_name: str,
+                       num_frames: int = 16, resolution: int = 576,
+                       fps: int = 15, steps: int = 25,
+                       guidance: float = 2.0, stride: int = 2) -> str:
+    """Run MimicMotion in its own venv; return base64-encoded mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="mimic_")
+    try:
+        avatar_path  = os.path.join(tmp, avatar_name)
+        driving_path = os.path.join(tmp, driving_name)
+        output_path  = os.path.join(tmp, "output.mp4")
+        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
+        with open(driving_path, "wb") as f: f.write(driving_bytes)
+        cmd = [
+            MIMIC_VENV_PYTHON, MIMIC_SCRIPT,
+            "--image",      avatar_path,
+            "--video",      driving_path,
+            "--output",     output_path,
+            "--num_frames", str(num_frames),
+            "--resolution", str(resolution),
+            "--fps",        str(fps),
+            "--steps",      str(steps),
+            "--guidance",   str(guidance),
+            "--stride",     str(stride),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "MimicMotion failed")[-1000:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("MimicMotion produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/mimic-motion")
+async def mimic_motion_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
+    """Animate `avatar` image with `driving` video via MimicMotion. Returns NDJSON → {video: base64_mp4}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(MIMIC_VENV_PYTHON):
+        return JSONResponse({"error": "MimicMotion venv not found — check /home/work/MimicMotion/venv/"}, 503)
+
+    form = await req.form()
+    try:    num_frames = max(8, min(int(form.get("num_frames") or 16), 72))
+    except (ValueError, TypeError): num_frames = 16
+    try:    resolution = int(form.get("resolution") or 576)
+    except (ValueError, TypeError): resolution = 576
+    try:    fps = max(8, min(int(form.get("fps") or 15), 30))
+    except (ValueError, TypeError): fps = 15
+    try:    steps = max(8, min(int(form.get("steps") or 25), 50))
+    except (ValueError, TypeError): steps = 25
+    try:    guidance = float(form.get("guidance") or 2.0)
+    except (ValueError, TypeError): guidance = 2.0
+    try:    stride = max(1, min(int(form.get("stride") or 2), 4))
+    except (ValueError, TypeError): stride = 2
+
+    avatar_bytes  = await avatar.read()
+    driving_bytes = await driving.read()
+
+    if len(avatar_bytes) > 12 * 1024 * 1024:
+        return JSONResponse({"error": "avatar image too large (max 12 MB)"}, 413)
+    if len(driving_bytes) > 200 * 1024 * 1024:
+        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
+
+    avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
+    driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
+
+    fn = lambda: {
+        "video": _run_mimic_motion(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                    num_frames=num_frames, resolution=resolution, fps=fps,
+                                    steps=steps, guidance=guidance, stride=stride),
+        "model": "mimic-motion"
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
 @app.post("/edit-image")

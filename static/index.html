@@ -976,10 +976,12 @@
       <div id="input-bottom">
         <button class="tool-btn" id="web-toggle" onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
         <button class="tool-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file (txt/md/pdf/code)">📎</button>
+        <button class="tool-btn" id="mimic-btn" onclick="document.getElementById('video-input').click()" title="Attach driving video for MimicMotion (also attach an avatar image)">🎬</button>
         <button class="tool-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
         <button class="tool-btn" id="qa-toggle" onclick="toggleQuickActions()" title="Quick Actions">⚡</button>
         <button id="temp-btn" onclick="cycleTemp()" title="Model temperature — click to cycle">🌡 Balanced</button>
         <input type="file" id="file-input" style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
+        <input type="file" id="video-input" style="display:none" accept="video/*" onchange="handleVideoAttach(event)">
         <div id="img-controls">
           <select id="img-model" class="ctrl-select" title="Image model">
             <option value="flux-schnell">FLUX Schnell ⚡</option>
@@ -2173,6 +2175,9 @@ function renderAttachRow() {
         a.edit = (a.mode === 'edit');
         renderAttachRow();
       };
+    } else if (a.kind === 'video') {
+      var mb = (a.size / 1024 / 1024).toFixed(1);
+      chip.innerHTML = '<span>🎬 '+escHtml(a.name)+' <span style="color:var(--text3)">('+mb+'MB)</span></span><span class="x">×</span>';
     } else {
       chip.innerHTML = '<span>📄 '+escHtml(a.name)+' <span style="color:var(--text3)">('+a.chars+'c)</span></span><span class="x">×</span>';
     }
@@ -2204,6 +2209,21 @@ async function handleFileAttach(ev) {
   var files = ev.target.files;
   for (var i = 0; i < files.length; i++) await attachFromFile(files[i]);
   ev.target.value = '';
+}
+function handleVideoAttach(ev) {
+  var file = ev.target.files[0]; ev.target.value = '';
+  if (!file) return;
+  if (file.size > 200 * 1024 * 1024) { alert('Video too large (max 200 MB): ' + file.name); return; }
+  // Remove any previous video attachment
+  attachments = attachments.filter(function(a){ return a.kind !== 'video'; });
+  attachments.push({kind: 'video', name: file.name, size: file.size, file: file});
+  renderAttachRow(); updateTokenCounter();
+}
+function _videoHtml(src, filename) {
+  return '<video controls style="max-width:100%;border-radius:8px;margin-top:4px" src="'+src+'"></video>'
+    +'<div class="img-actions">'
+    +'<a href="'+src+'" download="'+escHtml(filename||'mimic-motion.mp4')+'" class="icon-btn" style="text-decoration:none">↓ Save</a>'
+    +'</div>';
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2864,6 +2884,44 @@ sendMsg = async function() {
     return;
   }
 
+  // 2b-2) MimicMotion: avatar image + driving video → /mimic-motion
+  var videoAttach = attachments.find(function(a){ return a.kind === 'video'; });
+  var mimicAvatar = imgAttach.find(function(a){ return a.mode === 'avatar'; });
+  if (mimicAvatar && videoAttach) {
+    addUserMsg('🎬 MimicMotion: '+mimicAvatar.name+' + '+videoAttach.name);
+    history.push({role:'user', content:'[mimic-motion: avatar='+mimicAvatar.name+' driving='+videoAttach.name+']'});
+    input.value=''; input.style.height='52px';
+    attachments=[]; renderAttachRow(); updateTokenCounter();
+    addTyping(); isStreaming=true;
+    sendBtn.innerHTML='&#9632;'; sendBtn.className='stop-mode';
+    var {textEl,statsEl} = addBotMsg('mimic-motion');
+    textEl.innerHTML = '<em style="color:var(--text3)">⏳ Extracting pose + running MimicMotion (~2-5 min)…</em>';
+    var t0 = Date.now();
+    try {
+      var fd = new FormData();
+      var binA=atob(mimicAvatar.image_b64), uA=new Uint8Array(binA.length);
+      for(var i=0;i<binA.length;i++) uA[i]=binA.charCodeAt(i);
+      fd.append('avatar', new Blob([uA],{type:'image/'+mimicAvatar.ext}), mimicAvatar.name);
+      fd.append('driving', videoAttach.file, videoAttach.name);
+      fd.append('num_frames', '16');
+      fd.append('steps', '25');
+      var res = await fetch('/mimic-motion', {method:'POST', body:fd});
+      var d = await readImageStream(res, textEl);
+      removeTyping();
+      if (d.error) {
+        textEl.innerHTML = '<span style="color:#dc2626">MimicMotion failed: '+escHtml(d.error)+'</span>';
+      } else {
+        var vsrc = 'data:video/mp4;base64,'+d.video;
+        textEl.innerHTML = _videoHtml(vsrc, 'mimic-'+Date.now()+'.mp4');
+        textEl._rawText = '[mimic-motion video]';
+      }
+      history.push({role:'assistant', content:'[mimic-motion returned]'});
+      statsEl.textContent = ((Date.now()-t0)/1000).toFixed(1)+'s · mimic-motion';
+    } catch(e) { removeTyping(); textEl.innerHTML='<span style="color:#dc2626">MimicMotion error: '+escHtml(e.message)+'</span>'; }
+    finishStream(); autoPersist(); maybeAutoTitle(); updateTokenCounter();
+    return;
+  }
+
   // 2c) Image-edit short-circuit: any image with mode='edit' → FLUX Kontext
   var editImg = imgAttach.find(function(a){ return a.mode==='edit' || a.edit; });
   if (editImg && text) {
@@ -2907,6 +2965,12 @@ sendMsg = async function() {
     autoPersist();
     maybeAutoTitle();
     updateTokenCounter();
+    return;
+  }
+
+  // 2d) Stray video attachment — no avatar image in avatar mode
+  if (videoAttach) {
+    alert('MimicMotion: also attach an image and set it to 🪄 Avatar mode, then press Send.');
     return;
   }
 
