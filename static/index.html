@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#cc7722">
+<meta name="theme-color" content="#e8952a">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/static/icon-192.png">
 <link rel="apple-touch-icon" href="/static/icon-192.png">
@@ -11,885 +11,702 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <title>FraqtoOS Chat</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
 
-  :root {
-    --bg:        #1a1917;
-    --sidebar:   #211f1c;
-    --surface:   #2a2825;
-    --surface2:  #323027;
-    --border:    #3a3835;
-    --text:      #e8e6e1;
-    --text2:     #a09d97;
-    --text3:     #6b6864;
-    --accent:    #cc7722;
-    --accent2:   #e8913a;
-    --user-bg:   #cc7722;
-    --user-text: #fff;
-    --claude-accent: #8b5cf6;
-    --green:     #2d6a4f;
-    --radius:    12px;
-    --bg3:       #3a3835;
-  }
+:root {
+  --bg:        #0e0d0c;
+  --sidebar:   #131210;
+  --surface:   #1d1b18;
+  --surface2:  #252220;
+  --border:    #2e2b27;
+  --text:      #e8e5de;
+  --text2:     #a09d96;
+  --text3:     #5e5c57;
+  --accent:    #e8952a;
+  --accent2:   #f5a83f;
+  --user-bg:   #e8952a;
+  --user-text: #fff;
+  --claude-accent: #7c3aed;
+  --green:     #166534;
+  --red:       #991b1b;
+  --radius:    12px;
+  --bg3:       #302d28;
+  --fs:        15px;
+}
 
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; height: 100vh; display: flex; overflow: hidden; font-size: 15px; -webkit-tap-highlight-color: transparent; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Inter','Segoe UI',sans-serif;
+  height: 100vh; display: flex; overflow: hidden;
+  font-size: var(--fs); -webkit-tap-highlight-color: transparent;
+}
 
-  /* ── SIDEBAR ── */
-  #sidebar {
-    width: 260px; min-width: 260px; background: var(--sidebar);
-    border-right: 1px solid var(--border); display: flex; flex-direction: column;
-    padding: 16px 12px; gap: 6px; overflow-y: auto;
-  }
-  #sidebar-logo {
-    display: flex; align-items: center; gap: 10px; padding: 8px 10px 16px;
-    border-bottom: 1px solid var(--border); margin-bottom: 4px;
-  }
-  #sidebar-logo .logo-icon {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
-  }
-  #sidebar-logo span { font-size: 15px; font-weight: 600; color: var(--text); }
+/* ─── SIDEBAR ─────────────────────────── */
+#sidebar {
+  width: 268px; min-width: 268px; background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+  transition: width .22s ease, min-width .22s ease;
+}
+#sidebar::-webkit-scrollbar { width: 3px; }
+#sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-  .sidebar-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 10px 4px; }
+#sidebar-logo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 14px 13px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.logo-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0; color: #fff; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(232,149,42,.3);
+}
+.logo-text { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+.logo-sub  { font-size: 10px; color: var(--text3); margin-top: 1px; }
 
-  .model-btn {
-    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-    border-radius: 8px; cursor: pointer; border: 1px solid transparent;
-    background: none; color: var(--text2); font-size: 13px; text-align: left; width: 100%;
-    transition: all 0.15s;
-  }
-  .model-btn:hover { background: var(--surface); color: var(--text); }
-  .model-btn.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
-  .model-btn .model-dot {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-    background: var(--text3);
-  }
-  .model-btn.active .model-dot { background: var(--accent2); }
-  .model-btn .model-info { display: flex; flex-direction: column; min-width: 0; }
-  .model-btn .model-name { font-weight: 500; color: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .model-btn .model-size { font-size: 11px; color: var(--text3); }
-  .model-btn.claude-model.active .model-dot { background: var(--claude-accent); }
+.sb-section { padding: 12px 10px 4px; }
+.sb-label {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 0 4px; margin-bottom: 4px;
+}
 
-  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+.model-btn {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px; border-radius: 8px;
+  cursor: pointer; border: 1px solid transparent;
+  background: none; color: var(--text2); font-size: 13px;
+  text-align: left; width: 100%; transition: all .12s;
+}
+.model-btn:hover { background: var(--surface); color: var(--text); }
+.model-btn.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
+.model-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex-shrink: 0; background: var(--text3); transition: background .2s;
+}
+.model-btn.active .model-dot { background: var(--accent2); box-shadow: 0 0 6px rgba(232,149,42,.5); }
+.model-btn.auto-model.active .model-dot { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); }
+.model-btn.claude-model.active .model-dot { background: var(--claude-accent); }
+.model-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.model-name { font-weight: 500; color: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.model-size { font-size: 10.5px; color: var(--text3); margin-top: 1px; }
 
-  .sidebar-action {
-    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-    border-radius: 8px; cursor: pointer; color: var(--text2); font-size: 13px; border: none; background: none; text-align: left; width: 100%;
-  }
-  .sidebar-action:hover { background: var(--surface); color: var(--text); }
+.sb-divider { height: 1px; background: var(--border); margin: 4px 10px; }
 
-  /* ── MAIN ── */
-  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-width: 0; }
+.sidebar-action {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+  color: var(--text2); font-size: 13px;
+  border: none; background: none; text-align: left; width: 100%;
+  margin-bottom: 1px; transition: all .12s;
+}
+.sidebar-action:hover { background: var(--surface); color: var(--text); }
+.sa-icon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
 
-  /* top bar */
-  #topbar {
-    padding: 12px 24px; display: flex; align-items: center; gap: 12px;
-    border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0;
-  }
-  #current-model-label {
-    font-size: 14px; font-weight: 500; color: var(--text);
-    display: flex; align-items: center; gap: 8px;
-  }
-  #current-model-label .badge {
-    font-size: 11px; background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text2); padding: 2px 8px; border-radius: 20px;
-  }
-  #topbar-actions { margin-left: auto; display: flex; gap: 6px; }
-  .icon-btn {
-    background: none; border: 1px solid var(--border); color: var(--text2);
-    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px;
-  }
-  .icon-btn:hover { background: var(--surface); color: var(--text); }
-  #ctx-btn { border-color: var(--surface2); color: var(--text3); font-size: 11px; }
-  #ctx-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.08); }
-  #compact-btn.on { background: var(--surface2); color: var(--accent2); border-color: var(--accent); }
+.conv-section { padding: 6px 10px; }
+.conv-list { display: flex; flex-direction: column; gap: 1px; max-height: 300px; overflow-y: auto; }
+.conv-list::-webkit-scrollbar { width: 3px; }
+.conv-list::-webkit-scrollbar-thumb { background: var(--border); }
 
-  /* ── COMPACT MODE ── */
-  body.compact #chat { padding: 12px 0 8px; }
-  body.compact .chat-inner { padding: 0 16px; }
-  body.compact .msg-group { padding: 2px 0; margin-bottom: 1px; }
-  body.compact .user-bubble { padding: 7px 12px; font-size: 14px; }
-  body.compact .bot-text { font-size: 14px; line-height: 1.55; }
-  body.compact .bot-avatar { width: 26px; height: 26px; font-size: 12px; }
-  body.compact .msg-group.bot { gap: 8px; }
-  body.compact .bot-name { font-size: 11px; margin-bottom: 2px; }
-  body.compact .followup-row { margin: 2px 0 8px 34px; }
-  body.compact #inputwrap { padding: 8px 16px 14px; }
+.conv-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 7px; cursor: pointer;
+  color: var(--text2); font-size: 12px; border: 1px solid transparent;
+  transition: all .1s;
+}
+.conv-item:hover { background: var(--surface); color: var(--text); }
+.conv-item.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
+.conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-del { opacity: 0; color: var(--text3); cursor: pointer; padding: 0 4px; font-size: 12px; flex-shrink: 0; }
+.conv-item:hover .conv-del { opacity: 1; }
+.conv-del:hover { color: #ef4444; }
+.conv-snippet { font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* ── TEMPERATURE BADGE ── */
-  #temp-btn {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text3);
-    padding: 4px 9px; border-radius: 7px; font-size: 11px; cursor: pointer;
-    white-space: nowrap; transition: all 0.15s; font-family: inherit;
-  }
-  #temp-btn:hover { border-color: var(--accent); color: var(--text2); }
-  #temp-btn.precise { color: #60a5fa; border-color: rgba(96,165,250,0.4); }
-  #temp-btn.creative { color: #f59e0b; border-color: rgba(245,158,11,0.4); }
-  #temp-btn.wild { color: #ec4899; border-color: rgba(236,72,153,0.4); }
+#conv-search {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 7px 10px; border-radius: 7px;
+  font-size: 12px; outline: none; margin-bottom: 6px; font-family: inherit;
+}
+#conv-search:focus { border-color: var(--accent); }
 
-  /* ── QUICK ACTIONS ── */
-  #quick-actions {
-    max-width: 720px; margin: 0 auto 4px; padding: 0 4px;
-    display: none; flex-wrap: wrap; gap: 5px;
-  }
-  #quick-actions.show { display: flex; }
-  .qa-btn {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text2);
-    padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer;
-    transition: all 0.12s; white-space: nowrap;
-  }
-  .qa-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
+.mem-count-badge {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text3); padding: 0 6px; border-radius: 8px;
+  font-size: 10.5px; margin-left: auto;
+}
 
-  /* ── STARRED MESSAGES MODAL ── */
-  #star-modal {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    z-index: 100; align-items: center; justify-content: center; padding: 20px;
-  }
-  #star-modal.open { display: flex; }
-  #star-modal .sm-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
-    width: 100%; max-width: 580px; max-height: 80vh;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  #star-modal .sm-head {
-    padding: 14px 18px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
-  }
-  #star-modal .sm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
-  #star-modal .sm-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; }
-  #star-modal .sm-x:hover { background: var(--surface); color: var(--text); }
-  #star-modal .sm-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
-  .star-item {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
-  }
-  .star-item .si-meta { font-size: 11px; color: var(--text3); margin-bottom: 5px; display: flex; justify-content: space-between; }
-  .star-item .si-text { color: var(--text); line-height: 1.5; max-height: 100px; overflow: hidden; position: relative; }
-  .star-item .si-text::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 28px; background: linear-gradient(transparent, var(--surface)); }
-  .star-item .si-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 13px; padding: 0 3px; }
-  .star-item .si-rm:hover { color: #ef4444; }
-  .star-empty { color: var(--text3); font-size: 13px; padding: 24px 0; text-align: center; }
-  .act-btn.starred { color: #f59e0b; }
-  #gpu-widget {
-    display: flex; align-items: center; gap: 6px; margin-left: 8px;
-    font-size: 11px; color: var(--text3); cursor: default; user-select: none;
-    padding: 4px 8px; border-radius: 7px; border: 1px solid var(--surface2);
-    background: var(--surface); transition: border-color 0.3s;
-  }
-  #gpu-widget:hover { border-color: var(--border); color: var(--text2); }
-  #gpu-bar-outer {
-    width: 42px; height: 6px; border-radius: 3px;
-    background: var(--surface2); overflow: hidden;
-  }
-  #gpu-bar-inner {
-    height: 100%; border-radius: 3px; width: 0%;
-    background: var(--accent); transition: width 0.4s, background 0.4s;
-  }
+/* Sidebar collapse */
+#sidebar.collapsed { width: 0; min-width: 0; overflow: hidden; border-right-color: transparent; }
+#sidebar-toggle-btn {
+  position: fixed; left: 256px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 34px; border-radius: 0 6px 6px 0;
+  background: var(--surface2); border: 1px solid var(--border); border-left: none;
+  color: var(--text3); font-size: 10px; cursor: pointer; z-index: 51;
+  display: flex; align-items: center; justify-content: center;
+  transition: left .22s, background .15s;
+}
+#sidebar-toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  /* system prompt */
-  #sysprompt-bar {
-    background: var(--surface); border-bottom: 1px solid var(--border);
-    padding: 10px 24px; display: none; align-items: center; gap: 10px;
-  }
-  #sysprompt-bar.open { display: flex; }
-  #sysprompt-bar label { font-size: 12px; color: var(--text3); white-space: nowrap; font-weight: 500; }
-  #sysprompt-input {
-    flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text);
-    padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit;
-  }
-  #sysprompt-input:focus { border-color: var(--accent); }
-  #sysprompt-save {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 500;
-  }
-  #sysprompt-save:hover { background: var(--accent2); }
+/* ─── MAIN ──────────────────────────────── */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-width: 0; }
 
-  /* ── CHAT AREA ── */
-  #chat {
-    flex: 1; overflow-y: auto; padding: 24px 0 16px;
-    display: flex; flex-direction: column; gap: 0;
-  }
-  .chat-inner { max-width: 720px; margin: 0 auto; width: 100%; padding: 0 24px; }
+/* ─── TOPBAR ─────────────────────────────── */
+#topbar {
+  padding: 10px 20px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border); background: var(--bg);
+  flex-shrink: 0; min-height: 52px;
+}
+#menu-btn {
+  display: none; background: none; border: none; color: var(--text);
+  font-size: 20px; width: 34px; height: 34px; border-radius: 8px;
+  cursor: pointer; align-items: center; justify-content: center; padding: 0;
+}
+#menu-btn:hover { background: var(--surface); }
 
-  .msg-group { padding: 6px 0; }
-  .msg-group.user { display: flex; justify-content: flex-end; margin-bottom: 4px; }
-  .msg-group.bot  { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 4px; }
+#current-model-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--text); }
+#current-model-label .badge {
+  font-size: 11px; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); padding: 2px 8px; border-radius: 16px; font-weight: 400;
+}
 
-  /* user bubble */
-  .user-bubble {
-    background: var(--user-bg); color: var(--user-text);
-    padding: 11px 16px; border-radius: 18px 18px 4px 18px;
-    font-size: 15px; line-height: 1.6; max-width: 80%;
-    word-break: break-word; white-space: pre-wrap;
-  }
+#status-light {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); flex-shrink: 0; transition: background .3s;
+}
+#status-light.online  { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.6); animation: pulse-green 2.5s infinite; }
+#status-light.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.6); animation: pulse-red 1s infinite; }
+@keyframes pulse-green { 0%,100%{box-shadow:0 0 4px rgba(34,197,94,.3)} 50%{box-shadow:0 0 10px rgba(34,197,94,.7)} }
+@keyframes pulse-red   { 0%,100%{box-shadow:0 0 3px rgba(239,68,68,.4)} 50%{box-shadow:0 0 10px rgba(239,68,68,.8)} }
 
-  /* bot avatar */
-  .bot-avatar {
-    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px; margin-top: 2px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #fff; font-weight: 600;
-  }
-  .bot-avatar.claude { background: linear-gradient(135deg, #6d28d9, #8b5cf6); }
-  .bot-avatar.gpt    { background: linear-gradient(135deg, #065f46, #10b981); }
-  .bot-avatar.deepseek { background: linear-gradient(135deg, #1e40af, #3b82f6); }
-  .bot-avatar.qwen   { background: linear-gradient(135deg, #9a3412, #ea580c); }
+#topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
-  /* bot message body — no bubble, just text */
-  .bot-body { flex: 1; min-width: 0; padding-top: 4px; }
-  .bot-name { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; }
-  .bot-text { font-size: 15px; line-height: 1.7; color: var(--text); word-break: break-word; }
+.icon-btn {
+  background: none; border: 1px solid var(--border); color: var(--text2);
+  padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  transition: all .12s; height: 30px;
+}
+.icon-btn:hover { background: var(--surface); color: var(--text); border-color: var(--text3); }
+#ctx-btn { color: var(--text3); font-size: 11px; }
+#ctx-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,.07); }
+#compact-btn.on { background: var(--surface2); color: var(--accent2); border-color: var(--accent); }
 
-  /* markdown */
-  .bot-text h1,.bot-text h2,.bot-text h3 { margin: 14px 0 6px; font-weight: 600; line-height: 1.3; }
-  .bot-text h1 { font-size: 20px; } .bot-text h2 { font-size: 17px; } .bot-text h3 { font-size: 15px; }
-  .bot-text p { margin: 6px 0; }
-  .bot-text ul,.bot-text ol { margin: 6px 0 6px 20px; }
-  .bot-text li { margin: 3px 0; }
-  .bot-text strong { font-weight: 600; color: var(--text); }
-  .bot-text em { font-style: italic; color: var(--text2); }
-  .bot-text a { color: var(--accent2); text-decoration: none; }
-  .bot-text a:hover { text-decoration: underline; }
-  .bot-text hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
-  .bot-text blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 6px 14px; color: var(--text2); background: var(--surface); border-radius: 0 6px 6px 0; }
-  .bot-text table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
-  .bot-text th,.bot-text td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; }
-  .bot-text th { background: var(--surface2); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); }
-  .bot-text tr:hover td { background: var(--surface); }
+.fs-controls { display: flex; gap: 2px; }
+.fs-btn {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text3);
+  width: 28px; height: 30px; border-radius: 6px; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all .12s; font-family: inherit;
+}
+.fs-btn:hover { color: var(--text); border-color: var(--text3); background: var(--surface2); }
 
-  /* code */
-  .code-block { position: relative; margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
-  .code-header { background: var(--surface2); padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; }
-  .code-lang { font-size: 11px; color: var(--text3); font-family: monospace; text-transform: uppercase; letter-spacing: 0.05em; }
-  .code-copy { background: none; border: 1px solid var(--border); color: var(--text2); font-size: 11px; padding: 2px 10px; border-radius: 5px; cursor: pointer; }
-  .code-copy:hover { background: var(--surface); color: var(--text); }
-  pre { background: #111009; padding: 14px 16px; overflow-x: auto; margin: 0; }
-  code { font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; line-height: 1.6; }
-  .bot-text p > code, .bot-text li > code, .user-bubble code {
-    background: var(--surface2); border: 1px solid var(--border);
-    padding: 1px 6px; border-radius: 4px; font-size: 12.5px;
-  }
+#cmd-btn {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text3);
+  padding: 5px 9px; border-radius: 7px; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; gap: 5px; height: 30px; transition: all .12s;
+}
+#cmd-btn:hover { background: var(--surface2); color: var(--text2); border-color: var(--text3); }
+#cmd-btn kbd { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); padding: 0 4px; border-radius: 3px; font-size: 10px; }
 
-  /* message actions */
-  .msg-actions { display: flex; align-items: center; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity 0.15s; }
-  .msg-group:hover .msg-actions { opacity: 1; }
-  .msg-time { font-size: 11px; color: var(--text3); }
-  .msg-stats { font-size: 11px; color: var(--accent); }
-  .act-btn { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
-  .act-btn:hover { background: var(--surface); color: var(--text2); }
-  .act-btn.speaking { color: var(--accent2); animation: pulse 1s infinite; }
+/* ─── SYSPROMPT BAR ─────────────────────── */
+#sysprompt-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; display: none; align-items: center; gap: 10px;
+}
+#sysprompt-bar.open { display: flex; }
+#sysprompt-bar label { font-size: 11px; color: var(--text3); white-space: nowrap; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+#sysprompt-input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+#sysprompt-input:focus { border-color: var(--accent); }
+#sysprompt-save { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 500; }
+#sysprompt-save:hover { background: var(--accent2); }
 
-  /* typing */
-  .typing-dots { display: inline-flex; gap: 5px; padding: 6px 0; }
-  .typing-dots span { width: 7px; height: 7px; background: var(--text3); border-radius: 50%; animation: bounce 1.2s infinite; }
-  .typing-dots span:nth-child(2) { animation-delay: 0.18s; }
-  .typing-dots span:nth-child(3) { animation-delay: 0.36s; }
-  @keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-7px)} }
+/* ─── CHAT SEARCH BAR ───────────────────── */
+#chat-search-bar {
+  display: none; position: absolute; top: 8px; right: 16px; z-index: 50;
+  background: var(--surface2); border: 1px solid var(--accent);
+  border-radius: 10px; padding: 7px 10px; gap: 6px;
+  align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,.5); min-width: 290px;
+}
+#chat-search-bar.open { display: flex; }
+#chat-search-input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+#chat-search-input::placeholder { color: var(--text3); }
+#chat-search-count { font-size: 11px; color: var(--text3); white-space: nowrap; min-width: 50px; text-align: right; }
+.chat-search-nav { background: none; border: 1px solid var(--border); color: var(--text2); border-radius: 5px; padding: 2px 7px; font-size: 11px; cursor: pointer; }
+.chat-search-nav:hover { background: var(--surface); }
+.search-highlight { background: rgba(232,149,42,.3); border-radius: 2px; }
+.search-highlight.current { background: var(--accent); color: #fff; border-radius: 2px; }
 
-  /* ── INPUT AREA ── */
-  #inputwrap { padding: 12px 24px 20px; background: var(--bg); flex-shrink: 0; }
-  #input-outer {
-    max-width: 720px; margin: 0 auto; position: relative;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px;
-    transition: border-color 0.15s;
-  }
-  #input-outer:focus-within { border-color: var(--accent); }
-  #input {
-    width: 100%; background: transparent; border: none; color: var(--text);
-    padding: 14px 16px 4px; font-size: 15px; resize: none;
-    min-height: 52px; max-height: 200px; outline: none; font-family: inherit; line-height: 1.6;
-  }
-  #input::placeholder { color: var(--text3); }
-  #input-bottom { display: flex; align-items: center; padding: 6px 10px 8px; gap: 6px; }
+/* ─── CHAT AREA ─────────────────────────── */
+#chat { flex: 1; overflow-y: auto; padding: 20px 0 10px; width: 100%; }
+#chat::-webkit-scrollbar { width: 5px; }
+#chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  /* image controls row */
-  #img-controls { display: flex; gap: 6px; align-items: center; }
-  .ctrl-select {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
-    padding: 5px 8px; border-radius: 8px; font-size: 12px; cursor: pointer; outline: none;
-  }
-  .ctrl-select:hover { border-color: var(--accent); }
+.chat-inner { max-width: 760px; margin: 0 auto; width: 100%; padding: 0 24px; }
 
-  #neg-row { padding: 0 16px 8px; display: none; }
-  #neg-prompt {
-    width: 100%; background: transparent; border: none; border-top: 1px solid var(--border);
-    color: var(--text2); padding: 8px 0; font-size: 13px; outline: none; font-family: inherit;
-  }
-  #neg-prompt::placeholder { color: var(--text3); }
+.msg-group { padding: 5px 0; }
+.msg-group.user { display: flex; justify-content: flex-end; margin-bottom: 3px; }
+.msg-group.bot  { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 3px; }
 
-  /* send + image buttons */
-  #actions-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-  #img-btn {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
-    width: 36px; height: 36px; border-radius: 9px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  }
-  #img-btn:hover { background: var(--green); border-color: #3d9970; color: #fff; }
-  #img-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.user-bubble {
+  background: var(--user-bg); color: var(--user-text);
+  padding: 10px 15px; border-radius: 18px 18px 3px 18px;
+  font-size: var(--fs); line-height: 1.6; max-width: 78%;
+  word-break: break-word; white-space: pre-wrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2); cursor: pointer;
+}
+.user-bubble[data-uneditable="1"] { cursor: default; }
 
-  #send-btn {
-    background: var(--accent); color: #fff; border: none;
-    width: 36px; height: 36px; border-radius: 9px; font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
-  }
-  #send-btn:hover { background: var(--accent2); }
-  #send-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
-  #send-btn.claude-mode { background: var(--claude-accent); }
-  #send-btn.claude-mode:hover { background: #7c3aed; }
-  #send-btn.stop-mode { background: #7f1d1d; }
-  #send-btn.stop-mode:hover { background: #991b1b; }
+.bot-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; margin-top: 3px; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.bot-avatar.claude   { background: linear-gradient(135deg,#5b21b6,#7c3aed); }
+.bot-avatar.gpt      { background: linear-gradient(135deg,#064e3b,#10b981); }
+.bot-avatar.deepseek { background: linear-gradient(135deg,#1e3a8a,#3b82f6); }
+.bot-avatar.qwen     { background: linear-gradient(135deg,#7c2d12,#ea580c); }
 
-  /* hint */
-  #hint { max-width: 720px; margin: 4px auto 0; text-align: center; font-size: 11px; color: var(--text3); }
+.bot-body { flex: 1; min-width: 0; padding-top: 2px; }
+.bot-name { font-size: 11.5px; font-weight: 600; color: var(--text3); margin-bottom: 5px; letter-spacing: .01em; }
+.bot-text { font-size: var(--fs); line-height: 1.72; color: var(--text); word-break: break-word; }
 
-  /* images */
-  .gen-img { max-width: 100%; border-radius: 10px; margin-top: 8px; border: 1px solid var(--border); display: block; cursor: zoom-in; }
-  .img-actions { display: flex; gap: 6px; margin-top: 6px; }
+.bot-text h1,.bot-text h2,.bot-text h3 { margin: 14px 0 6px; font-weight: 600; line-height: 1.3; }
+.bot-text h1 { font-size: 19px; } .bot-text h2 { font-size: 16px; } .bot-text h3 { font-size: 14.5px; }
+.bot-text p { margin: 5px 0; }
+.bot-text ul,.bot-text ol { margin: 5px 0 5px 20px; }
+.bot-text li { margin: 3px 0; }
+.bot-text strong { font-weight: 600; }
+.bot-text em { font-style: italic; color: var(--text2); }
+.bot-text a { color: var(--accent2); text-decoration: none; }
+.bot-text a:hover { text-decoration: underline; }
+.bot-text hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.bot-text blockquote { border-left: 3px solid var(--accent); margin: 8px 0; padding: 6px 14px; color: var(--text2); background: var(--surface); border-radius: 0 6px 6px 0; }
+.bot-text table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13.5px; }
+.bot-text th,.bot-text td { border: 1px solid var(--border); padding: 7px 12px; text-align: left; }
+.bot-text th { background: var(--surface2); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text2); }
+.bot-text tr:hover td { background: var(--surface); }
+.bot-text p>code,.bot-text li>code,.user-bubble code { background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
 
-  /* lightbox */
-  #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 100; align-items: center; justify-content: center; cursor: zoom-out; }
-  #lightbox.open { display: flex; }
-  #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+.code-block { position: relative; margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.code-header { background: var(--surface2); padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+.code-lang { font-size: 10.5px; color: var(--text3); font-family: monospace; text-transform: uppercase; letter-spacing: .06em; }
+.code-copy { background: none; border: 1px solid var(--border); color: var(--text2); font-size: 11px; padding: 2px 9px; border-radius: 5px; cursor: pointer; }
+.code-copy:hover { background: var(--surface); color: var(--text); }
+pre { background: #090807; padding: 14px 16px; overflow-x: auto; margin: 0; }
+code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-size: 13px; line-height: 1.6; }
+.bot-text pre { background: #090807; }
+.bot-text pre code.hljs { background: transparent; padding: 0; }
 
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+.typing-dots { display: inline-flex; gap: 5px; padding: 4px 0; align-items: center; }
+.typing-dots span { width: 6px; height: 6px; background: var(--text3); border-radius: 50%; animation: bounce 1.3s infinite; }
+.typing-dots span:nth-child(2) { animation-delay: .2s; }
+.typing-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
 
-  /* tool buttons in input row */
-  .tool-btn {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
-    width: 32px; height: 32px; border-radius: 8px; font-size: 14px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
-  }
-  .tool-btn:hover { background: var(--surface); color: var(--text); border-color: var(--accent); }
-  .tool-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .tool-btn.recording { background: #991b1b; color: #fff; border-color: #991b1b; animation: pulse 1s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+.msg-actions { display: flex; align-items: center; gap: 3px; margin-top: 6px; opacity: 0; transition: opacity .15s; }
+.msg-group:hover .msg-actions { opacity: 1; }
+.msg-time  { font-size: 10.5px; color: var(--text3); margin-right: 4px; }
+.msg-stats { font-size: 10.5px; color: var(--accent); margin-right: 4px; }
+.act-btn   { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+.act-btn:hover { background: var(--surface); color: var(--text2); }
+.act-btn.speaking { color: var(--accent2); animation: pulse 1s infinite; }
+.act-btn.starred  { color: #f59e0b; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
 
-  /* attachment chips */
-  #attach-row { padding: 0 16px 6px; display: none; flex-wrap: wrap; gap: 6px; }
-  #attach-row.has-attach { display: flex; }
-  .attach-chip {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
-    padding: 4px 10px 4px 8px; border-radius: 14px; font-size: 12px;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .attach-chip .x { cursor: pointer; color: var(--text3); font-size: 14px; line-height: 1; }
-  .attach-chip .x:hover { color: var(--text); }
+.user-bubble.editing { background: var(--surface); color: var(--text); border: 1px solid var(--accent); padding: 8px; min-width: 280px; cursor: default; }
+.edit-textarea { width: 100%; background: transparent; border: none; color: var(--text); font-size: var(--fs); font-family: inherit; resize: vertical; outline: none; line-height: 1.5; min-height: 60px; }
+.edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+.edit-actions button { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.edit-actions button.save { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-  /* conversations sidebar */
-  .conv-list { display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto; margin-bottom: 4px; }
-  .conv-item {
-    display: flex; align-items: center; gap: 6px; padding: 6px 8px;
-    border-radius: 6px; cursor: pointer; color: var(--text2); font-size: 12px;
-    border: 1px solid transparent;
-  }
-  .conv-item:hover { background: var(--surface); color: var(--text); }
-  .conv-item.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
-  .conv-item .conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .conv-item .conv-del { opacity: 0; color: var(--text3); cursor: pointer; padding: 0 4px; }
-  .conv-item:hover .conv-del { opacity: 1; }
-  .conv-item .conv-del:hover { color: #ef4444; }
+#jump-bottom {
+  position: absolute; bottom: 88px; left: 50%; transform: translateX(-50%);
+  background: var(--accent); color: #fff; border: none;
+  padding: 7px 16px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  display: none; z-index: 10;
+}
+#jump-bottom.show { display: block; }
+#jump-bottom:hover { background: var(--accent2); }
 
-  /* edit-mode user bubble */
-  .user-bubble.editing {
-    background: var(--surface); color: var(--text); border: 1px solid var(--accent);
-    padding: 8px; min-width: 280px;
-  }
-  .edit-textarea {
-    width: 100%; background: transparent; border: none; color: var(--text);
-    font-size: 15px; font-family: inherit; resize: vertical; outline: none;
-    line-height: 1.5; min-height: 60px;
-  }
-  .edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
-  .edit-actions button {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-    padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
-  }
-  .edit-actions button.save { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .user-bubble { cursor: pointer; }
-  .user-bubble[data-uneditable="1"] { cursor: default; }
+.route-pill { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--surface2); color: var(--accent2); border: 1px solid var(--border); margin-left: 5px; vertical-align: middle; }
 
-  /* token counter */
-  #token-counter { font-size: 11px; color: var(--text3); margin-left: 4px; }
-  #token-counter.warn { color: #f59e0b; }
+.followup-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px 40px; max-width: calc(100% - 52px); }
+.followup-chip { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 14px; padding: 5px 11px; font-size: 12px; cursor: pointer; transition: all .12s; user-select: none; }
+.followup-chip:hover { background: var(--bg3); border-color: var(--accent); color: var(--text); }
 
-  /* auto-route badge on bot avatar */
-  .model-btn.auto-model.active .model-dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-  .route-pill {
-    display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 10px;
-    background: var(--surface2); color: var(--accent2); border: 1px solid var(--border);
-    margin-left: 6px; vertical-align: middle;
-  }
+/* ─── INPUT AREA ─────────────────────────── */
+#inputwrap { padding: 10px 20px 12px; background: var(--bg); flex-shrink: 0; }
 
-  /* hljs override — fits dark palette, no extra padding */
-  .bot-text pre { background: #0d0c08; padding: 14px 16px; }
-  .bot-text pre code.hljs { background: transparent; padding: 0; }
+#input-outer {
+  max-width: 760px; margin: 0 auto; position: relative;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; transition: border-color .15s;
+  box-shadow: 0 2px 12px rgba(0,0,0,.2);
+}
+#input-outer:focus-within { border-color: var(--accent); box-shadow: 0 2px 16px rgba(232,149,42,.1); }
 
-  /* jump-to-bottom pill */
-  #jump-bottom {
-    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-    background: var(--accent); color: #fff; border: none;
-    padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500;
-    cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    display: none; z-index: 10; transition: opacity 0.15s;
-  }
-  #jump-bottom.show { display: block; }
-  #jump-bottom:hover { background: var(--accent2); }
+#input { width: 100%; background: transparent; border: none; color: var(--text); padding: 13px 16px 4px; font-size: var(--fs); resize: none; min-height: 50px; max-height: 200px; outline: none; font-family: inherit; line-height: 1.6; }
+#input::placeholder { color: var(--text3); }
 
-  /* memory modal */
-  #mem-modal {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    z-index: 100; align-items: center; justify-content: center; padding: 20px;
-  }
-  #mem-modal.open { display: flex; }
-  #mem-modal .mem-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
-    width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  #mem-modal .mem-head {
-    padding: 14px 18px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
-  }
-  #mem-modal .mem-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
-  #mem-modal .mem-x {
-    background: none; border: none; color: var(--text2);
-    font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px;
-  }
-  #mem-modal .mem-x:hover { background: var(--surface); color: var(--text); }
-  #mem-modal .mem-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
-  .mem-item {
-    background: var(--surface); border: 1px solid var(--border);
-    padding: 10px 12px; border-radius: 8px; margin-bottom: 6px;
-    display: flex; align-items: flex-start; gap: 8px; font-size: 13px;
-  }
-  .mem-item .mem-fact { flex: 1; line-height: 1.4; }
-  .mem-item .mem-rm {
-    background: none; border: none; color: var(--text3); cursor: pointer;
-    font-size: 14px; padding: 0 4px;
-  }
-  .mem-item .mem-rm:hover { color: #ef4444; }
-  #mem-modal .mem-foot {
-    padding: 12px 18px; border-top: 1px solid var(--border);
-    display: flex; gap: 8px; align-items: center;
-  }
-  #mem-input {
-    flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit;
-  }
-  #mem-input:focus { border-color: var(--accent); }
-  #mem-add {
-    background: var(--accent); color: #fff; border: none; padding: 8px 14px;
-    border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500;
-  }
-  #mem-add:hover { background: var(--accent2); }
-  .mem-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
-  .mem-toggle-row { padding: 6px 18px 12px; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
-  .mem-count-badge {
-    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
-    padding: 1px 7px; border-radius: 10px; font-size: 11px; margin-left: auto;
-  }
+#attach-row { padding: 0 14px 6px; display: none; flex-wrap: wrap; gap: 5px; }
+#attach-row.has-attach { display: flex; }
+.attach-chip { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 3px 10px 3px 8px; border-radius: 12px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; }
+.attach-chip .x { cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; }
+.attach-chip .x:hover { color: #ef4444; }
+.attach-chip.image { padding: 2px 8px 2px 4px; }
+.attach-chip .thumb { width: 26px; height: 26px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border); }
 
-  /* status light */
-  #status-light {
-    display: inline-block; width: 9px; height: 9px; border-radius: 50%;
-    background: #6b6864; margin-left: 8px; flex-shrink: 0;
-    box-shadow: 0 0 0 0 rgba(0,0,0,0); transition: background 0.3s;
-  }
-  #status-light.online { background: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.6); animation: pulse-green 2s infinite; }
-  #status-light.offline { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.6); animation: pulse-red 1s infinite; }
-  @keyframes pulse-green { 0%,100%{box-shadow:0 0 4px rgba(34,197,94,0.4)} 50%{box-shadow:0 0 10px rgba(34,197,94,0.8)} }
-  @keyframes pulse-red   { 0%,100%{box-shadow:0 0 4px rgba(239,68,68,0.5)} 50%{box-shadow:0 0 12px rgba(239,68,68,0.9)} }
+#neg-row { padding: 0 16px 8px; display: none; }
+#neg-prompt { width: 100%; background: transparent; border: none; border-top: 1px solid var(--border); color: var(--text2); padding: 8px 0; font-size: 13px; outline: none; font-family: inherit; }
+#neg-prompt::placeholder { color: var(--text3); }
 
-  /* image attachment thumb */
-  .attach-chip.image { padding: 3px 8px 3px 4px; }
-  .attach-chip .thumb {
-    width: 28px; height: 28px; border-radius: 6px; object-fit: cover;
-    border: 1px solid var(--border);
-  }
+#input-bottom { display: flex; align-items: center; padding: 6px 10px 8px; gap: 5px; }
 
-  /* conversation search */
-  #conv-search {
-    width: 100%; background: var(--surface); border: 1px solid var(--border);
-    color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px;
-    outline: none; margin-bottom: 6px; font-family: inherit;
-  }
-  #conv-search:focus { border-color: var(--accent); }
-  .conv-snippet { font-size: 10.5px; color: var(--text3); margin-top: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tool-btn { background: transparent; border: 1px solid transparent; color: var(--text3); width: 32px; height: 32px; border-radius: 8px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .12s; }
+.tool-btn:hover { background: var(--surface2); color: var(--text2); border-color: var(--border); }
+.tool-btn.on { background: rgba(232,149,42,.12); color: var(--accent2); border-color: rgba(232,149,42,.3); }
+.tool-btn.recording { background: rgba(153,27,27,.2); color: #fca5a5; border-color: rgba(239,68,68,.4); animation: pulse 1s infinite; }
 
-  /* slash command menu */
-  #slash-menu {
-    position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 6px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    max-height: 280px; overflow-y: auto; padding: 4px;
-    display: none; z-index: 30;
-  }
-  #slash-menu.open { display: block; }
-  .slash-item {
-    display: flex; align-items: baseline; gap: 10px;
-    padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
-  }
-  .slash-item.active, .slash-item:hover { background: var(--bg3); }
-  .slash-cmd { color: var(--accent); font-weight: 600; min-width: 110px; font-family: monospace; font-size: 12.5px; }
-  .slash-desc { color: var(--text2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  @media (max-width: 768px) {
-    .slash-cmd { min-width: 90px; font-size: 12px; }
-    .slash-desc { font-size: 12px; }
-  }
+#img-controls { display: flex; gap: 5px; align-items: center; }
+.ctrl-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 5px 7px; border-radius: 7px; font-size: 11.5px; cursor: pointer; outline: none; }
+.ctrl-select:hover { border-color: var(--accent); }
 
-  /* follow-up suggestion chips */
-  .followup-row {
-    display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px 38px;
-    max-width: calc(100% - 50px);
-  }
-  .followup-chip {
-    background: var(--surface); color: var(--text2);
-    border: 1px solid var(--border); border-radius: 14px;
-    padding: 5px 12px; font-size: 12.5px; cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-    user-select: none;
-  }
-  .followup-chip:hover { background: var(--bg3); border-color: var(--accent); color: var(--text); }
-  @media (max-width: 768px) {
-    .followup-row { margin: 4px 0 10px 8px; }
-    .followup-chip { font-size: 12px; padding: 4px 10px; }
-  }
+#temp-btn { background: transparent; border: 1px solid transparent; color: var(--text3); padding: 4px 8px; border-radius: 7px; font-size: 11px; cursor: pointer; white-space: nowrap; transition: all .12s; font-family: inherit; }
+#temp-btn:hover { border-color: var(--border); color: var(--text2); background: var(--surface2); }
+#temp-btn.precise { color: #60a5fa; border-color: rgba(96,165,250,.3); }
+#temp-btn.creative { color: #f59e0b; border-color: rgba(245,158,11,.3); }
+#temp-btn.wild     { color: #ec4899; border-color: rgba(236,72,153,.3); }
 
-  /* ── SIDEBAR COLLAPSE ── */
-  #sidebar {
-    transition: width 0.2s, min-width 0.2s, padding 0.2s, border-color 0.2s;
-  }
-  #sidebar.collapsed {
-    width: 0; min-width: 0; padding-left: 0; padding-right: 0;
-    overflow: hidden; border-right-color: transparent;
-  }
-  #sidebar-toggle-btn {
-    position: fixed; left: 248px; top: 50%; transform: translateY(-50%);
-    width: 20px; height: 36px; border-radius: 0 6px 6px 0;
-    background: var(--surface2); border: 1px solid var(--border); border-left: none;
-    color: var(--text2); font-size: 10px; cursor: pointer; z-index: 51;
-    display: flex; align-items: center; justify-content: center;
-    transition: left 0.2s, background 0.15s;
-  }
-  #sidebar-toggle-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-  @media (max-width: 768px) { #sidebar-toggle-btn { display: none; } }
+#actions-right { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+#char-counter  { font-size: 11px; color: var(--text3); }
 
-  /* ── IN-CHAT SEARCH BAR ── */
-  #chat-search-bar {
-    display: none; position: absolute; top: 8px; right: 16px; z-index: 50;
-    background: var(--surface); border: 1px solid var(--accent);
-    border-radius: 10px; padding: 6px 10px; gap: 6px;
-    align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    min-width: 280px;
-  }
-  #chat-search-bar.open { display: flex; }
-  #chat-search-input {
-    flex: 1; background: transparent; border: none; color: var(--text);
-    font-size: 13px; outline: none; font-family: inherit;
-  }
-  #chat-search-input::placeholder { color: var(--text3); }
-  .chat-search-nav { background: none; border: 1px solid var(--border); color: var(--text2);
-    border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
-  .chat-search-nav:hover { background: var(--surface2); }
-  #chat-search-count { font-size: 11px; color: var(--text3); white-space: nowrap; }
-  .search-highlight { background: rgba(204,119,34,0.35); border-radius: 2px; color: var(--text); }
-  .search-highlight.current { background: var(--accent); color: #fff; border-radius: 2px; }
+#img-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); width: 34px; height: 34px; border-radius: 8px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+#img-btn:hover { background: rgba(22,101,52,.3); border-color: #22c55e; color: #4ade80; }
+#img-btn:disabled { opacity: .3; cursor: not-allowed; }
 
-  /* ── FEATURES MODAL ── */
-  #features-modal {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
-    z-index: 100; align-items: flex-start; justify-content: center; padding: 20px;
-    overflow-y: auto;
-  }
-  #features-modal.open { display: flex; }
-  #features-modal .fm-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 16px;
-    width: 100%; max-width: 820px; margin: auto;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  #features-modal .fm-head {
-    padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
-  }
-  #features-modal .fm-head h2 { font-size: 17px; font-weight: 600; flex: 1; color: var(--text); }
-  #features-modal .fm-head p { font-size: 12px; color: var(--text3); margin-top: 2px; }
-  #features-modal .fm-x {
-    background: none; border: none; color: var(--text2);
-    font-size: 20px; cursor: pointer; width: 32px; height: 32px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  #features-modal .fm-x:hover { background: var(--surface); color: var(--text); }
-  #features-modal .fm-body { padding: 18px 22px 24px; overflow-y: auto; }
-  .fm-section { margin-bottom: 22px; }
-  .fm-section-title {
-    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
-  }
-  .fm-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
-  .fm-card-item {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 11px 13px; display: flex; gap: 10px; align-items: flex-start;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .fm-card-item:hover { border-color: var(--accent); background: var(--surface2); }
-  .fm-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; line-height: 1; }
-  .fm-info { flex: 1; min-width: 0; }
-  .fm-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
-  .fm-desc { font-size: 12px; color: var(--text2); line-height: 1.45; }
-  .fm-badge {
-    display: inline-block; font-size: 10px; font-family: monospace;
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--accent2); padding: 1px 6px; border-radius: 4px; margin-top: 4px;
-    white-space: nowrap;
-  }
-  @media (max-width: 600px) {
-    #features-modal .fm-card { margin: 0; border-radius: 12px; }
-    .fm-grid { grid-template-columns: 1fr; }
-    #features-modal .fm-head, #features-modal .fm-body { padding: 14px 14px; }
-  }
+#send-btn { background: var(--accent); color: #fff; border: none; width: 34px; height: 34px; border-radius: 8px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s; box-shadow: 0 2px 8px rgba(232,149,42,.3); }
+#send-btn:hover { background: var(--accent2); }
+#send-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; box-shadow: none; }
+#send-btn.claude-mode { background: var(--claude-accent); box-shadow: 0 2px 8px rgba(124,58,237,.3); }
+#send-btn.claude-mode:hover { background: #6d28d9; }
+#send-btn.stop-mode { background: #7f1d1d; box-shadow: none; }
+#send-btn.stop-mode:hover { background: #991b1b; }
 
-  /* ── PROMPT LIBRARY MODAL ── */
-  #prompt-modal {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    z-index: 100; align-items: center; justify-content: center; padding: 20px;
-  }
-  #prompt-modal.open { display: flex; }
-  #prompt-modal .pm-card {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
-    width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-  #prompt-modal .pm-head {
-    padding: 14px 18px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; gap: 10px;
-  }
-  #prompt-modal .pm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
-  #prompt-modal .pm-x {
-    background: none; border: none; color: var(--text2);
-    font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px;
-  }
-  #prompt-modal .pm-x:hover { background: var(--surface); color: var(--text); }
-  #prompt-modal .pm-body { padding: 10px 14px; overflow-y: auto; flex: 1; }
-  .pm-item {
-    background: var(--surface); border: 1px solid var(--border);
-    padding: 8px 12px; border-radius: 8px; margin-bottom: 6px;
-    display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer;
-    transition: border-color 0.15s;
-  }
-  .pm-item:hover { border-color: var(--accent); background: var(--surface2); }
-  .pm-item .pm-text { flex: 1; line-height: 1.4; color: var(--text); }
-  .pm-item .pm-use { color: var(--accent2); font-size: 11px; font-weight: 500; }
-  .pm-item .pm-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 4px; }
-  .pm-item .pm-rm:hover { color: #ef4444; }
-  #prompt-modal .pm-foot {
-    padding: 12px 18px; border-top: 1px solid var(--border);
-    display: flex; gap: 8px; align-items: flex-start; flex-direction: column;
-  }
-  #pm-input {
-    width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none;
-    font-family: inherit; resize: vertical; min-height: 60px;
-  }
-  #pm-input:focus { border-color: var(--accent); }
-  #pm-save {
-    background: var(--accent); color: #fff; border: none; padding: 8px 16px;
-    border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; align-self: flex-end;
-  }
-  #pm-save:hover { background: var(--accent2); }
-  .pm-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
+#quick-actions { max-width: 760px; margin: 0 auto 4px; padding: 0 4px; display: none; flex-wrap: wrap; gap: 5px; }
+#quick-actions.show { display: flex; }
+.qa-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; transition: all .1s; white-space: nowrap; }
+.qa-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
 
-  /* drop overlay */
-  #drop-overlay {
-    position: fixed; inset: 0; background: rgba(204, 119, 34, 0.15);
-    border: 3px dashed var(--accent); pointer-events: none;
-    display: none; align-items: center; justify-content: center;
-    font-size: 24px; color: var(--accent2); z-index: 200;
-  }
-  #drop-overlay.show { display: flex; }
+#hint { max-width: 760px; margin: 4px auto 0; text-align: center; font-size: 11px; color: var(--text3); }
 
-  /* hamburger + backdrop */
-  #menu-btn {
-    display: none;
-    background: none; border: none; color: var(--text); font-size: 22px;
-    width: 36px; height: 36px; border-radius: 8px; cursor: pointer;
-    align-items: center; justify-content: center; padding: 0;
-  }
-  #menu-btn:hover { background: var(--surface); }
-  #sidebar-backdrop {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-    z-index: 49;
-  }
-  #sidebar-backdrop.show { display: block; }
+/* ─── BOTTOM STATUS BAR ──────────────────── */
+#statusbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 20px; border-top: 1px solid var(--border);
+  background: var(--sidebar); flex-shrink: 0; min-height: 28px;
+}
+#token-counter { font-size: 11px; color: var(--text3); }
+#token-counter.warn { color: #f59e0b; }
+#gpu-widget { display: none; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); cursor: default; user-select: none; }
+#gpu-widget:hover { color: var(--text2); }
+#gpu-bar-outer { width: 38px; height: 5px; border-radius: 3px; background: var(--surface2); overflow: hidden; }
+#gpu-bar-inner { height: 100%; border-radius: 3px; width: 0%; background: var(--accent); transition: width .4s, background .4s; }
+.sb-sep { width: 1px; height: 12px; background: var(--border); }
+#statusbar-right { margin-left: auto; font-size: 11px; color: var(--text3); }
 
-  /* ── MOBILE (≤768px) ── */
-  @media (max-width: 768px) {
-    body { font-size: 14px; }
-    #menu-btn { display: flex; }
+/* ─── WELCOME ─────────────────────────────── */
+#welcome { max-width: 760px; margin: 46px auto 16px; padding: 0 24px; text-align: center; }
+#welcome .w-icon { width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 18px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 20px rgba(232,149,42,.25); }
+#welcome h2 { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 8px; letter-spacing: -.02em; }
+#welcome p  { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 24px; }
+.suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; }
+.suggestion { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; cursor: pointer; font-size: 12.5px; color: var(--text2); transition: all .12s; line-height: 1.4; }
+.suggestion:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
+.suggestion strong { display: block; color: var(--text); font-weight: 500; margin-bottom: 2px; font-size: 12.5px; }
 
-    #sidebar {
-      position: fixed; top: 0; left: 0; bottom: 0; z-index: 50;
-      transform: translateX(-100%); transition: transform 0.22s ease-out;
-      width: 280px; min-width: 280px;
-    }
-    #sidebar.open { transform: translateX(0); }
+/* ─── IMAGES / VIDEO ─────────────────────── */
+.gen-img { max-width: 100%; border-radius: 10px; margin-top: 8px; border: 1px solid var(--border); display: block; cursor: zoom-in; }
+.img-actions { display: flex; gap: 6px; margin-top: 6px; }
+#lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 100; align-items: center; justify-content: center; cursor: zoom-out; }
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
 
-    #topbar { padding: 10px 12px; gap: 8px; }
-    #current-model-label { font-size: 13px; gap: 6px; flex: 1; min-width: 0; overflow: hidden; }
-    #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .badge { display: none; }
-    #token-counter { display: none; }
-    #topbar-actions { display: none; }
+/* ─── MODALS ─────────────────────────────── */
+#mem-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+#mem-modal.open { display: flex; }
+#mem-modal .mem-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+#mem-modal .mem-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+#mem-modal .mem-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+#mem-modal .mem-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+#mem-modal .mem-x:hover { background: var(--surface); color: var(--text); }
+#mem-modal .mem-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+.mem-item { background: var(--surface); border: 1px solid var(--border); padding: 9px 12px; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+.mem-item .mem-fact { flex: 1; line-height: 1.4; }
+.mem-item .mem-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 4px; }
+.mem-item .mem-rm:hover { color: #ef4444; }
+#mem-modal .mem-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+#mem-input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+#mem-input:focus { border-color: var(--accent); }
+#mem-add { background: var(--accent); color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; }
+#mem-add:hover { background: var(--accent2); }
+.mem-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
+.mem-toggle-row { padding: 6px 18px 10px; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 8px; }
 
-    #chat { padding: 14px 0 12px; }
-    .chat-inner { padding: 0 14px; }
-    .user-bubble { max-width: 92%; font-size: 14px; padding: 10px 14px; }
-    .bot-text { font-size: 14px; line-height: 1.6; }
-    .bot-avatar { width: 28px; height: 28px; font-size: 13px; }
-    .msg-group.bot { gap: 9px; }
+#star-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+#star-modal.open { display: flex; }
+#star-modal .sm-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 580px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+#star-modal .sm-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+#star-modal .sm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+#star-modal .sm-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+#star-modal .sm-x:hover { background: var(--surface); color: var(--text); }
+#star-modal .sm-body { padding: 12px 16px; overflow-y: auto; flex: 1; }
+.star-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 7px; font-size: 13px; cursor: pointer; transition: border-color .12s; }
+.star-item:hover { border-color: var(--accent); }
+.star-item .si-meta { font-size: 10.5px; color: var(--text3); margin-bottom: 5px; display: flex; justify-content: space-between; }
+.star-item .si-text { color: var(--text); line-height: 1.5; max-height: 80px; overflow: hidden; position: relative; }
+.star-item .si-text::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 24px; background: linear-gradient(transparent, var(--surface)); }
+.star-item .si-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 0 3px; }
+.star-item .si-rm:hover { color: #ef4444; }
+.star-empty { color: var(--text3); font-size: 13px; padding: 24px 0; text-align: center; }
 
-    #inputwrap { padding: 8px 10px 14px; }
-    #input-outer { border-radius: 12px; }
-    #input { padding: 11px 12px 4px; font-size: 16px; min-height: 46px; }
-    #input-bottom { padding: 4px 6px 6px; gap: 4px; flex-wrap: wrap; }
-    .tool-btn { width: 36px; height: 36px; font-size: 16px; }
-    .ctrl-select { font-size: 11px; padding: 6px; max-width: 90px; }
-    #img-controls { gap: 4px; }
-    #img-btn, #send-btn { width: 40px; height: 40px; font-size: 17px; }
-    #hint { display: none; }
-    #quick-actions { display: none !important; }
-    #qa-toggle { display: none; }
-    #temp-btn { font-size: 10px; padding: 3px 6px; }
+#prompt-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+#prompt-modal.open { display: flex; }
+#prompt-modal .pm-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 520px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+#prompt-modal .pm-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+#prompt-modal .pm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+#prompt-modal .pm-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+#prompt-modal .pm-x:hover { background: var(--surface); color: var(--text); }
+#prompt-modal .pm-body { padding: 10px 14px; overflow-y: auto; flex: 1; }
+.pm-item { background: var(--surface); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; cursor: pointer; transition: border-color .12s; }
+.pm-item:hover { border-color: var(--accent); background: var(--surface2); }
+.pm-item .pm-text { flex: 1; line-height: 1.4; color: var(--text); }
+.pm-item .pm-use { color: var(--accent2); font-size: 11px; font-weight: 500; }
+.pm-item .pm-rm { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 4px; }
+.pm-item .pm-rm:hover { color: #ef4444; }
+#prompt-modal .pm-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: flex-start; flex-direction: column; }
+#pm-input { width: 100%; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; resize: vertical; min-height: 56px; }
+#pm-input:focus { border-color: var(--accent); }
+#pm-save { background: var(--accent); color: #fff; border: none; padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; align-self: flex-end; }
+#pm-save:hover { background: var(--accent2); }
+.pm-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
 
-    .suggestion-grid { grid-template-columns: 1fr; gap: 8px; }
-    #welcome { margin: 30px auto; padding: 0 14px; }
-    #welcome h2 { font-size: 20px; }
-    #welcome p { font-size: 13px; margin-bottom: 18px; }
-    #welcome .w-icon { width: 48px; height: 48px; font-size: 22px; margin-bottom: 14px; }
+#features-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
+#features-modal.open { display: flex; }
+#features-modal .fm-card { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 820px; margin: auto; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+#features-modal .fm-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+#features-modal .fm-head h2 { font-size: 17px; font-weight: 600; flex: 1; }
+#features-modal .fm-head p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+#features-modal .fm-x { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+#features-modal .fm-x:hover { background: var(--surface); color: var(--text); }
+#features-modal .fm-body { padding: 18px 22px 24px; overflow-y: auto; }
+.fm-section { margin-bottom: 20px; }
+.fm-section-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; color: var(--accent); margin-bottom: 10px; display: flex; align-items: center; gap: 7px; }
+.fm-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 8px; }
+.fm-card-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start; transition: all .12s; }
+.fm-card-item:hover { border-color: var(--accent); background: var(--surface2); }
+.fm-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+.fm-info { flex: 1; min-width: 0; }
+.fm-name { font-size: 12.5px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.fm-desc { font-size: 11.5px; color: var(--text2); line-height: 1.45; }
+.fm-badge { display: inline-block; font-size: 10px; font-family: monospace; background: var(--surface2); border: 1px solid var(--border); color: var(--accent2); padding: 1px 6px; border-radius: 4px; margin-top: 3px; white-space: nowrap; }
 
-    #sysprompt-bar { padding: 8px 12px; flex-wrap: wrap; }
-    #sysprompt-bar label { width: 100%; }
+/* ─── COMMAND PALETTE ─────────────────────── */
+#cmd-palette { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; align-items: flex-start; justify-content: center; padding-top: 14vh; }
+#cmd-palette.open { display: flex; }
+.cmd-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 560px; box-shadow: 0 24px 64px rgba(0,0,0,.6); overflow: hidden; }
+#cmd-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--border); color: var(--text); font-size: 15px; padding: 14px 18px; outline: none; font-family: inherit; }
+#cmd-input::placeholder { color: var(--text3); }
+#cmd-list { max-height: 360px; overflow-y: auto; padding: 6px; }
+.cmd-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text2); transition: all .1s; }
+.cmd-item.active,.cmd-item:hover { background: var(--bg3); color: var(--text); }
+.cmd-item .ci-icon { font-size: 14px; width: 22px; text-align: center; flex-shrink: 0; }
+.cmd-item .ci-label { flex: 1; }
+.cmd-item .ci-key { font-size: 10px; font-family: monospace; background: var(--surface); border: 1px solid var(--border); color: var(--text3); padding: 1px 5px; border-radius: 3px; }
+.cmd-sep { font-size: 10px; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: 8px 12px 3px; }
 
-    .code-block { margin: 8px -6px; border-radius: 8px; }
-    pre { padding: 10px 12px; }
-    code { font-size: 12px; }
-  }
+/* ─── SLASH MENU ─────────────────────────── */
+#slash-menu { position: absolute; bottom: 100%; left: 0; right: 0; margin-bottom: 6px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.4); max-height: 280px; overflow-y: auto; padding: 4px; display: none; z-index: 30; }
+#slash-menu.open { display: block; }
+.slash-item { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.slash-item.active,.slash-item:hover { background: var(--bg3); }
+.slash-cmd { color: var(--accent); font-weight: 600; min-width: 110px; font-family: monospace; font-size: 12.5px; }
+.slash-desc { color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* very small phones */
-  @media (max-width: 380px) {
-    #img-controls { display: none; }
-    #img-btn { display: none; }
-    .tool-btn { width: 34px; height: 34px; }
-  }
+/* ─── TOAST NOTIFICATIONS ─────────────────── */
+#toast-container { position: fixed; bottom: 40px; right: 16px; z-index: 300; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; align-items: center; gap: 8px; pointer-events: auto; max-width: 340px; animation: toastIn .18s ease; line-height: 1.4; }
+.toast.success { border-color: rgba(34,197,94,.4); }
+.toast.error   { border-color: rgba(239,68,68,.4); }
+.toast.success .t-icon { color: #22c55e; }
+.toast.error   .t-icon { color: #ef4444; }
+.toast .t-icon { font-size: 15px; flex-shrink: 0; }
+@keyframes toastIn  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes toastOut { to  {opacity:0;transform:translateY(6px)} }
 
-  /* welcome screen */
-  #welcome {
-    max-width: 720px; margin: 60px auto; padding: 0 24px; text-align: center;
-  }
-  #welcome .w-icon {
-    width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 20px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center; font-size: 26px;
-  }
-  #welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
-  #welcome p { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 28px; }
-  .suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
-  .suggestion {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 14px; cursor: pointer; font-size: 13px; color: var(--text2);
-    transition: all 0.15s;
-  }
-  .suggestion:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
-  .suggestion strong { display: block; color: var(--text); font-weight: 500; margin-bottom: 3px; font-size: 13px; }
+/* ─── DROP OVERLAY ───────────────────────── */
+#drop-overlay { position: fixed; inset: 0; background: rgba(232,149,42,.07); border: 3px dashed var(--accent); pointer-events: none; display: none; align-items: center; justify-content: center; font-size: 22px; color: var(--accent2); z-index: 200; backdrop-filter: blur(2px); }
+#drop-overlay.show { display: flex; }
+
+/* ─── HAMBURGER + BACKDROP ───────────────── */
+#sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 49; }
+#sidebar-backdrop.show { display: block; }
+
+/* ─── SCROLLBARS ─────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ─── COMPACT MODE ───────────────────────── */
+body.compact .chat-inner { padding: 0 16px; }
+body.compact .msg-group { padding: 2px 0; }
+body.compact .user-bubble { padding: 7px 12px; font-size: 13px; }
+body.compact .bot-text { font-size: 13px; line-height: 1.55; }
+body.compact .bot-avatar { width: 24px; height: 24px; font-size: 11px; }
+body.compact .msg-group.bot { gap: 8px; }
+body.compact .bot-name { font-size: 10.5px; }
+body.compact .followup-row { margin: 2px 0 8px 32px; }
+body.compact #inputwrap { padding: 6px 14px 10px; }
+
+/* ─── MOBILE ─────────────────────────────── */
+@media (max-width: 768px) {
+  body { font-size: 14px; }
+  #menu-btn { display: flex; }
+  #sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transform: translateX(-100%); transition: transform .22s ease-out; width: 280px; min-width: 280px; }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar-toggle-btn { display: none; }
+  #topbar { padding: 8px 12px; gap: 8px; }
+  #current-model-label { flex: 1; min-width: 0; overflow: hidden; }
+  #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge,.token-badge { display: none; }
+  #topbar-actions { display: none; }
+  #chat { padding: 14px 0 8px; }
+  .chat-inner { padding: 0 12px; }
+  .user-bubble { max-width: 90%; font-size: 14px; }
+  .bot-text { font-size: 14px; }
+  .bot-avatar { width: 26px; height: 26px; font-size: 12px; }
+  #inputwrap { padding: 7px 10px 12px; }
+  #input-outer { border-radius: 12px; }
+  #input { padding: 10px 12px 4px; font-size: 16px; }
+  #input-bottom { padding: 4px 6px 6px; gap: 3px; flex-wrap: wrap; }
+  .tool-btn { width: 36px; height: 36px; font-size: 16px; }
+  .ctrl-select { font-size: 11px; padding: 5px; max-width: 88px; }
+  #img-btn,#send-btn { width: 38px; height: 38px; font-size: 16px; }
+  #hint,#qa-toggle { display: none !important; }
+  #quick-actions { display: none !important; }
+  #temp-btn { font-size: 10px; padding: 3px 6px; }
+  .suggestion-grid { grid-template-columns: 1fr; gap: 7px; }
+  #welcome { margin: 28px auto; padding: 0 12px; }
+  #welcome h2 { font-size: 19px; }
+  #welcome p  { font-size: 13px; margin-bottom: 16px; }
+  #statusbar { display: none; }
+  #token-counter { display: none; }
+  .fm-grid { grid-template-columns: 1fr; }
+  #features-modal .fm-head,#features-modal .fm-body { padding: 14px; }
+}
+@media (max-width: 380px) {
+  #img-controls,#img-btn { display: none; }
+  .tool-btn { width: 32px; height: 32px; }
+}
 </style>
 </head>
 <body>
+
+<div id="sidebar-backdrop" onclick="closeSidebar()"></div>
 
 <!-- SIDEBAR -->
 <div id="sidebar">
   <div id="sidebar-logo">
     <div class="logo-icon">F</div>
-    <span>FraqtoOS Chat</span>
+    <div>
+      <div class="logo-text">FraqtoOS Chat</div>
+      <div class="logo-sub">Local AI · Always On</div>
+    </div>
   </div>
 
-  <div class="sidebar-label">Auto Mode</div>
-  <button class="model-btn auto-model" data-model="auto" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 routes to best model</span></span>
-  </button>
+  <div class="sb-section">
+    <div class="sb-label">Auto Mode</div>
+    <button class="model-btn auto-model" data-model="auto" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → best model</span></div>
+    </button>
+  </div>
 
-  <div class="sidebar-label">Local Models</div>
-  <button class="model-btn active" data-model="phi4" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">phi4</span><span class="model-size">Microsoft · 9 GB · Fast</span></span>
-  </button>
-  <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Balanced</span></span>
-  </button>
-  <button class="model-btn" data-model="qwen3:14b" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">qwen3:14b</span><span class="model-size">Alibaba · 9.3 GB · Smart</span></span>
-  </button>
-  <button class="model-btn" data-model="deepseek-r1:14b" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">DeepSeek-R1</span><span class="model-size">DeepSeek · 9 GB · Reasoning</span></span>
-  </button>
-  <button class="model-btn" data-model="gpt-oss:20b" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">GPT-OSS</span><span class="model-size">OpenAI · 14 GB · Powerful</span></span>
-  </button>
-  <button class="model-btn" data-model="llama4:latest" onclick="selectModel(this)">
-    <span class="model-dot"></span>
-    <span class="model-info"><span class="model-name">llama4</span><span class="model-size">Meta · 67 GB · Best</span></span>
-  </button>
+  <div class="sb-section">
+    <div class="sb-label">Local Models</div>
+    <button class="model-btn active" data-model="phi4" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">phi4</span><span class="model-size">Microsoft · 9 GB · Fast</span></div>
+    </button>
+    <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Balanced</span></div>
+    </button>
+    <button class="model-btn" data-model="qwen3:14b" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">qwen3:14b</span><span class="model-size">Alibaba · 9.3 GB · Smart</span></div>
+    </button>
+    <button class="model-btn" data-model="deepseek-r1:14b" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">DeepSeek-R1</span><span class="model-size">DeepSeek · 9 GB · Reasoning</span></div>
+    </button>
+    <button class="model-btn" data-model="gpt-oss:20b" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">GPT-OSS</span><span class="model-size">OpenAI · 14 GB · Powerful</span></div>
+    </button>
+    <button class="model-btn" data-model="llama4:latest" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">llama4</span><span class="model-size">Meta · 67 GB · Best</span></div>
+    </button>
+  </div>
 
-  <div class="sidebar-divider"></div>
+  <div class="sb-divider"></div>
 
-  <div class="sidebar-label">Conversations</div>
-  <button class="sidebar-action" onclick="newConversation()" style="color:var(--accent2)">
-    <span>+</span> New Chat
-  </button>
-  <button class="sidebar-action" onclick="saveCurrentConversation()">
-    <span>💾</span> Rename Current
-  </button>
-  <input id="conv-search" placeholder="🔍 Search conversations…" oninput="onConvSearch(this.value)">
-  <div class="conv-list" id="conv-list"></div>
+  <div class="conv-section">
+    <div class="sb-label" style="padding:0 4px;margin-bottom:6px">Conversations</div>
+    <button class="sidebar-action" onclick="newConversation()" style="color:var(--accent2);padding:7px 4px">
+      <span class="sa-icon">+</span> New Chat
+    </button>
+    <input id="conv-search" placeholder="Search conversations…" oninput="onConvSearch(this.value)">
+    <div class="conv-list" id="conv-list"></div>
+    <button class="sidebar-action" onclick="saveCurrentConversation()" style="padding:5px 4px;margin-top:2px">
+      <span class="sa-icon">💾</span> Rename Current
+    </button>
+  </div>
 
-  <div class="sidebar-divider"></div>
+  <div class="sb-divider"></div>
 
-  <button class="sidebar-action" onclick="openStarModal()">
-    <span>⭐</span> Starred <span class="mem-count-badge" id="star-count">0</span>
-  </button>
-  <button class="sidebar-action" onclick="openMemoryModal()" id="memory-action">
-    <span>🧠</span> Memory <span class="mem-count-badge" id="mem-count">0</span>
-  </button>
-  <button class="sidebar-action" onclick="openPromptLib()">
-    <span>📚</span> Prompt Library <span class="mem-count-badge" id="prompt-count">0</span>
-  </button>
-  <button class="sidebar-action" onclick="toggleSysPrompt()">
-    <span>⚙</span> System Prompt
-  </button>
-  <button class="sidebar-action" onclick="exportChat()">
-    <span>↓</span> Export Chat
-  </button>
-  <button class="sidebar-action" onclick="clearChat()">
-    <span>✕</span> Clear Chat
-  </button>
-  <button class="sidebar-action" onclick="openFeaturesModal()" style="color:var(--accent2)">
-    <span>✦</span> Features Guide
-  </button>
-
+  <div style="padding:6px 10px 12px">
+    <button class="sidebar-action" onclick="openStarModal()">
+      <span class="sa-icon">⭐</span> Starred <span class="mem-count-badge" id="star-count">0</span>
+    </button>
+    <button class="sidebar-action" onclick="openMemoryModal()" id="memory-action">
+      <span class="sa-icon">🧠</span> Memory <span class="mem-count-badge" id="mem-count">0</span>
+    </button>
+    <button class="sidebar-action" onclick="openPromptLib()">
+      <span class="sa-icon">📚</span> Prompts <span class="mem-count-badge" id="prompt-count">0</span>
+    </button>
+    <button class="sidebar-action" onclick="toggleSysPrompt()">
+      <span class="sa-icon">⚙</span> System Prompt
+    </button>
+    <button class="sidebar-action" onclick="exportChat()">
+      <span class="sa-icon">↓</span> Export Chat
+    </button>
+    <button class="sidebar-action" onclick="clearChat()">
+      <span class="sa-icon">✕</span> Clear Chat
+    </button>
+    <button class="sidebar-action" onclick="openFeaturesModal()" style="color:var(--accent2)">
+      <span class="sa-icon">✦</span> Features Guide
+    </button>
+  </div>
 </div>
+
 <button id="sidebar-toggle-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar">◀</button>
 
 <!-- MAIN -->
@@ -899,21 +716,20 @@
     <div id="current-model-label">
       <span id="model-display">phi4</span>
       <span class="badge" id="model-badge">Local · Ollama</span>
-      <span id="token-counter" title="Approx tokens (chars/4)">0 tok</span>
       <span id="status-light" title="Checking…"></span>
     </div>
-    <div id="gpu-widget" title="GPU stats loading…" style="display:none">
-      <div id="gpu-bar-outer"><div id="gpu-bar-inner"></div></div>
-      <span id="gpu-label">GPU</span>
-    </div>
     <div id="topbar-actions">
-      <button class="icon-btn" id="ctx-btn" onclick="clearContext()" title="Clear AI context — messages stay visible but AI forgets them (Ctrl+Shift+X)">⟳ Context</button>
-      <button class="icon-btn" id="compact-btn" onclick="toggleCompact()" title="Toggle compact view">⊟ Compact</button>
+      <div class="fs-controls">
+        <button class="fs-btn" onclick="adjustFontSize(-1)" title="Smaller text">A−</button>
+        <button class="fs-btn" onclick="adjustFontSize(1)"  title="Larger text">A+</button>
+      </div>
+      <button class="icon-btn" id="ctx-btn" onclick="clearContext()" title="Clear AI context (Ctrl+Shift+X)">⟳ Context</button>
+      <button class="icon-btn" id="compact-btn" onclick="toggleCompact()" title="Compact view">⊟ Compact</button>
       <button class="icon-btn" onclick="toggleSysPrompt()">⚙ System</button>
       <button class="icon-btn" onclick="exportChat()">↓ Export</button>
+      <button id="cmd-btn" onclick="openCommandPalette()" title="Command palette (Ctrl+K)">⌘ <kbd>K</kbd></button>
     </div>
   </div>
-  <div id="sidebar-backdrop" onclick="closeSidebar()"></div>
 
   <div id="sysprompt-bar">
     <label>System Prompt</label>
@@ -922,10 +738,10 @@
   </div>
 
   <div id="chat-search-bar" role="search">
-    <input id="chat-search-input" placeholder="Search messages…" oninput="runChatSearch(this.value)" onkeydown="chatSearchKey(event)">
+    <input id="chat-search-input" placeholder="Search in chat…" oninput="runChatSearch(this.value)" onkeydown="chatSearchKey(event)">
     <span id="chat-search-count"></span>
     <button class="chat-search-nav" onclick="moveChatSearch(-1)" title="Previous">▲</button>
-    <button class="chat-search-nav" onclick="moveChatSearch(1)" title="Next">▼</button>
+    <button class="chat-search-nav" onclick="moveChatSearch(1)"  title="Next">▼</button>
     <button class="chat-search-nav" onclick="closeChatSearch()">✕</button>
   </div>
 
@@ -933,8 +749,8 @@
     <div class="chat-inner">
       <div id="welcome">
         <div class="w-icon">✦</div>
-        <h2>How can I help you today?</h2>
-        <p>Powered by local AI on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4.</p>
+        <h2>What can I help you with?</h2>
+        <p>Local AI running on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4.</p>
         <div class="suggestion-grid">
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/watchdog</strong>Live bot health + AI diagnosis
@@ -946,16 +762,16 @@
             <strong>/image a futuristic city</strong>Generate with FLUX (text → image)
           </div>
           <div class="suggestion" onclick="fillInput('Drop an image and toggle ✏️ Edit, then describe a change')">
-            <strong>✏️ Edit Image</strong>FLUX Kontext — change clothes, bg, colors
+            <strong>✏️ Edit Image</strong>FLUX Kontext — change anything
           </div>
           <div class="suggestion" onclick="fillInput('Drop your face photo, toggle 🪄 Avatar, then describe a scene')">
             <strong>🪄 Avatar in Scene</strong>PuLID-FLUX — generate you anywhere
           </div>
-          <div class="suggestion" onclick="fillInput('Drop two photos: 🔄 Source = your face, 🎯 Target = where to paste it')">
-            <strong>🔄 Face Swap</strong>insightface — paste face onto a photo
+          <div class="suggestion" onclick="fillInput('Drop two photos: 🔄 Source = your face, 🎯 Target = destination')">
+            <strong>🔄 Face Swap</strong>insightface — paste face onto photo
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
-            <strong>/remember</strong>Save a fact for the AI to recall later
+            <strong>/remember</strong>Save a fact for AI to recall later
           </div>
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/btc</strong>Bitcoin price + recent activity
@@ -970,17 +786,18 @@
   <div id="inputwrap">
     <div id="input-outer">
       <div id="slash-menu" role="listbox" aria-label="Slash commands"></div>
-      <textarea id="input" placeholder="Ask anything… or /image your prompt" rows="1"></textarea>
+      <textarea id="input" placeholder="Ask anything… or /image · /video to generate" rows="1"></textarea>
       <div id="attach-row"></div>
       <div id="neg-row"><input id="neg-prompt" placeholder="Negative prompt: ugly, blurry, watermark…"></div>
       <div id="input-bottom">
-        <button class="tool-btn" id="web-toggle" onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
-        <button class="tool-btn" id="attach-btn" onclick="document.getElementById('file-input').click()" title="Attach file (txt/md/pdf/code)">📎</button>
-        <button class="tool-btn" id="mimic-btn" onclick="document.getElementById('video-input').click()" title="Attach driving video for MimicMotion (also attach an avatar image)">🎬</button>
-        <button class="tool-btn" id="mic-btn" onclick="toggleVoice()" title="Voice input">🎤</button>
-        <button class="tool-btn" id="qa-toggle" onclick="toggleQuickActions()" title="Quick Actions">⚡</button>
-        <button id="temp-btn" onclick="cycleTemp()" title="Model temperature — click to cycle">🌡 Balanced</button>
-        <input type="file" id="file-input" style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
+        <button class="tool-btn" id="web-toggle"  onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
+        <button class="tool-btn" id="attach-btn"  onclick="document.getElementById('file-input').click()" title="Attach file">📎</button>
+        <button class="tool-btn" id="mimic-btn"   onclick="document.getElementById('video-input').click()" title="Attach driving video">🎬</button>
+        <button class="tool-btn" id="mic-btn"     onclick="toggleVoice()" title="Voice input">🎤</button>
+        <button class="tool-btn" id="chia-btn"    onclick="toggleChia()" title="Chia harvester">🌱</button>
+        <button class="tool-btn" id="qa-toggle"   onclick="toggleQuickActions()" title="Quick Actions">⚡</button>
+        <button id="temp-btn" onclick="cycleTemp()" title="Temperature — click to cycle">🌡 Balanced</button>
+        <input type="file" id="file-input"  style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
         <input type="file" id="video-input" style="display:none" accept="video/*" onchange="handleVideoAttach(event)">
         <div id="img-controls">
           <select id="img-model" class="ctrl-select" title="Image model">
@@ -999,7 +816,7 @@
         </div>
         <div id="actions-right">
           <span id="char-counter" style="font-size:11px;color:var(--text3);display:none"></span>
-          <button id="img-btn" onclick="generateImage()" title="Generate Image">🎨</button>
+          <button id="img-btn"  onclick="generateImage()" title="Generate Image">🎨</button>
           <button id="send-btn" onclick="sendOrStop()">&#9654;</button>
         </div>
       </div>
@@ -1014,276 +831,163 @@
       <button class="qa-btn" onclick="quickAction('Translate this to English')">🌐 Translate</button>
       <button class="qa-btn" onclick="quickAction('Give me 5 alternative approaches or variations')">🔀 Alternatives</button>
     </div>
-    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Ctrl+N new chat &nbsp;·&nbsp; Ctrl+/ focus &nbsp;·&nbsp; /image to generate &nbsp;·&nbsp; 🔊 to read aloud</div>
+    <div id="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Ctrl+N new chat &nbsp;·&nbsp; Ctrl+K commands &nbsp;·&nbsp; Ctrl+F search &nbsp;·&nbsp; /image to generate</div>
   </div>
-</div>
 
+  <!-- BOTTOM STATUS BAR -->
+  <div id="statusbar">
+    <span id="token-counter" title="Approx tokens in current context">0 tok</span>
+    <div class="sb-sep"></div>
+    <div id="gpu-widget" title="GPU VRAM">
+      <div id="gpu-bar-outer"><div id="gpu-bar-inner"></div></div>
+      <span id="gpu-label">GPU</span>
+    </div>
+    <div id="statusbar-right">Ctrl+K commands &nbsp;·&nbsp; /image &nbsp;·&nbsp; /video (Wan2.1) &nbsp;·&nbsp; 🎤 voice &nbsp;·&nbsp; 📎 attach</div>
+  </div>
+</div><!-- /#main -->
+
+<!-- LIGHTBOX -->
 <div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src="" alt=""></div>
 
+<!-- PROMPT LIBRARY -->
 <div id="prompt-modal" onclick="if(event.target.id==='prompt-modal')closePromptLib()">
   <div class="pm-card">
-    <div class="pm-head">
-      <h3>📚 Prompt Library</h3>
-      <button class="pm-x" onclick="closePromptLib()">✕</button>
-    </div>
+    <div class="pm-head"><h3>📚 Prompt Library</h3><button class="pm-x" onclick="closePromptLib()">✕</button></div>
     <div class="pm-body" id="pm-body"></div>
     <div class="pm-foot">
-      <textarea id="pm-input" placeholder="Type a prompt to save… (e.g. 'Summarize in 3 bullet points:')"></textarea>
+      <textarea id="pm-input" placeholder="Type a prompt to save…"></textarea>
       <button id="pm-save" onclick="savePromptFromInput()">Save Prompt</button>
     </div>
   </div>
 </div>
+
+<!-- STARRED MESSAGES -->
 <div id="star-modal" onclick="if(event.target.id==='star-modal')closeStarModal()">
   <div class="sm-card">
-    <div class="sm-head">
-      <h3>⭐ Starred Messages</h3>
-      <button class="sm-x" onclick="closeStarModal()">✕</button>
-    </div>
+    <div class="sm-head"><h3>⭐ Starred Messages</h3><button class="sm-x" onclick="closeStarModal()">✕</button></div>
     <div class="sm-body" id="star-body"></div>
   </div>
 </div>
 
+<!-- DROP OVERLAY -->
 <div id="drop-overlay">📎 Drop file or image here</div>
 
+<!-- FEATURES GUIDE -->
 <div id="features-modal" onclick="if(event.target.id==='features-modal')closeFeaturesModal()">
   <div class="fm-card">
     <div class="fm-head">
-      <div style="flex:1">
-        <h2>✦ FraqtoOS Chat — Features Guide</h2>
-        <p>Everything this chat can do, in one place.</p>
-      </div>
+      <div style="flex:1"><h2>✦ FraqtoOS Chat — Features Guide</h2><p>Everything this chat can do, in one place.</p></div>
       <button class="fm-x" onclick="closeFeaturesModal()">✕</button>
     </div>
     <div class="fm-body">
-
       <div class="fm-section">
         <div class="fm-section-title">AI Models</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">✨</div>
-            <div class="fm-info"><div class="fm-name">Auto-Routing</div><div class="fm-desc">phi4 classifies your message and picks the best model automatically.</div><span class="fm-badge">model: Auto ✨</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">φ</div>
-            <div class="fm-info"><div class="fm-name">phi4 — Fast</div><div class="fm-desc">Microsoft's 9 GB model. Default for quick Q&A, summaries, routing.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔵</div>
-            <div class="fm-info"><div class="fm-name">DeepSeek-R1</div><div class="fm-desc">14B reasoning model. Best for code, math, multi-step logic.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🟠</div>
-            <div class="fm-info"><div class="fm-name">qwen3:14b</div><div class="fm-desc">Alibaba's smart 9 GB model. Finance, analysis, research.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🟢</div>
-            <div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / llama4</div><div class="fm-desc">Google / OpenAI-OSS / Meta models for copy, long-form, and creative work.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">✦</div>
-            <div class="fm-info"><div class="fm-name">Claude (Sonnet / Opus / Haiku)</div><div class="fm-desc">Anthropic cloud models via API key. Requires ANTHROPIC_API_KEY.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">✨</div><div class="fm-info"><div class="fm-name">Auto-Routing</div><div class="fm-desc">phi4 classifies your message and picks the best model automatically.</div><span class="fm-badge">model: Auto ✨</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">φ</div><div class="fm-info"><div class="fm-name">phi4 — Fast</div><div class="fm-desc">Microsoft's 9 GB model. Default for quick Q&amp;A, summaries, routing.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔵</div><div class="fm-info"><div class="fm-name">DeepSeek-R1</div><div class="fm-desc">14B reasoning model. Best for code, math, multi-step logic.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🟠</div><div class="fm-info"><div class="fm-name">qwen3:14b</div><div class="fm-desc">Alibaba's smart 9 GB model. Finance, analysis, research.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🟢</div><div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / llama4</div><div class="fm-desc">Google / OpenAI-OSS / Meta models for copy, long-form, creative.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">✦</div><div class="fm-info"><div class="fm-name">Claude (Sonnet / Opus / Haiku)</div><div class="fm-desc">Anthropic cloud models via API key. Requires ANTHROPIC_API_KEY.</div></div></div>
         </div>
       </div>
-
       <div class="fm-section">
         <div class="fm-section-title">Image Generation &amp; Editing</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">🎨</div>
-            <div class="fm-info"><div class="fm-name">Text → Image</div><div class="fm-desc">Generate images with FLUX Schnell, FLUX Dev, SDXL, Juggernaut XI v11, or SD 1.5.</div><span class="fm-badge">/image &lt;prompt&gt;</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">✏️</div>
-            <div class="fm-info"><div class="fm-name">Edit Image (FLUX Kontext)</div><div class="fm-desc">Attach a photo, cycle to ✏️ Edit mode, then describe your change.</div><span class="fm-badge">attach → ✏️ Edit</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🪄</div>
-            <div class="fm-info"><div class="fm-name">Avatar in Scene (PuLID-FLUX)</div><div class="fm-desc">Attach your face photo, cycle to 🪄 Avatar, then describe a scene.</div><span class="fm-badge">attach → 🪄 Avatar</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔄</div>
-            <div class="fm-info"><div class="fm-name">Face Swap (insightface)</div><div class="fm-desc">Attach two images: set one as 🔄 Source (face) and one as 🎯 Target.</div><span class="fm-badge">attach → 🔄/🎯</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">⚡</div>
-            <div class="fm-info"><div class="fm-name">Size &amp; Model Controls</div><div class="fm-desc">Choose image size (512/768/1024) and model from the input bar dropdowns.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">🎨</div><div class="fm-info"><div class="fm-name">Text → Image</div><div class="fm-desc">Generate with FLUX Schnell, FLUX Dev, SDXL, Juggernaut XI v11, SD 1.5.</div><span class="fm-badge">/image &lt;prompt&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">✏️</div><div class="fm-info"><div class="fm-name">Edit Image (FLUX Kontext)</div><div class="fm-desc">Attach a photo, cycle to ✏️ Edit mode, then describe your change.</div><span class="fm-badge">attach → ✏️ Edit</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🪄</div><div class="fm-info"><div class="fm-name">Avatar in Scene (PuLID-FLUX)</div><div class="fm-desc">Attach your face photo, cycle to 🪄 Avatar, then describe a scene.</div><span class="fm-badge">attach → 🪄 Avatar</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔄</div><div class="fm-info"><div class="fm-name">Face Swap (insightface)</div><div class="fm-desc">Attach two images: set one as 🔄 Source (face) and one as 🎯 Target.</div><span class="fm-badge">attach → 🔄/🎯</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⚡</div><div class="fm-info"><div class="fm-name">Size &amp; Model Controls</div><div class="fm-desc">Choose image size (512/768/1024) and model from the input bar dropdowns.</div></div></div>
         </div>
       </div>
-
+      <div class="fm-section">
+        <div class="fm-section-title">Video Animation</div>
+        <div class="fm-grid">
+          <div class="fm-card-item"><div class="fm-icon">🎬</div><div class="fm-info"><div class="fm-name">Wan2.1 Text → Video</div><div class="fm-desc">Generate a 5-second 832×480 clip from any text prompt using Wan2.1-T2V-1.3B. Runs fully local on GPU.</div><span class="fm-badge">/video &lt;prompt&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🖼➡🎬</div><div class="fm-info"><div class="fm-name">Wan2.1 Image → Video</div><div class="fm-desc">Attach any photo, then describe the motion. Wan2.1-I2V-14B animates it into a video. First run downloads ~28 GB model.</div><span class="fm-badge">📎 attach → /animate &lt;motion&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🕺</div><div class="fm-info"><div class="fm-name">MimicMotion</div><div class="fm-desc">Attach avatar image (🪄 mode) + driving video. SVD-XT transfers the motion onto the avatar.</div><span class="fm-badge">🎬 button → 🪄 Avatar</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🕺</div><div class="fm-info"><div class="fm-name">AnimateAnyone</div><div class="fm-desc">Pose-driven animation with AnimateAnyone pipeline. Toggle video chip to 🕺.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🥋</div><div class="fm-info"><div class="fm-name">CHAMP</div><div class="fm-desc">Full-body SMPL motion transfer. Toggle video chip to 🥋 CHAMP.</div></div></div>
+        </div>
+      </div>
       <div class="fm-section">
         <div class="fm-section-title">Input &amp; Attachments</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">📎</div>
-            <div class="fm-info"><div class="fm-name">File Attach</div><div class="fm-desc">Attach .txt, .md, .pdf, .json, .csv, code files — text is extracted and sent as context.</div><span class="fm-badge">📎 button</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🖼</div>
-            <div class="fm-info"><div class="fm-name">Image Vision</div><div class="fm-desc">Attach an image in 👁 Vision mode to let a vision model describe or analyse it.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🎤</div>
-            <div class="fm-info"><div class="fm-name">Voice Input</div><div class="fm-desc">Click 🎤 to dictate. Live transcript appears in the input box as you speak.</div><span class="fm-badge">🎤 button</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">📋</div>
-            <div class="fm-info"><div class="fm-name">Paste &amp; Drag-Drop</div><div class="fm-desc">Paste images from clipboard or drag files/images directly onto the window.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">📎</div><div class="fm-info"><div class="fm-name">File Attach</div><div class="fm-desc">Attach .txt, .md, .pdf, .json, .csv, code files — text sent as context.</div><span class="fm-badge">📎 button</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🖼</div><div class="fm-info"><div class="fm-name">Image Vision</div><div class="fm-desc">Attach an image in 👁 Vision mode for a vision model to analyse it.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🎤</div><div class="fm-info"><div class="fm-name">Voice Input</div><div class="fm-desc">Click 🎤 to dictate. Live transcript appears in the input box as you speak.</div><span class="fm-badge">🎤 button</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📋</div><div class="fm-info"><div class="fm-name">Paste &amp; Drag-Drop</div><div class="fm-desc">Paste images from clipboard or drag files/images directly onto the window.</div></div></div>
         </div>
       </div>
-
       <div class="fm-section">
         <div class="fm-section-title">Slash Commands</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">🌐</div>
-            <div class="fm-info"><div class="fm-name">Web Search</div><div class="fm-desc">Toggle 🔍 to attach live SearXNG results to your next message automatically.</div><span class="fm-badge">🔍 button</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">📡</div>
-            <div class="fm-info"><div class="fm-name">/watchdog</div><div class="fm-desc">Shows all FraqtoOS bot statuses + latest AI health diagnosis.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">📊</div>
-            <div class="fm-info"><div class="fm-name">/digest</div><div class="fm-desc">Today's per-bot summaries from the daily AI context log.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">₿</div>
-            <div class="fm-info"><div class="fm-name">/btc</div><div class="fm-desc">Live BTC price, 24h change, and latest backtest summary.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">💼</div>
-            <div class="fm-info"><div class="fm-name">/portfolio</div><div class="fm-desc">Portfolio P&amp;L summary from 5Paisa + Kite accounts.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🤖</div>
-            <div class="fm-info"><div class="fm-name">/bots &amp; /help</div><div class="fm-desc">/bots shows orchestrator state. /help lists all bridge commands.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">🎬</div><div class="fm-info"><div class="fm-name">/video &lt;prompt&gt;</div><div class="fm-desc">Generate a short video from text with Wan2.1 T2V-1.3B. Runs on your GPU, ~3-5 min per clip.</div><span class="fm-badge">/video a cat walking</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🖼➡🎬</div><div class="fm-info"><div class="fm-name">/animate [motion]</div><div class="fm-desc">Attach an image first, then use /animate to turn it into a video. Describe the motion or leave blank. Uses Wan2.1-I2V-14B (first run: ~28 GB download).</div><span class="fm-badge">📎 image → /animate</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌐</div><div class="fm-info"><div class="fm-name">Web Search</div><div class="fm-desc">Toggle 🔍 to attach live SearXNG results to your next message.</div><span class="fm-badge">🔍 button</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📡</div><div class="fm-info"><div class="fm-name">/watchdog</div><div class="fm-desc">Shows all FraqtoOS bot statuses + latest AI health diagnosis.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📊</div><div class="fm-info"><div class="fm-name">/digest</div><div class="fm-desc">Today's per-bot summaries from the daily AI context log.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">₿</div><div class="fm-info"><div class="fm-name">/btc</div><div class="fm-desc">Live BTC price, 24h change, and latest backtest summary.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">💼</div><div class="fm-info"><div class="fm-name">/portfolio</div><div class="fm-desc">Portfolio P&amp;L summary from 5Paisa + Kite accounts.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🤖</div><div class="fm-info"><div class="fm-name">/bots &amp; /help</div><div class="fm-desc">/bots shows orchestrator state. /help lists all bridge commands.</div></div></div>
         </div>
       </div>
-
       <div class="fm-section">
         <div class="fm-section-title">Memory &amp; Conversations</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">🧠</div>
-            <div class="fm-info"><div class="fm-name">Persistent Memory</div><div class="fm-desc">Save facts the AI recalls in every future conversation. Enable auto-extract to let it save facts from your messages.</div><span class="fm-badge">/remember &lt;fact&gt;</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🗑</div>
-            <div class="fm-info"><div class="fm-name">Forget</div><div class="fm-desc">Delete specific memories by keyword. Or open 🧠 Memory panel and ✕ any entry.</div><span class="fm-badge">/forget &lt;keyword&gt;</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">💾</div>
-            <div class="fm-info"><div class="fm-name">Auto-Save Conversations</div><div class="fm-desc">Every reply is auto-saved to disk. Conversations survive page refresh and are listed in the sidebar.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🏷</div>
-            <div class="fm-info"><div class="fm-name">Auto-Title</div><div class="fm-desc">phi4 automatically generates a short title for each conversation after the first reply.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔍</div>
-            <div class="fm-info"><div class="fm-name">Conversation Search</div><div class="fm-desc">Type in the sidebar search box to search all saved conversation titles and content.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">🧠</div><div class="fm-info"><div class="fm-name">Persistent Memory</div><div class="fm-desc">Save facts the AI recalls in every future conversation. Auto-extract option.</div><span class="fm-badge">/remember &lt;fact&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🗑</div><div class="fm-info"><div class="fm-name">Forget</div><div class="fm-desc">Delete memories by keyword, or open 🧠 Memory panel and ✕ any entry.</div><span class="fm-badge">/forget &lt;keyword&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">💾</div><div class="fm-info"><div class="fm-name">Auto-Save Conversations</div><div class="fm-desc">Every reply is auto-saved. Conversations survive refresh and are listed in sidebar.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🏷</div><div class="fm-info"><div class="fm-name">Auto-Title</div><div class="fm-desc">phi4 automatically generates a short title for each conversation.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔍</div><div class="fm-info"><div class="fm-name">Conversation Search</div><div class="fm-desc">Type in sidebar search to search all saved conversation titles and content.</div></div></div>
         </div>
       </div>
-
       <div class="fm-section">
         <div class="fm-section-title">Chat Tools</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">✏</div>
-            <div class="fm-info"><div class="fm-name">Edit &amp; Resend</div><div class="fm-desc">Click any of your past messages to edit the text and resend from that point.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">↺</div>
-            <div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔊</div>
-            <div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">⧉</div>
-            <div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">💡</div>
-            <div class="fm-info"><div class="fm-name">Follow-up Chips</div><div class="fm-desc">After each reply, phi4 suggests 3 follow-up questions as clickable chips.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">⟳</div>
-            <div class="fm-info"><div class="fm-name">Clear Context</div><div class="fm-desc">Resets AI memory for the current chat while keeping messages visible on screen.</div><span class="fm-badge">Ctrl+Shift+X</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔎</div>
-            <div class="fm-info"><div class="fm-name">In-Chat Search</div><div class="fm-desc">Search and highlight text across all messages. Navigate with ▲▼ buttons.</div><span class="fm-badge">Ctrl+F</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">↓</div>
-            <div class="fm-info"><div class="fm-name">Export Chat</div><div class="fm-desc">Download the current conversation as a Markdown (.md) file.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">📚</div>
-            <div class="fm-info"><div class="fm-name">Prompt Library</div><div class="fm-desc">Save and reuse your favourite prompts. Press Ctrl+S in the input to save the current text.</div><span class="fm-badge">Ctrl+S to save</span></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">⚙</div>
-            <div class="fm-info"><div class="fm-name">System Prompt</div><div class="fm-desc">Set a persistent system instruction for every message in the current session.</div></div>
-          </div>
+          <div class="fm-card-item"><div class="fm-icon">✏</div><div class="fm-info"><div class="fm-name">Edit &amp; Resend</div><div class="fm-desc">Click any of your past messages to edit the text and resend from that point.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">↺</div><div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔊</div><div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⧉</div><div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">💡</div><div class="fm-info"><div class="fm-name">Follow-up Chips</div><div class="fm-desc">After each reply, phi4 suggests 3 follow-up questions as clickable chips.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⟳</div><div class="fm-info"><div class="fm-name">Clear Context</div><div class="fm-desc">Resets AI memory for current chat while keeping messages visible.</div><span class="fm-badge">Ctrl+Shift+X</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔎</div><div class="fm-info"><div class="fm-name">In-Chat Search</div><div class="fm-desc">Search and highlight text across all messages. Navigate with ▲▼.</div><span class="fm-badge">Ctrl+F</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">↓</div><div class="fm-info"><div class="fm-name">Export Chat</div><div class="fm-desc">Download the current conversation as a Markdown (.md) file.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📚</div><div class="fm-info"><div class="fm-name">Prompt Library</div><div class="fm-desc">Save and reuse your favourite prompts. Press Ctrl+S to save current input.</div><span class="fm-badge">Ctrl+S to save</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⚙</div><div class="fm-info"><div class="fm-name">System Prompt</div><div class="fm-desc">Set a persistent system instruction for every message in the session.</div></div></div>
         </div>
       </div>
-
       <div class="fm-section">
         <div class="fm-section-title">System &amp; UI</div>
         <div class="fm-grid">
-          <div class="fm-card-item">
-            <div class="fm-icon">🖥</div>
-            <div class="fm-info"><div class="fm-name">GPU VRAM Widget</div><div class="fm-desc">Live GPU VRAM used/total and utilisation % in the topbar. Updates every 10 s. Hover for per-GPU detail.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🟢</div>
-            <div class="fm-info"><div class="fm-name">Status Light</div><div class="fm-desc">Green = Ollama up. Red = server unreachable. Hover to see Ollama / Claude / Search / Image status.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">🔢</div>
-            <div class="fm-info"><div class="fm-name">Token Counter</div><div class="fm-desc">Approximate token usage for the current context. Turns amber above 30 k tokens.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">📱</div>
-            <div class="fm-info"><div class="fm-name">PWA — Install as App</div><div class="fm-desc">Add to your home screen / desktop. Works offline for the UI shell.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">◀</div>
-            <div class="fm-info"><div class="fm-name">Collapsible Sidebar</div><div class="fm-desc">Click ◀/▶ to hide/show the sidebar. State is remembered across sessions.</div></div>
-          </div>
-          <div class="fm-card-item">
-            <div class="fm-icon">⌨</div>
-            <div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div>
-              <div class="fm-desc">
-                <span class="fm-badge">Enter</span> send &nbsp;
-                <span class="fm-badge">Shift+Enter</span> newline<br>
-                <span class="fm-badge">Ctrl+N</span> new chat &nbsp;
-                <span class="fm-badge">Ctrl+/</span> focus input<br>
-                <span class="fm-badge">Ctrl+F</span> search &nbsp;
-                <span class="fm-badge">Ctrl+S</span> save prompt<br>
-                <span class="fm-badge">Ctrl+Shift+X</span> clear context
-              </div>
+          <div class="fm-card-item"><div class="fm-icon">🖥</div><div class="fm-info"><div class="fm-name">GPU VRAM Widget</div><div class="fm-desc">Live GPU VRAM used/total in the status bar. Updates every 10s.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🟢</div><div class="fm-info"><div class="fm-name">Status Light</div><div class="fm-desc">Green = Ollama up. Red = server unreachable. Hover for full service status.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔢</div><div class="fm-info"><div class="fm-name">Token Counter</div><div class="fm-desc">Approximate token usage shown in the bottom bar. Turns amber above 30k.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">A±</div><div class="fm-info"><div class="fm-name">Font Size Control</div><div class="fm-desc">A− and A+ buttons in the topbar to shrink or enlarge the chat text size.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⌘</div><div class="fm-info"><div class="fm-name">Command Palette</div><div class="fm-desc">Press Ctrl+K to open the command palette — search models, actions, slash commands.</div><span class="fm-badge">Ctrl+K</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📱</div><div class="fm-info"><div class="fm-name">PWA — Install as App</div><div class="fm-desc">Add to your home screen / desktop. Works offline for the UI shell.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">◀</div><div class="fm-info"><div class="fm-name">Collapsible Sidebar</div><div class="fm-desc">Click ◀/▶ to hide/show the sidebar. State remembered across sessions.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌱</div><div class="fm-info"><div class="fm-name">Chia Harvester</div><div class="fm-desc">🌱 button toggles the Chia blockchain harvester on/off. Green = running.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⌨</div><div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div>
+            <div class="fm-desc">
+              <span class="fm-badge">Enter</span> send &nbsp;<span class="fm-badge">Shift+Enter</span> newline<br>
+              <span class="fm-badge">Ctrl+N</span> new chat &nbsp;<span class="fm-badge">Ctrl+K</span> palette<br>
+              <span class="fm-badge">Ctrl+F</span> search &nbsp;<span class="fm-badge">Ctrl+S</span> save prompt<br>
+              <span class="fm-badge">Ctrl+Shift+X</span> clear context
             </div>
-          </div>
+          </div></div>
         </div>
       </div>
-
     </div>
   </div>
 </div>
 
+<!-- MEMORY -->
 <div id="mem-modal" onclick="if(event.target.id==='mem-modal')closeMemoryModal()">
   <div class="mem-card">
     <div class="mem-head">
-      <h3>🧠 Memory — what the bot remembers about you</h3>
+      <h3>🧠 Memory — what the AI remembers about you</h3>
       <button class="mem-x" onclick="closeMemoryModal()">✕</button>
     </div>
     <div class="mem-toggle-row">
@@ -1297,6 +1001,17 @@
     </div>
   </div>
 </div>
+
+<!-- COMMAND PALETTE -->
+<div id="cmd-palette" onclick="if(event.target.id==='cmd-palette')closeCommandPalette()">
+  <div class="cmd-box">
+    <input id="cmd-input" placeholder="Search commands, models, actions…" oninput="renderCmdList(this.value)" onkeydown="cmdPaletteKey(event)" autocomplete="off">
+    <div id="cmd-list"></div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
 
 <script>
 const chatEl    = document.getElementById('chat');
@@ -1372,6 +1087,12 @@ input.addEventListener('keydown', function(e) {
   if(e.key==='Escape'&&isStreaming){stopStreaming();}
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isStreaming)stopStreaming();});
+
+// Fetch CHAMP guidance mode once (full=4-guidance or pose=DWPose-only)
+window._champMode = null;
+fetch('/champ-status').then(function(r){return r.ok?r.json():null;}).then(function(d){
+  if(d) window._champMode = d.mode === 'full' ? '4-guide' : 'pose-only';
+}).catch(function(){});
 
 function toggleSysPrompt() { document.getElementById('sysprompt-bar').classList.toggle('open'); }
 
@@ -1971,6 +1692,7 @@ const SLASH_COMMANDS = [
   { cmd: '/btc',       args: '',             desc: 'Bitcoin price + recent backtest' },
   { cmd: '/portfolio', args: '',             desc: 'Portfolio P&L from 5Paisa + Kite' },
   { cmd: '/help',      args: '',             desc: 'Show available bridge commands' },
+  { cmd: '/exec',      args: '<task>',       desc: 'Run AI agent on server (bash, files, services)' },
 ];
 let _slashIdx = 0;
 function _slashMatches(text) {
@@ -2045,7 +1767,10 @@ async function maybeRenderFollowups() {
       chip.onclick = function(){ input.value = s; input.focus(); input.dispatchEvent(new Event('input')); row.remove(); };
       row.appendChild(chip);
     });
-    if (lastBot && lastBot.parentNode) lastBot.parentNode.insertBefore(row, lastBot.nextSibling);
+    if (lastBot && lastBot.parentNode) {
+      var msgGroup = lastBot.parentNode; // .msg-group.bot
+      if (msgGroup.parentNode) msgGroup.parentNode.insertBefore(row, msgGroup.nextSibling);
+    }
   } catch(e) {
     if (e.name !== 'AbortError') console.warn('followup fail:', e);
   }
@@ -2114,6 +1839,117 @@ document.getElementById('inputwrap').querySelector('textarea').addEventListener(
   if(e.key==='Enter'&&!e.shiftKey&&input.value.trim().startsWith('/image')){e.preventDefault();generateImage();}
 },true);
 
+// ─── Wan2.1 text-to-video ─────────────────────────────────────────
+async function generateWanVideo() {
+  var prompt = input.value.trim().replace(/^\/video\s*/i, '');
+  if (!prompt) { showToast('Type a prompt after /video', 'warn'); return; }
+  input.value = ''; input.style.height = '52px';
+  addUserMsg('🎬 ' + prompt);
+  var {textEl, statsEl} = addBotMsg('wan2.1');
+  var t0 = Date.now();
+  textEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Generating video… (first run downloads ~2.5 GB model, ~3-5 min after that)';
+  history.push({role: 'user', content: '/video ' + prompt});
+  try {
+    var res = await fetch('/wan-video', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt: prompt, frames: 81, width: 832, height: 480, steps: 50})
+    });
+    var data = await readImageStream(res, textEl);
+    if (data.error) {
+      textEl.innerHTML = '<span style="color:var(--text3)">Error: ' + escHtml(data.error) + '</span>';
+      history.push({role: 'assistant', content: '[video error: ' + data.error + ']', model: 'wan2.1'});
+    } else {
+      var src = 'data:video/mp4;base64,' + data.video;
+      textEl.innerHTML =
+        '<video controls autoplay loop style="max-width:100%;border-radius:8px;margin-top:4px" src="' + src + '"></video>' +
+        '<div class="img-actions">' +
+          '<button class="icon-btn" onclick="(function(v){var a=document.createElement(\'a\');a.href=v.src;a.download=\'wan2.1-\'+Date.now()+\'.mp4\';a.click();})(this.previousElementSibling)" title="Download">↓ Save</button>' +
+        '</div>';
+      statsEl.textContent = 'wan2.1 · ' + ((Date.now() - t0) / 1000).toFixed(1) + 's';
+      textEl._rawText = '[generated video: ' + prompt + ']';
+      history.push({role: 'assistant', content: '[generated video: ' + prompt + ']', model: 'wan2.1'});
+    }
+  } catch(e) {
+    textEl.innerHTML = '<span style="color:var(--text3)">Error: ' + escHtml(e.message) + '</span>';
+    history.push({role: 'assistant', content: '[video error: ' + e.message + ']', model: 'wan2.1'});
+  }
+  autoPersist(); maybeAutoTitle(); updateTokenCounter(); input.focus();
+}
+
+// /video shortcut
+document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey && input.value.trim().toLowerCase().startsWith('/video')) {
+    e.preventDefault(); generateWanVideo();
+  }
+}, true);
+
+// ─── Wan2.1 image-to-video (/animate) ────────────────────────────
+async function animateWanImage() {
+  var prompt = input.value.trim().replace(/^\/animate\s*/i, '');
+  // Find the first attached image
+  var imgAttach = attachments.filter(function(a){ return a.kind === 'image'; });
+  if (!imgAttach.length) {
+    showToast('Attach an image first, then type /animate [motion description]', 'warn');
+    return;
+  }
+  var att = imgAttach[0];
+  input.value = ''; input.style.height = '52px';
+  var label = prompt || 'animate image';
+  addUserMsg('🎬 ' + label + (att ? ' [' + att.name + ']' : ''));
+  history.push({role: 'user', content: '/animate ' + label + ' [image: ' + att.name + ']'});
+  // Clear attachments
+  attachments = []; renderAttachRow(); updateTokenCounter();
+
+  var {textEl, statsEl} = addBotMsg('wan2.1-i2v');
+  var t0 = Date.now();
+  textEl.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> Animating image… (first run downloads ~28 GB model — ~10-15 min after that)';
+
+  try {
+    // Convert base64 image to Blob for multipart upload
+    var b64 = att.image_b64;
+    var byteStr = atob(b64);
+    var arr = new Uint8Array(byteStr.length);
+    for (var i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+    var blob = new Blob([arr], {type: 'image/jpeg'});
+
+    var fd = new FormData();
+    fd.append('image', blob, att.name);
+    fd.append('prompt', prompt);
+    fd.append('frames', '81');
+    fd.append('steps', '50');
+    fd.append('fps', '16');
+
+    var res = await fetch('/wan-i2v', {method: 'POST', body: fd});
+    var data = await readImageStream(res, textEl);
+    if (data.error) {
+      textEl.innerHTML = '<span style="color:var(--text3)">Error: ' + escHtml(data.error) + '</span>';
+      history.push({role: 'assistant', content: '[i2v error: ' + data.error + ']', model: 'wan2.1-i2v'});
+    } else {
+      var src = 'data:video/mp4;base64,' + data.video;
+      textEl.innerHTML =
+        '<video controls autoplay loop style="max-width:100%;border-radius:8px;margin-top:4px" src="' + src + '"></video>' +
+        '<div class="img-actions">' +
+          '<button class="icon-btn" onclick="(function(v){var a=document.createElement(\'a\');a.href=v.src;a.download=\'animate-\'+Date.now()+\'.mp4\';a.click();})(this.previousElementSibling)" title="Download">↓ Save</button>' +
+        '</div>';
+      statsEl.textContent = 'wan2.1-i2v · ' + ((Date.now() - t0) / 1000).toFixed(1) + 's';
+      textEl._rawText = '[animated image: ' + label + ']';
+      history.push({role: 'assistant', content: '[animated image: ' + label + ']', model: 'wan2.1-i2v'});
+    }
+  } catch(e) {
+    textEl.innerHTML = '<span style="color:var(--text3)">Error: ' + escHtml(e.message) + '</span>';
+    history.push({role: 'assistant', content: '[i2v error: ' + e.message + ']', model: 'wan2.1-i2v'});
+  }
+  autoPersist(); maybeAutoTitle(); updateTokenCounter(); input.focus();
+}
+
+// /animate shortcut
+document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey && input.value.trim().toLowerCase().startsWith('/animate')) {
+    e.preventDefault(); animateWanImage();
+  }
+}, true);
+
 // ─────────────────────────────────────────────────────────────────
 // FEATURE 1: Web search toggle
 // ─────────────────────────────────────────────────────────────────
@@ -2128,6 +1964,44 @@ function toggleWebSearch() {
   refreshWebToggle();
 }
 refreshWebToggle();
+
+// ── Chia harvester toggle ──────────────────────────────────────────────────
+var _chiaRunning = false;
+function _refreshChiaBtn() {
+  var btn = document.getElementById('chia-btn');
+  if (!btn) return;
+  if (_chiaRunning) {
+    btn.classList.add('on');
+    btn.title = 'Chia harvester: RUNNING — click to stop';
+    btn.style.color = '#22c55e';
+  } else {
+    btn.classList.remove('on');
+    btn.title = 'Chia harvester: STOPPED — click to start';
+    btn.style.color = '';
+  }
+}
+async function _pollChia() {
+  try {
+    var r = await fetch('/chia-harvester');
+    if (r.ok) { _chiaRunning = (await r.json()).running; _refreshChiaBtn(); }
+  } catch(e) {}
+}
+async function toggleChia() {
+  var btn = document.getElementById('chia-btn');
+  btn.disabled = true;
+  try {
+    var action = _chiaRunning ? 'stop' : 'start';
+    var r = await fetch('/chia-harvester', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action: action})
+    });
+    if (r.ok) { var d = await r.json(); _chiaRunning = d.running; _refreshChiaBtn(); }
+  } catch(e) { console.error('Chia toggle error', e); }
+  btn.disabled = false;
+}
+_pollChia();
+setInterval(_pollChia, 30000);
 
 async function fetchWebContext(query) {
   try {
@@ -2183,7 +2057,9 @@ function renderAttachRow() {
       var animColors = {'mimic':'#b45309','animateanyone':'#0e7490','champ':'#7c3aed'};
       var modeLabel = animLabels[a.animMode] || animLabels['mimic'];
       var modeBg    = animColors[a.animMode] || animColors['mimic'];
-      chip.innerHTML = '<span style="cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;background:'+modeBg+';color:#fff" class="anim-mode-toggle" title="Click to cycle: MimicMotion → AnimateAnyone → CHAMP">'+modeLabel+'</span>'
+      var champSuffix = '';
+      if (a.animMode === 'champ' && window._champMode) champSuffix = ' <span style="font-size:9px;opacity:0.8">('+window._champMode+')</span>';
+      chip.innerHTML = '<span style="cursor:pointer;font-size:11px;padding:2px 6px;border-radius:4px;background:'+modeBg+';color:#fff" class="anim-mode-toggle" title="Click to cycle: MimicMotion → AnimateAnyone → CHAMP">'+modeLabel+champSuffix+'</span>'
         + ' <span>'+escHtml(a.name)+' <span style="color:var(--text3)">('+mb+'MB)</span></span><span class="x">×</span>';
       chip.querySelector('.anim-mode-toggle').onclick = function(){
         var i = animModes.indexOf(a.animMode); a.animMode = animModes[(i+1) % animModes.length];
@@ -2816,8 +2692,49 @@ const _origSendMsg = sendMsg;
 sendMsg = async function() {
   var text = input.value.trim();
   if (!text && !attachments.length) return;
-  // /image is handled by generateImage() via the capture keydown listener — skip here
+  // /image and /video are handled by their own capture keydown listeners — skip here
   if (text.toLowerCase().startsWith('/image')) return;
+  if (text.toLowerCase().startsWith('/video'))   { generateWanVideo();  return; }
+  if (text.toLowerCase().startsWith('/animate')) { animateWanImage();   return; }
+
+  // /exec <task> — run gemma-agent on the server
+  if (text.toLowerCase().startsWith('/exec ') || text.toLowerCase() === '/exec') {
+    var execTask = text.slice(6).trim();
+    if (!execTask) { addBotMsg('phi4').textEl.textContent = 'Usage: /exec <task>'; return; }
+    addUserMsg(text);
+    history.push({role:'user', content: text});
+    lastUserMsg = text;
+    input.value = ''; input.style.height = '52px';
+    addTyping(); isStreaming = true;
+    sendBtn.innerHTML = '&#9632;'; sendBtn.className = 'stop-mode';
+    var eb = addBotMsg('agent');
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">🤖 Agent thinking…</em>';
+    var t0 = Date.now();
+    try {
+      var execRes = await fetch('/exec', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({task: execTask, model: 'auto'})
+      });
+      var execData = await readImageStream(execRes, eb.textEl);
+      removeTyping();
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      if (execData.error) {
+        eb.textEl.innerHTML = '<span style="color:#dc2626">Agent error: ' + escHtml(execData.error) + '</span>';
+      } else {
+        eb.textEl.innerHTML = renderMarkdown(execData.result || '(no output)');
+        eb.textEl._rawText = execData.result;
+        history.push({role:'assistant', content: execData.result});
+      }
+      var tc = execData.tool_calls ? ' · ' + execData.tool_calls + ' tool calls' : '';
+      eb.statsEl.textContent = elapsed + 's · ' + (execData.model || 'agent') + tc;
+    } catch(e) {
+      removeTyping();
+      eb.textEl.innerHTML = '<span style="color:#dc2626">Exec error: ' + escHtml(e.message) + '</span>';
+    }
+    finishStream(); autoPersist(); maybeAutoTitle(); updateTokenCounter();
+    return;
+  }
 
   // 1) Slash command short-circuit
   if (text && await maybeHandleSlash(text)) return;
@@ -2903,7 +2820,7 @@ sendMsg = async function() {
     var apiEndpoint = mode === 'animateanyone' ? '/animate-anyone' : (mode === 'champ' ? '/champ' : '/mimic-motion');
     var modelLabel  = mode === 'animateanyone' ? 'animate-anyone' : (mode === 'champ' ? 'champ' : 'mimic-motion');
     var modelEmoji  = mode === 'animateanyone' ? '🕺' : (mode === 'champ' ? '🥋' : '🎬');
-    var estTime     = mode === 'animateanyone' ? '3-8 min' : (mode === 'champ' ? '3-6 min' : '2-5 min');
+    var estTime     = mode === 'animateanyone' ? '3-8 min' : (mode === 'champ' ? '5-30 min' : '5-20 min');
     addUserMsg(modelEmoji+' '+modelLabel+': '+mimicAvatar.name+' + '+videoAttach.name);
     history.push({role:'user', content:'['+modelLabel+': avatar='+mimicAvatar.name+' driving='+videoAttach.name+']'});
     input.value=''; input.style.height='52px';
@@ -2922,9 +2839,9 @@ sendMsg = async function() {
       if (mode === 'animateanyone') {
         fd.append('steps', '20'); fd.append('chunk', '16'); fd.append('cfg', '3.5');
       } else if (mode === 'champ') {
-        fd.append('steps', '20'); fd.append('guidance', '3.5'); fd.append('frames', '100');
+        fd.append('steps', '20'); fd.append('guidance', '3.5'); fd.append('frames', '9999');
       } else {
-        fd.append('num_frames', '16'); fd.append('steps', '25');
+        fd.append('num_frames', '16'); fd.append('steps', '25'); fd.append('stride', '4');
       }
       var res = await fetch(apiEndpoint, {method:'POST', body:fd});
       var d = await readImageStream(res, textEl);
@@ -3351,6 +3268,144 @@ document.addEventListener('keydown', function(e) {
   if (document.getElementById('star-modal').classList.contains('open'))     { closeStarModal();     return; }
   if (document.getElementById('prompt-modal').classList.contains('open'))   { closePromptLib();     return; }
   if (document.getElementById('mem-modal').classList.contains('open'))      { closeMemoryModal();   return; }
+  if (document.getElementById('cmd-palette').classList.contains('open'))    { closeCommandPalette(); return; }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// Toast notification system (replaces browser alert for key actions)
+// ─────────────────────────────────────────────────────────────────
+function showToast(msg, type, duration) {
+  type = type || 'info'; duration = duration || 3000;
+  var icons = {info:'ℹ️', success:'✓', error:'✕'};
+  var tc = document.getElementById('toast-container');
+  var t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = '<span class="t-icon">' + icons[type] + '</span><span>' + msg + '</span>';
+  tc.appendChild(t);
+  setTimeout(function() {
+    t.style.animation = 'toastOut .2s ease forwards';
+    setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 220);
+  }, duration);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Font size control (A− / A+)
+// ─────────────────────────────────────────────────────────────────
+var _fsSteps = [13, 14, 15, 16, 17, 18];
+var _fsIdx   = parseInt(localStorage.getItem('fraqtoos_fs_idx') || '2');
+function _applyFs() {
+  document.documentElement.style.setProperty('--fs', _fsSteps[_fsIdx] + 'px');
+}
+function adjustFontSize(dir) {
+  _fsIdx = Math.max(0, Math.min(_fsSteps.length - 1, _fsIdx + dir));
+  localStorage.setItem('fraqtoos_fs_idx', _fsIdx);
+  _applyFs();
+}
+_applyFs();
+
+// ─────────────────────────────────────────────────────────────────
+// Command Palette (Ctrl+K)
+// ─────────────────────────────────────────────────────────────────
+var _cmdIdx = 0;
+
+var CMD_ITEMS = [
+  // Models
+  {section:'Models', icon:'✨', label:'Auto ✨ — smart router', action:function(){ var b=document.querySelector('.model-btn[data-model="auto"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'φ',  label:'phi4 — Microsoft 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="phi4"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🟢', label:'gemma4 — Google 9.6GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gemma4:latest"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🟠', label:'qwen3:14b — Alibaba 9.3GB', action:function(){ var b=document.querySelector('.model-btn[data-model="qwen3:14b"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🔵', label:'DeepSeek-R1 — Reasoning 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="deepseek-r1:14b"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🟣', label:'GPT-OSS — OpenAI 14GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gpt-oss:20b"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🦙', label:'llama4 — Meta 67GB', action:function(){ var b=document.querySelector('.model-btn[data-model="llama4:latest"]'); if(b) selectModel(b); }},
+  // Actions
+  {section:'Actions', icon:'+',  label:'New Chat', key:'Ctrl+N', action:newConversation},
+  {section:'Actions', icon:'⟳',  label:'Clear Context', key:'Ctrl+Shift+X', action:clearContext},
+  {section:'Actions', icon:'🔎', label:'Search in Chat', key:'Ctrl+F', action:toggleChatSearch},
+  {section:'Actions', icon:'⊟',  label:'Toggle Compact Mode', action:toggleCompact},
+  {section:'Actions', icon:'⚙',  label:'System Prompt', action:toggleSysPrompt},
+  {section:'Actions', icon:'📚', label:'Prompt Library', action:openPromptLib},
+  {section:'Actions', icon:'⭐', label:'Starred Messages', action:openStarModal},
+  {section:'Actions', icon:'🧠', label:'Memory', action:openMemoryModal},
+  {section:'Actions', icon:'↓',  label:'Export Chat', action:exportChat},
+  {section:'Actions', icon:'✦',  label:'Features Guide', action:openFeaturesModal},
+  {section:'Actions', icon:'🌱', label:'Toggle Chia Harvester', action:toggleChia},
+  {section:'Actions', icon:'A+', label:'Increase Font Size', action:function(){ adjustFontSize(1); }},
+  {section:'Actions', icon:'A−', label:'Decrease Font Size', action:function(){ adjustFontSize(-1); }},
+  // Slash commands
+  {section:'Slash Commands', icon:'🖼', label:'/image <prompt>', action:function(){ fillInput('/image '); document.getElementById('input').focus(); closeCommandPalette(); }},
+  {section:'Slash Commands', icon:'🎬', label:'/video <prompt>', action:function(){ fillInput('/video '); document.getElementById('input').focus(); closeCommandPalette(); }},
+  {section:'Slash Commands', icon:'🖼➡🎬', label:'/animate [motion] — attach image first', action:function(){ fillInput('/animate '); document.getElementById('input').focus(); closeCommandPalette(); }},
+  {section:'Slash Commands', icon:'📡', label:'/watchdog — bot health', action:function(){ fillInput('/watchdog'); closeCommandPalette(); sendMsg(); }},
+  {section:'Slash Commands', icon:'📊', label:'/digest — daily summaries', action:function(){ fillInput('/digest'); closeCommandPalette(); sendMsg(); }},
+  {section:'Slash Commands', icon:'₿',  label:'/btc — Bitcoin price', action:function(){ fillInput('/btc'); closeCommandPalette(); sendMsg(); }},
+  {section:'Slash Commands', icon:'💼', label:'/portfolio — P&L summary', action:function(){ fillInput('/portfolio'); closeCommandPalette(); sendMsg(); }},
+  {section:'Slash Commands', icon:'🧠', label:'/remember <fact>', action:function(){ fillInput('/remember '); document.getElementById('input').focus(); closeCommandPalette(); }},
+  {section:'Slash Commands', icon:'⚙️', label:'/exec <task> — run AI agent on server', action:function(){ fillInput('/exec '); document.getElementById('input').focus(); closeCommandPalette(); }},
+];
+
+function _cmdFilter(q) {
+  if (!q) return CMD_ITEMS;
+  q = q.toLowerCase();
+  return CMD_ITEMS.filter(function(c){ return c.label.toLowerCase().includes(q) || c.section.toLowerCase().includes(q); });
+}
+
+function renderCmdList(q) {
+  var items = _cmdFilter(q || '');
+  if (_cmdIdx >= items.length) _cmdIdx = 0;
+  var list = document.getElementById('cmd-list');
+  list.innerHTML = '';
+  var lastSection = '';
+  items.forEach(function(c, i) {
+    if (c.section !== lastSection) {
+      var sep = document.createElement('div');
+      sep.className = 'cmd-sep'; sep.textContent = c.section;
+      list.appendChild(sep);
+      lastSection = c.section;
+    }
+    var el = document.createElement('div');
+    el.className = 'cmd-item' + (i === _cmdIdx ? ' active' : '');
+    el.innerHTML = '<span class="ci-icon">' + c.icon + '</span><span class="ci-label">' + c.label + '</span>'
+      + (c.key ? '<span class="ci-key">' + c.key + '</span>' : '');
+    el.onmousedown = function(e){ e.preventDefault(); _cmdIdx = i; execCmdItem(items); };
+    list.appendChild(el);
+  });
+}
+
+function execCmdItem(items) {
+  var c = items[_cmdIdx];
+  if (!c) return;
+  closeCommandPalette();
+  c.action();
+}
+
+function openCommandPalette() {
+  _cmdIdx = 0;
+  document.getElementById('cmd-palette').classList.add('open');
+  var inp = document.getElementById('cmd-input');
+  inp.value = '';
+  renderCmdList('');
+  setTimeout(function(){ inp.focus(); }, 30);
+}
+function closeCommandPalette() {
+  document.getElementById('cmd-palette').classList.remove('open');
+  document.getElementById('cmd-input').value = '';
+}
+
+function cmdPaletteKey(e) {
+  var items = _cmdFilter(document.getElementById('cmd-input').value);
+  if (e.key === 'ArrowDown') { e.preventDefault(); _cmdIdx = (_cmdIdx + 1) % Math.max(1, items.length); renderCmdList(document.getElementById('cmd-input').value); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _cmdIdx = (_cmdIdx - 1 + items.length) % Math.max(1, items.length); renderCmdList(document.getElementById('cmd-input').value); }
+  else if (e.key === 'Enter') { e.preventDefault(); execCmdItem(items); }
+  else if (e.key === 'Escape') { closeCommandPalette(); }
+}
+
+// Ctrl+K → open command palette
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === 'k') {
+    e.preventDefault();
+    if (document.getElementById('cmd-palette').classList.contains('open')) closeCommandPalette();
+    else openCommandPalette();
+  }
 });
 </script>
 </body>

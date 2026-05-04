@@ -237,8 +237,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
-    '/bridge','/classify','/health','/gpu','/memory','/suggest',
-    '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/manifest.json'];
+    '/bridge','/classify','/health','/gpu','/memory','/suggest','/exec',
+    '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
+    '/wan-video','/wan-i2v','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
@@ -459,13 +460,16 @@ AA_VENV_PYTHON    = "/home/work/AnimateAnyone/venv/bin/python"
 AA_SCRIPT         = "/home/work/AnimateAnyone/run_api.py"
 CHAMP_VENV_PYTHON = "/home/work/champ/venv/bin/python"
 CHAMP_SCRIPT      = "/home/work/champ/run_api.py"
+WAN_VENV_PYTHON   = "/home/work/Wan2.1/venv/bin/python"
+WAN_SCRIPT        = "/home/work/Wan2.1/run_wan.py"
+WAN_I2V_SCRIPT    = "/home/work/Wan2.1/run_wan_i2v.py"
 
 
 def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
                        driving_bytes: bytes, driving_name: str,
                        num_frames: int = 16, resolution: int = 576,
                        fps: int = 15, steps: int = 25,
-                       guidance: float = 2.0, stride: int = 2) -> str:
+                       guidance: float = 2.0, stride: int = 4) -> str:
     """Run MimicMotion in its own venv; return base64-encoded mp4."""
     import tempfile, shutil
     tmp = tempfile.mkdtemp(prefix="mimic_")
@@ -487,7 +491,7 @@ def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
             "--guidance",   str(guidance),
             "--stride",     str(stride),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
         if result.returncode != 0:
             raise RuntimeError((result.stderr or "MimicMotion failed")[-1000:])
         if not os.path.exists(output_path):
@@ -518,8 +522,8 @@ async def mimic_motion_endpoint(req: Request, avatar: UploadFile = File(...), dr
     except (ValueError, TypeError): steps = 25
     try:    guidance = float(form.get("guidance") or 2.0)
     except (ValueError, TypeError): guidance = 2.0
-    try:    stride = max(1, min(int(form.get("stride") or 2), 4))
-    except (ValueError, TypeError): stride = 2
+    try:    stride = max(1, min(int(form.get("stride") or 4), 8))
+    except (ValueError, TypeError): stride = 4
 
     avatar_bytes  = await avatar.read()
     driving_bytes = await driving.read()
@@ -623,7 +627,7 @@ async def animate_anyone_endpoint(req: Request, avatar: UploadFile = File(...), 
 
 def _run_champ(avatar_bytes: bytes, avatar_name: str,
                driving_bytes: bytes, driving_name: str,
-               width: int = 512, height: int = 512, frames: int = 100,
+               width: int = 512, height: int = 512, frames: int = 9999,
                steps: int = 20, guidance: float = 3.5, fps: int = 30) -> str:
     """Run CHAMP across both GPUs; return base64-encoded mp4."""
     import tempfile, shutil
@@ -647,7 +651,7 @@ def _run_champ(avatar_bytes: bytes, avatar_name: str,
             "--fps",      str(fps),
             "--gpu",      "-1",    # auto dual-GPU split
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
         if result.returncode != 0:
             raise RuntimeError((result.stderr or "CHAMP failed")[-1000:])
         if not os.path.exists(output_path):
@@ -656,6 +660,23 @@ def _run_champ(avatar_bytes: bytes, avatar_name: str,
             return base64.b64encode(f.read()).decode()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.get("/champ-status")
+async def champ_status():
+    """Return CHAMP guidance mode: full (4-guidance) or pose (DWPose-only)."""
+    smpl_pkl    = "/home/work/.cache/4DHumans/data/smpl/SMPL_NEUTRAL.pkl"
+    hmr2_ckpt   = "/home/work/.cache/4DHumans/logs/train/multiruns/hmr2/0/checkpoints/epoch=35-step=1000000.ckpt"
+    d2_model    = "/home/work/champ/pretrained_models/detectron2/model_final_f05665.pkl"
+    full_ready  = all(os.path.exists(p) for p in [smpl_pkl, hmr2_ckpt, d2_model])
+    return JSONResponse({
+        "mode":        "full" if full_ready else "pose",
+        "description": "depth+normal+semantic+dwpose" if full_ready else "DWPose-only",
+        "smpl_ready":  os.path.exists(smpl_pkl),
+        "hmr2_ready":  os.path.exists(hmr2_ckpt),
+        "d2_ready":    os.path.exists(d2_model),
+        "smpl_path":   smpl_pkl if not full_ready else None,
+    })
 
 
 @app.post("/champ")
@@ -672,8 +693,8 @@ async def champ_endpoint(req: Request, avatar: UploadFile = File(...), driving: 
     except (ValueError, TypeError): width   = 512
     try:    height  = int(form.get("height")  or 512)
     except (ValueError, TypeError): height  = 512
-    try:    frames  = max(16, min(int(form.get("frames") or 100), 300))
-    except (ValueError, TypeError): frames  = 100
+    try:    frames  = max(16, min(int(form.get("frames") or 9999), 9999))
+    except (ValueError, TypeError): frames  = 9999
     try:    steps   = max(10, min(int(form.get("steps")  or 20), 40))
     except (ValueError, TypeError): steps   = 20
     try:    guidance = float(form.get("guidance") or 3.5)
@@ -699,6 +720,160 @@ async def champ_endpoint(req: Request, avatar: UploadFile = File(...), driving: 
         "model": "champ"
     }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+def _run_wan(prompt: str, negative: str = "", frames: int = 81,
+             width: int = 832, height: int = 480,
+             steps: int = 50, guidance: float = 5.0,
+             fps: int = 16, seed: int = 42) -> str:
+    """Run Wan2.1 T2V in its own venv; return base64-encoded mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="wan_")
+    try:
+        output_path = os.path.join(tmp, "output.mp4")
+        cmd = [
+            WAN_VENV_PYTHON, WAN_SCRIPT,
+            "--prompt",   prompt,
+            "--output",   output_path,
+            "--frames",   str(frames),
+            "--width",    str(width),
+            "--height",   str(height),
+            "--steps",    str(steps),
+            "--guidance", str(guidance),
+            "--fps",      str(fps),
+            "--seed",     str(seed),
+        ]
+        if negative:
+            cmd += ["--negative", negative]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "Wan2.1 failed")[-1200:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("Wan2.1 produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/wan-video")
+async def wan_video_endpoint(req: Request):
+    """Generate a short video from a text prompt using Wan2.1 T2V-1.3B."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(WAN_VENV_PYTHON):
+        return JSONResponse({"error": "Wan2.1 venv not found — check /home/work/Wan2.1/venv/"}, 503)
+
+    data     = await req.json()
+    prompt   = (data.get("prompt") or "").strip()
+    negative = (data.get("negative") or "").strip()
+    if not prompt:
+        return JSONResponse({"error": "prompt required"}, 400)
+
+    try:    frames   = max(17, min(int(data.get("frames",  81)),  161))
+    except (ValueError, TypeError): frames   = 81
+    try:    width    = int(data.get("width",    832))
+    except (ValueError, TypeError): width    = 832
+    try:    height   = int(data.get("height",   480))
+    except (ValueError, TypeError): height   = 480
+    try:    steps    = max(10, min(int(data.get("steps",   50)),  80))
+    except (ValueError, TypeError): steps    = 50
+    try:    guidance = float(data.get("guidance", 5.0))
+    except (ValueError, TypeError): guidance = 5.0
+    try:    fps      = max(8,  min(int(data.get("fps",     16)),  30))
+    except (ValueError, TypeError): fps      = 16
+    try:    seed     = int(data.get("seed", 42))
+    except (ValueError, TypeError): seed     = 42
+
+    fn = lambda: {
+        "video":  _run_wan(prompt, negative, frames, width, height, steps, guidance, fps, seed),
+        "prompt": prompt,
+        "model":  "wan2.1-t2v-1.3b",
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+def _run_wan_i2v(image_bytes: bytes, image_name: str,
+                 prompt: str = "", negative: str = "",
+                 frames: int = 81, width: int = 832, height: int = 480,
+                 steps: int = 50, guidance: float = 5.0,
+                 fps: int = 16, seed: int = 42) -> str:
+    """Run Wan2.1 I2V in its own venv; return base64-encoded mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="wan_i2v_")
+    try:
+        image_path  = os.path.join(tmp, image_name)
+        output_path = os.path.join(tmp, "output.mp4")
+        with open(image_path, "wb") as f:
+            f.write(image_bytes)
+        cmd = [
+            WAN_VENV_PYTHON, WAN_I2V_SCRIPT,
+            "--image",    image_path,
+            "--output",   output_path,
+            "--frames",   str(frames),
+            "--width",    str(width),
+            "--height",   str(height),
+            "--steps",    str(steps),
+            "--guidance", str(guidance),
+            "--fps",      str(fps),
+            "--seed",     str(seed),
+        ]
+        if prompt:   cmd += ["--prompt",   prompt]
+        if negative: cmd += ["--negative", negative]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "Wan2.1 I2V failed")[-1200:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("Wan2.1 I2V produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/wan-i2v")
+async def wan_i2v_endpoint(req: Request, image: UploadFile = File(...),
+                            prompt: str = "", steps: int = 50,
+                            frames: int = 81, fps: int = 16):
+    """Animate an image using Wan2.1 I2V-14B. Returns NDJSON → {video: base64_mp4}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(WAN_VENV_PYTHON):
+        return JSONResponse({"error": "Wan2.1 venv not found — check /home/work/Wan2.1/venv/"}, 503)
+
+    form = await req.form()
+    prompt   = (form.get("prompt")   or "").strip()
+    negative = (form.get("negative") or "").strip()
+    try:    steps   = max(10, min(int(form.get("steps",  50)),  80))
+    except (ValueError, TypeError): steps   = 50
+    try:    frames  = max(17, min(int(form.get("frames", 81)),  161))
+    except (ValueError, TypeError): frames  = 81
+    try:    fps     = max(8,  min(int(form.get("fps",    16)),  30))
+    except (ValueError, TypeError): fps     = 16
+    try:    seed    = int(form.get("seed", 42))
+    except (ValueError, TypeError): seed    = 42
+
+    image_bytes = await image.read()
+    if len(image_bytes) > 20 * 1024 * 1024:
+        return JSONResponse({"error": "image too large (max 20 MB)"}, 413)
+    image_name = image.filename or f"input_{int(time.time())}.jpg"
+
+    fn = lambda: {
+        "video":  _run_wan_i2v(image_bytes, image_name, prompt, negative,
+                               frames, 832, 480, steps, 5.0, fps, seed),
+        "prompt": prompt,
+        "model":  "wan2.1-i2v-14b",
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+@app.get("/wan-video/status")
+async def wan_video_status():
+    """Check whether Wan2.1 venv is installed."""
+    ready = os.path.exists(WAN_VENV_PYTHON)
+    return {"ready": ready, "model": "Wan2.1-T2V-1.3B"}
 
 
 @app.post("/edit-image")
@@ -1210,6 +1385,27 @@ async def conv_delete(conv_id: str, req: Request):
     return JSONResponse({"error": "not found"}, 404)
 
 
+@app.get("/chia-harvester")
+async def chia_harvester_status():
+    """Return Chia harvester running state."""
+    running = bool(subprocess.run(["pgrep", "-f", "chia_harvester"],
+                                  capture_output=True).returncode == 0)
+    return {"running": running}
+
+@app.post("/chia-harvester")
+async def chia_harvester_toggle(req: Request):
+    """Start or stop the Chia harvester. Body: {"action": "start"|"stop"}"""
+    body = await req.json()
+    action = body.get("action")
+    if action not in ("start", "stop"):
+        return JSONResponse({"error": "action must be start or stop"}, 400)
+    cmd = ["chia", action, "harvester"]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    running = bool(subprocess.run(["pgrep", "-f", "chia_harvester"],
+                                  capture_output=True).returncode == 0)
+    return {"running": running, "output": (result.stdout + result.stderr).strip()}
+
+
 @app.get("/gpu")
 async def gpu_stats():
     try:
@@ -1258,6 +1454,75 @@ def _comfyui_ready() -> bool:
         return r.status_code == 200
     except:
         return False
+
+
+# ─── Agent exec ───────────────────────────────────────────────────────
+@app.post("/exec")
+async def exec_agent(req: Request):
+    """Run the local gemma-agent with a task; stream NDJSON progress + final result.
+
+    Request:  {"task": "restart chia harvester", "model": "auto"|"phi4"|...}
+    Response: NDJSON lines — {"progress": <seconds>} ... {"result": "...", "model": "...", "tool_calls": N}
+    """
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "chat"):
+        return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
+    data  = await req.json()
+    task  = (data.get("task") or "").strip()
+    model = (data.get("model") or "auto").strip()
+    if not task:
+        return JSONResponse({"error": "task required"}, 400)
+
+    def _run():
+        # Lazy import — keeps module-level side effects in agent.py out of server startup
+        _agent_dir = "/home/work/gemma-agent"
+        if _agent_dir not in sys.path:
+            sys.path.insert(0, _agent_dir)
+        from agent import run_chain, run_agent  # noqa: PLC0415
+
+        # Capture tool-call count via a simple counting wrapper
+        tool_calls = [0]
+        _orig_exec = None
+        try:
+            import agent as _ag
+            _orig_exec = _ag.EXECUTORS.copy()
+            def _counting_exec(name):
+                orig = _orig_exec[name]
+                def _wrap(args):
+                    tool_calls[0] += 1
+                    return orig(args)
+                return _wrap
+            _ag.EXECUTORS = {k: _counting_exec(k) for k in _orig_exec}
+        except Exception:
+            pass
+
+        try:
+            if model == "auto":
+                result, used = run_chain(task, verbose=False)
+                return {
+                    "result":     result or "Agent returned no output.",
+                    "model":      used or "unknown",
+                    "tool_calls": tool_calls[0],
+                }
+            else:
+                result = run_agent(task, model=model, verbose=False)
+                return {
+                    "result":     result or "Agent returned no output.",
+                    "model":      model,
+                    "tool_calls": tool_calls[0],
+                }
+        except Exception as e:
+            return {"error": str(e)}
+        finally:
+            # Restore original executors
+            try:
+                import agent as _ag
+                if _orig_exec:
+                    _ag.EXECUTORS = _orig_exec
+            except Exception:
+                pass
+
+    return StreamingResponse(_stream_image_job(_run), media_type="application/x-ndjson")
 
 
 def _build_flux_workflow(unet_file: str, prompt: str, steps: int, width: int, height: int) -> dict:
