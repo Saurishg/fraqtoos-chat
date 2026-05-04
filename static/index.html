@@ -931,6 +931,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">₿</div><div class="fm-info"><div class="fm-name">/btc</div><div class="fm-desc">Live BTC price, 24h change, and latest backtest summary.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">💼</div><div class="fm-info"><div class="fm-name">/portfolio</div><div class="fm-desc">Portfolio P&amp;L summary from 5Paisa + Kite accounts.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🤖</div><div class="fm-info"><div class="fm-name">/bots &amp; /help</div><div class="fm-desc">/bots shows orchestrator state. /help lists all bridge commands.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⚙️</div><div class="fm-info"><div class="fm-name">/exec &lt;task&gt;</div><div class="fm-desc">Run the local AI agent directly on the server. It has bash, file read/write, and web search access — use it to restart services, check logs, edit configs, or run any server task. Smart-routed to the best local model. Streams live progress while it works.</div><span class="fm-badge">/exec restart chia harvester</span></div></div>
         </div>
       </div>
       <div class="fm-section">
@@ -968,7 +969,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">⌘</div><div class="fm-info"><div class="fm-name">Command Palette</div><div class="fm-desc">Press Ctrl+K to open the command palette — search models, actions, slash commands.</div><span class="fm-badge">Ctrl+K</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">📱</div><div class="fm-info"><div class="fm-name">PWA — Install as App</div><div class="fm-desc">Add to your home screen / desktop. Works offline for the UI shell.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">◀</div><div class="fm-info"><div class="fm-name">Collapsible Sidebar</div><div class="fm-desc">Click ◀/▶ to hide/show the sidebar. State remembered across sessions.</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">🌱</div><div class="fm-info"><div class="fm-name">Chia Harvester</div><div class="fm-desc">🌱 button toggles the Chia blockchain harvester on/off. Green = running.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌱</div><div class="fm-info"><div class="fm-name">Chia Harvester Toggle</div><div class="fm-desc">🌱 button in the topbar toggles the Chia blockchain harvester on/off. Green = running.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⌨</div><div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div>
             <div class="fm-desc">
               <span class="fm-badge">Enter</span> send &nbsp;<span class="fm-badge">Shift+Enter</span> newline<br>
@@ -979,6 +980,19 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           </div></div>
         </div>
       </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Server Automation</div>
+        <div class="fm-grid">
+          <div class="fm-card-item"><div class="fm-icon">⚙️</div><div class="fm-info"><div class="fm-name">/exec — AI Agent Shell</div><div class="fm-desc">Type <code>/exec &lt;task&gt;</code> to run the local gemma-agent on the server. It has bash, file read/write, and web search tools. Smart-routed to the best local model. Streams live elapsed time while working. Examples: restart services, check logs, edit configs, run scripts.</div><span class="fm-badge">/exec check disk space</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌿</div><div class="fm-info"><div class="fm-name">Chia AI Watcher (every 2h)</div><div class="fm-desc">phi4 reads new Chia debug.log lines every 2 hours and classifies them as ok / warning / critical. If a fix is possible, the gemma-agent executes it automatically (service restarts, WAL checkpoint, cache flush). WhatsApp alert sent on critical issues, max once per 4h.</div><span class="fm-badge">auto-fixes via agent</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌾</div><div class="fm-info"><div class="fm-name">Chia Health Monitor (08:00 daily)</div><div class="fm-desc">Rule-based daily Chia farming summary sent via WhatsApp at 08:00. Checks: farming status, hours since last block won vs expected, prover error count (Gigahorse giga37 bug), block validation spikes, coin store write slowness, and pooling errors.</div><span class="fm-badge">/exec run chia_health</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📋</div><div class="fm-info"><div class="fm-name">AI Fix Log</div><div class="fm-desc">Every auto-fix the Chia AI Watcher applies is logged with timestamp, command run, and agent result. Read it with <code>/exec cat /home/work/fraqtoos/logs/chia_ai_fixes.log</code>.</div><span class="fm-badge">/exec cat chia_ai_fixes.log</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📡</div><div class="fm-info"><div class="fm-name">Orchestrator Bots</div><div class="fm-desc">FraqtoOS runs: Portfolio Bot (06:00), morning AI analysis (07:00), Chia health (08:00), Utility Bill Bot (10:00), watchdog full (12:00), BTC Strategy Bot (22:00), daily digest (23:00), Chia AI Watcher (every 2h), watchdog (every 30m).</div><span class="fm-badge">/bots to see live state</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔧</div><div class="fm-info"><div class="fm-name">Safe Auto-Fix Allowlist</div><div class="fm-desc">The Chia AI Watcher only executes commands from a verified allowlist: chia CLI, systemctl, sqlite3, python3, df, du, sync. No rm, mv, or destructive operations are ever auto-run — the agent will refuse them.</div></div></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
