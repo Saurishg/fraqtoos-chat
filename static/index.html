@@ -402,6 +402,13 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 .qa-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); padding: 4px 10px; border-radius: 12px; font-size: 12px; cursor: pointer; transition: all .1s; white-space: nowrap; }
 .qa-btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
 
+#exec-shortcuts { max-width: 760px; margin: 0 auto 4px; padding: 2px 4px; display: none; align-items: center; flex-wrap: wrap; gap: 5px; }
+#exec-shortcuts.show { display: flex; }
+.exec-chip { background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text2); padding: 3px 10px; border-radius: 20px; font-size: 11.5px; cursor: pointer; white-space: nowrap; transition: background .15s; }
+.exec-chip:hover { background: rgba(255,255,255,.12); color: var(--text); }
+.exec-chip.danger { border-color: rgba(239,68,68,.35); color: #fca5a5; }
+.exec-chip.danger:hover { background: rgba(239,68,68,.12); }
+
 #hint { max-width: 760px; margin: 4px auto 0; text-align: center; font-size: 11px; color: var(--text3); }
 
 /* ─── BOTTOM STATUS BAR ──────────────────── */
@@ -821,6 +828,18 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
         </div>
       </div>
     </div>
+    <div id="exec-shortcuts">
+      <span style="font-size:10.5px;color:var(--text3);align-self:center;margin-right:2px">Server:</span>
+      <button class="exec-chip" onclick="execShortcut('status')">📊 Status</button>
+      <button class="exec-chip" onclick="execShortcut('gpu')">🖥 GPU</button>
+      <button class="exec-chip" onclick="execShortcut('disk')">💾 Disk</button>
+      <button class="exec-chip" onclick="execShortcut('logs-chia')">🌿 Chia</button>
+      <button class="exec-chip" onclick="execShortcut('logs-crypto')">💰 Crypto</button>
+      <button class="exec-chip" onclick="execShortcut('logs-orchestrator')">⚙️ Orch</button>
+      <button class="exec-chip" onclick="execShortcut('logs-watchdog')">🔍 Watchdog</button>
+      <button class="exec-chip danger" onclick="execShortcut('restart-orchestrator')">🔄 Restart Orch</button>
+      <button class="exec-chip danger" onclick="execShortcut('restart-crypto')">🔄 Restart Crypto</button>
+    </div>
     <div id="quick-actions">
       <button class="qa-btn" onclick="quickAction('Summarize the above in 3 bullet points')">📝 Summarize</button>
       <button class="qa-btn" onclick="quickAction('Explain this simply, as if to a beginner')">🔤 Simplify</button>
@@ -1049,6 +1068,8 @@ let history      = [];
 let currentAbort = null;
 let isStreaming  = false;
 let lastUserMsg  = '';
+let execHistory  = JSON.parse(localStorage.getItem('fraqtoos_exec_history') || '[]');
+let _execHistIdx = -1;
 
 function isClaude() { return CLAUDE_MODELS.has(currentModel); }
 
@@ -1095,10 +1116,23 @@ input.addEventListener('input', function() {
   var len = input.value.length;
   if (len > 0) { cc.textContent = len > 999 ? (len/1000).toFixed(1)+'k' : len; cc.style.display='inline'; }
   else { cc.style.display='none'; }
+  updateExecShortcuts();
 });
 input.addEventListener('keydown', function(e) {
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sendOrStop();}
   if(e.key==='Escape'&&isStreaming){stopStreaming();}
+  // ↑/↓ exec history — only when cursor is on first line and input starts with /exec
+  if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && input.value.toLowerCase().startsWith('/exec ') && execHistory.length) {
+    var atStart = input.selectionStart <= input.value.indexOf('\n') || input.value.indexOf('\n') === -1;
+    if (!atStart) return;
+    e.preventDefault();
+    if (e.key === 'ArrowUp') _execHistIdx = Math.min(_execHistIdx + 1, execHistory.length - 1);
+    else _execHistIdx = Math.max(_execHistIdx - 1, -1);
+    if (_execHistIdx >= 0) { fillInput('/exec ' + execHistory[_execHistIdx]); }
+    else { fillInput('/exec '); }
+  } else if (!input.value.toLowerCase().startsWith('/exec ')) {
+    _execHistIdx = -1;
+  }
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isStreaming)stopStreaming();});
 
@@ -1136,6 +1170,124 @@ function saveSysPrompt() {
 function fillInput(text) {
   input.value = text; input.focus();
   input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,200)+'px';
+  updateExecShortcuts();
+}
+
+function updateExecShortcuts() {
+  var v = input.value;
+  var isExec = v.toLowerCase().startsWith('/exec');
+  document.getElementById('exec-shortcuts').classList.toggle('show', isExec);
+}
+
+async function execShortcut(name) {
+  var eb, t0 = Date.now();
+  function _startBubble() {
+    addUserMsg('/exec ' + name);
+    history.push({role:'user', content: '/exec ' + name});
+    input.value = ''; input.style.height = '52px';
+    updateExecShortcuts();
+    addTyping(); isStreaming = true;
+    sendBtn.innerHTML = '&#9632;'; sendBtn.className = 'stop-mode';
+    eb = addBotMsg('agent');
+  }
+  function _elapsed() { return ((Date.now() - t0) / 1000).toFixed(1); }
+
+  // Direct API calls — no agent needed
+  if (name === 'status') {
+    _startBubble();
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">📊 Checking bot status…</em>';
+    try {
+      var res = await fetch('/status'); var d = await res.json();
+      if (d.error) { eb.textEl.textContent = 'Error: ' + d.error; }
+      else {
+        var lines = ['**Server Status** — ' + d.timestamp, ''];
+        (d.bots || []).forEach(function(b) {
+          var icon = b.running ? '🟢' : (b.critical ? '🔴' : '🟡');
+          var sched = b.scheduled ? ' *(scheduled)*' : '';
+          var err = b.errors && b.errors.length ? '\n  ↳ `' + b.errors[b.errors.length-1].slice(0,80) + '`' : '';
+          lines.push(icon + ' **' + b.name + '**' + sched + err);
+        });
+        lines.push('');
+        lines.push('💾 Disk: `' + d.disk + '`' + (d.disk_pct >= 85 ? ' ⚠️ ' + d.disk_pct + '%' : ''));
+        lines.push('🧠 RAM: `' + d.ram + '`');
+        if (d.searxng_up === false) lines.push('🔍 SearXNG: ⚠️ DOWN');
+        if (d.analysis) lines.push('\n**AI notes:** ' + d.analysis);
+        eb.textEl.innerHTML = renderMarkdown(lines.join('\n'));
+        eb.textEl._rawText = lines.join('\n');
+        history.push({role:'assistant', content: lines.join('\n')});
+      }
+    } catch(e) { eb.textEl.textContent = 'Status error: ' + e.message; }
+    eb.statsEl.textContent = _elapsed() + 's · /status';
+    finishStream(); autoPersist(); updateTokenCounter(); return;
+  }
+
+  if (name === 'gpu') {
+    _startBubble();
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">🖥 Reading GPU…</em>';
+    try {
+      var res = await fetch('/gpu'); var d = await res.json();
+      if (d.error) { eb.textEl.textContent = 'GPU error: ' + d.error; }
+      else {
+        var pct = Math.round(d.vram_used / d.vram_total * 100);
+        var lines = ['**GPU Status** (' + d.gpu_count + ' GPU' + (d.gpu_count>1?'s':'') + ')'];
+        lines.push('- VRAM: **' + d.vram_used + ' / ' + d.vram_total + ' MiB** (' + pct + '%)');
+        lines.push('- Utilization: **' + d.gpu_util + '%**');
+        lines.push('- Temp: **' + d.temp + '°C**');
+        if (d.gpus && d.gpus.length > 1) {
+          d.gpus.forEach(function(g, i) {
+            lines.push('- GPU' + i + ': ' + g.vram_used + '/' + g.vram_total + ' MiB, ' + g.gpu_util + '%, ' + g.temp + '°C');
+          });
+        }
+        eb.textEl.innerHTML = renderMarkdown(lines.join('\n'));
+        eb.textEl._rawText = lines.join('\n');
+        history.push({role:'assistant', content: lines.join('\n')});
+      }
+    } catch(e) { eb.textEl.textContent = 'GPU error: ' + e.message; }
+    eb.statsEl.textContent = _elapsed() + 's · /gpu';
+    finishStream(); autoPersist(); updateTokenCounter(); return;
+  }
+
+  if (name === 'disk') {
+    _startBubble();
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">💾 Checking disk…</em>';
+    try {
+      var res = await fetch('/status'); var d = await res.json();
+      var text = '**Disk Usage**\n```\n' + d.disk + '\n```\n\n**RAM**\n```\n' + d.ram + '\n```';
+      eb.textEl.innerHTML = renderMarkdown(text);
+      eb.textEl._rawText = text;
+      history.push({role:'assistant', content: text});
+    } catch(e) { eb.textEl.textContent = 'Disk error: ' + e.message; }
+    eb.statsEl.textContent = _elapsed() + 's · /status';
+    finishStream(); autoPersist(); updateTokenCounter(); return;
+  }
+
+  if (name.startsWith('logs-')) {
+    var svc = name.slice(5);
+    _startBubble();
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">📋 Loading ' + svc + ' logs…</em>';
+    try {
+      var res = await fetch('/logs/' + svc); var d = await res.json();
+      if (d.error) { eb.textEl.textContent = 'Log error: ' + d.error; }
+      else {
+        var text = '**Logs: ' + d.service + '** (`' + d.source + '`)\n```\n' + (d.lines || '').slice(-3000) + '\n```';
+        eb.textEl.innerHTML = renderMarkdown(text);
+        eb.textEl._rawText = text;
+        history.push({role:'assistant', content: text});
+      }
+    } catch(e) { eb.textEl.textContent = 'Log error: ' + e.message; }
+    eb.statsEl.textContent = _elapsed() + 's · /logs/' + svc;
+    finishStream(); autoPersist(); updateTokenCounter(); return;
+  }
+
+  // Dangerous / exec shortcuts — fill input instead of auto-firing
+  if (name === 'restart-orchestrator') {
+    fillInput('/exec restart fraqtoos systemd service (echo "0000" | sudo -S systemctl restart fraqtoos)');
+    return;
+  }
+  if (name === 'restart-crypto') {
+    fillInput('/exec restart whatsapp-crypto-bot (echo "0000" | sudo -S systemctl restart whatsapp-crypto-bot)');
+    return;
+  }
 }
 
 function escHtml(t) {
@@ -1707,6 +1859,8 @@ const SLASH_COMMANDS = [
   { cmd: '/portfolio', args: '',             desc: 'Portfolio P&L from 5Paisa + Kite' },
   { cmd: '/help',      args: '',             desc: 'Show available bridge commands' },
   { cmd: '/exec',      args: '<task>',       desc: 'Run AI agent on server (bash, files, services)' },
+  { cmd: '/status',   args: '',             desc: 'Instant bot status — no AI, live process check' },
+  { cmd: '/logs',     args: '<service>',    desc: 'Tail service logs (crypto|chia|orchestrator|portfolio|btc|fixes)' },
 ];
 let _slashIdx = 0;
 function _slashMatches(text) {
@@ -2711,14 +2865,30 @@ sendMsg = async function() {
   if (text.toLowerCase().startsWith('/video'))   { generateWanVideo();  return; }
   if (text.toLowerCase().startsWith('/animate')) { animateWanImage();   return; }
 
+  // /status — instant bot status, no AI
+  if (text.toLowerCase() === '/status') {
+    await execShortcut('status'); return;
+  }
+
+  // /logs <service> — tail service log
+  if (text.toLowerCase().startsWith('/logs')) {
+    var logSvc = text.slice(5).trim() || 'orchestrator';
+    await execShortcut('logs-' + logSvc); return;
+  }
+
   // /exec <task> — run gemma-agent on the server
   if (text.toLowerCase().startsWith('/exec ') || text.toLowerCase() === '/exec') {
     var execTask = text.slice(6).trim();
     if (!execTask) { addBotMsg('phi4').textEl.textContent = 'Usage: /exec <task>'; return; }
+
+    // Danger gate: warn before destructive commands
+    var _dangerous = /\brm\s+-[rf]|\bkill\s+-9|DROP\s+(TABLE|DATABASE)|dd\s+if=|>\s*\/[a-z]/i.test(execTask);
+    if (_dangerous && !confirm('⚠️ This looks like a destructive command:\n\n"' + execTask.slice(0,120) + '"\n\nProceed?')) return;
+
     addUserMsg(text);
     history.push({role:'user', content: text});
     lastUserMsg = text;
-    input.value = ''; input.style.height = '52px';
+    input.value = ''; input.style.height = '52px'; updateExecShortcuts();
     addTyping(); isStreaming = true;
     sendBtn.innerHTML = '&#9632;'; sendBtn.className = 'stop-mode';
     var eb = addBotMsg('agent');
@@ -2739,6 +2909,10 @@ sendMsg = async function() {
         eb.textEl.innerHTML = renderMarkdown(execData.result || '(no output)');
         eb.textEl._rawText = execData.result;
         history.push({role:'assistant', content: execData.result});
+        // Save to exec history (deduplicate, max 25)
+        execHistory = [execTask].concat(execHistory.filter(function(h){ return h !== execTask; })).slice(0,25);
+        localStorage.setItem('fraqtoos_exec_history', JSON.stringify(execHistory));
+        _execHistIdx = -1;
       }
       var tc = execData.tool_calls ? ' · ' + execData.tool_calls + ' tool calls' : '';
       eb.statsEl.textContent = elapsed + 's · ' + (execData.model || 'agent') + tc;
@@ -3355,6 +3529,8 @@ var CMD_ITEMS = [
   {section:'Slash Commands', icon:'💼', label:'/portfolio — P&L summary', action:function(){ fillInput('/portfolio'); closeCommandPalette(); sendMsg(); }},
   {section:'Slash Commands', icon:'🧠', label:'/remember <fact>', action:function(){ fillInput('/remember '); document.getElementById('input').focus(); closeCommandPalette(); }},
   {section:'Slash Commands', icon:'⚙️', label:'/exec <task> — run AI agent on server', action:function(){ fillInput('/exec '); document.getElementById('input').focus(); closeCommandPalette(); }},
+  {section:'Slash Commands', icon:'📊', label:'/status — instant bot status (no AI)', action:function(){ fillInput('/status'); closeCommandPalette(); sendMsg(); }},
+  {section:'Slash Commands', icon:'📋', label:'/logs <service> — tail service log', action:function(){ fillInput('/logs '); document.getElementById('input').focus(); closeCommandPalette(); }},
 ];
 
 function _cmdFilter(q) {

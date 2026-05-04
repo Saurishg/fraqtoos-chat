@@ -238,6 +238,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/gpu','/memory','/suggest','/exec',
+    '/status','/logs/',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
@@ -1523,6 +1524,92 @@ async def exec_agent(req: Request):
                 pass
 
     return StreamingResponse(_stream_image_job(_run), media_type="application/x-ndjson")
+
+
+# ─── Quick status (no AI) ─────────────────────────────────────────────
+@app.get("/status")
+async def quick_status(req: Request):
+    """Fast bot status: reads watchdog JSON + live pgrep for critical procs. No AI."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    wp = "/home/work/fraqtoos/logs/watchdog_latest.json"
+    report = {}
+    if os.path.exists(wp):
+        try:
+            with open(wp) as f:
+                report = json.load(f)
+        except Exception:
+            pass
+    snap = report.get("snapshot", {})
+    live = {}
+    for name, proc in [("Orchestrator", "orchestrator.py"), ("WhatsApp", "wa-service")]:
+        r = subprocess.run(["pgrep", "-af", proc], capture_output=True, text=True)
+        live[name] = any(proc in l and "grep" not in l and "watchdog" not in l
+                         for l in r.stdout.splitlines())
+    try:
+        disk_out = subprocess.check_output(["df", "-h", "/home/work"], timeout=3).decode().strip().splitlines()
+        disk = disk_out[-1] if disk_out else "?"
+        disk_pct = int(disk.split()[4].rstrip("%")) if len(disk.split()) > 4 else 0
+    except Exception:
+        disk = "?"; disk_pct = 0
+    try:
+        ram_out = subprocess.check_output(["free", "-h"], timeout=3).decode().strip().splitlines()
+        ram = ram_out[1] if len(ram_out) > 1 else "?"
+    except Exception:
+        ram = "?"
+    bots = snap.get("bots", [])
+    for b in bots:
+        if b["name"] in live:
+            b["running"] = live[b["name"]]
+    return {
+        "timestamp":  snap.get("timestamp", "no report yet"),
+        "bots":       bots,
+        "live":       live,
+        "disk":       disk,
+        "disk_pct":   disk_pct,
+        "ram":        ram,
+        "searxng_up": snap.get("searxng_up"),
+        "analysis":   (report.get("analysis", "") or "")[:400],
+    }
+
+
+@app.get("/logs/{service}")
+async def tail_service_log(service: str, req: Request, lines: int = 60):
+    """Tail log lines for a named service. service = orchestrator|crypto|chia|portfolio|btc|watcher|fixes|watchdog"""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    service = service.lower().strip()
+    if service in ("crypto", "whatsapp", "wa"):
+        unit = "whatsapp-crypto-bot" if service == "crypto" else "wa-service"
+        try:
+            out = subprocess.check_output(
+                ["journalctl", "-u", unit, "-n", str(min(lines, 150)), "--no-pager"],
+                timeout=5).decode(errors="replace")
+            return {"service": service, "lines": out, "source": f"journalctl -u {unit}"}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, 500)
+    paths = {
+        "orchestrator": "/home/work/fraqtoos/logs/fraqtoos.log",
+        "fraqtoos":     "/home/work/fraqtoos/logs/fraqtoos.log",
+        "portfolio":    "/home/work/portfolio_bot/logs/portfolio.log",
+        "btc":          "/home/work/fraqtoos/logs/fraqtoos.log",
+        "chia":         "/home/work/.chia/mainnet/log/debug.log",
+        "watcher":      "/home/work/fraqtoos/logs/chia_ai_latest.json",
+        "fixes":        "/home/work/fraqtoos/logs/chia_ai_fixes.log",
+        "watchdog":     "/home/work/fraqtoos/logs/watchdog_latest.json",
+    }
+    path = paths.get(service)
+    if not path:
+        return JSONResponse({"error": f"unknown service '{service}'. Known: {', '.join(paths)}"}, 404)
+    if not os.path.exists(path):
+        return JSONResponse({"error": f"log not found: {path}"}, 404)
+    try:
+        out = subprocess.check_output(["tail", f"-{min(lines, 200)}", path], timeout=5).decode(errors="replace")
+        return {"service": service, "lines": out, "source": path}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
 
 
 def _build_flux_workflow(unet_file: str, prompt: str, steps: int, width: int, height: int) -> dict:
