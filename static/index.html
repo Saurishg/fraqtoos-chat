@@ -641,23 +641,19 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
     <div class="sb-label">Auto Mode</div>
     <button class="model-btn auto-model" data-model="auto" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → best model</span></div>
+      <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → qwen3/DeepSeek/phi4</span></div>
     </button>
   </div>
 
   <div class="sb-section">
     <div class="sb-label">Local Models</div>
-    <button class="model-btn active" data-model="phi4" onclick="selectModel(this)">
+    <button class="model-btn active" data-model="qwen3:14b" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">phi4</span><span class="model-size">Microsoft · 9 GB · Fast</span></div>
+      <div class="model-info"><span class="model-name">qwen3:14b ⭐</span><span class="model-size">Alibaba · 9.3 GB · Best chat</span></div>
     </button>
-    <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
+    <button class="model-btn" data-model="phi4" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Balanced</span></div>
-    </button>
-    <button class="model-btn" data-model="qwen3:14b" onclick="selectModel(this)">
-      <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">qwen3:14b</span><span class="model-size">Alibaba · 9.3 GB · Smart</span></div>
+      <div class="model-info"><span class="model-name">phi4</span><span class="model-size">Microsoft · 9 GB · Fastest</span></div>
     </button>
     <button class="model-btn" data-model="deepseek-r1:14b" onclick="selectModel(this)">
       <span class="model-dot"></span>
@@ -667,9 +663,9 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span class="model-dot"></span>
       <div class="model-info"><span class="model-name">GPT-OSS</span><span class="model-size">OpenAI · 14 GB · Powerful</span></div>
     </button>
-    <button class="model-btn" data-model="llama4:latest" onclick="selectModel(this)">
+    <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">llama4</span><span class="model-size">Meta · 67 GB · Best</span></div>
+      <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Thinking only</span></div>
     </button>
   </div>
 
@@ -757,7 +753,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <div id="welcome">
         <div class="w-icon">✦</div>
         <h2>What can I help you with?</h2>
-        <p>Local AI running on your server — phi4, gemma4, qwen3, DeepSeek-R1, GPT-OSS, llama4.</p>
+        <p>Local AI running on your server — qwen3:14b (default), phi4, DeepSeek-R1, GPT-OSS, gemma4.</p>
         <div class="suggestion-grid">
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/watchdog</strong>Live bot health + AI diagnosis
@@ -1058,9 +1054,9 @@ const DEEPSEEK      = new Set(['deepseek-r1:14b']);
 const QWEN          = new Set(['qwen3:14b']);
 const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-7':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
 
-let currentModel = localStorage.getItem('fraqtoos_model') || 'phi4';
-if (currentModel.startsWith('claude-')) {
-  currentModel = 'phi4';
+let currentModel = localStorage.getItem('fraqtoos_model') || 'qwen3:14b';
+if (currentModel.startsWith('claude-') || currentModel === 'llama4:latest') {
+  currentModel = 'qwen3:14b';
   localStorage.setItem('fraqtoos_model', currentModel);
 }
 let systemPrompt = localStorage.getItem('fraqtoos_sysprompt') || '';
@@ -1352,15 +1348,14 @@ function getAvatarLabel(model) {
   if(CLAUDE_MODELS.has(model)) return '✦';
   if(GPT_MODELS.has(model)) return 'G';
   if(DEEPSEEK.has(model)) return 'D';
-  if(model==='llama4:latest') return 'L';
   if(model==='phi4') return 'φ';
   return '✦';
 }
 function getModelName(model) {
   if (!model) return 'AI';
   var names = {
-    'phi4':'phi4','gemma4:latest':'gemma4','qwen3:14b':'qwen3','deepseek-r1:14b':'DeepSeek-R1',
-    'gpt-oss:20b':'GPT-OSS','llama4:latest':'llama4','auto':'Auto',
+    'phi4':'phi4','gemma4:latest':'gemma4','qwen3:14b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
+    'gpt-oss:20b':'GPT-OSS','auto':'Auto',
     'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-7':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
   };
   return names[model] || model;
@@ -2554,7 +2549,7 @@ async function classifyAndRoute(text) {
     });
     var d = await safeJson(r);
     return d; // {category, model}
-  } catch(e) { return {category:'general', model:'phi4'}; }
+  } catch(e) { return {category:'general', model:'qwen3:14b'}; }
 }
 
 // Wrap sendMsg again to inject auto-routing

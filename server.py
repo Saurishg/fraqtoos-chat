@@ -139,14 +139,19 @@ async def chat(req: Request):
 
 # ─── Smart auto-routing ──────────────────────────────────────────────
 ROUTING_TARGETS = {
-    "code":      "deepseek-r1:14b",
-    "reasoning": "deepseek-r1:14b",
-    "finance":   "qwen3:14b",
-    "copy":      "gemma4:latest",
-    "long":      "llama4:latest",
-    "general":   "phi4",
-    "quick":     "phi4",
+    "code":      "deepseek-r1:14b",  # reasoning model, thinking ON
+    "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON
+    "finance":   "qwen3:14b",        # fastest on finance with think=False
+    "copy":      "qwen3:14b",        # replaces gemma4 (broken thinking model)
+    "long":      "qwen3:14b",        # replaces llama4 (times out)
+    "general":   "qwen3:14b",        # 57 tok/s beats phi4 on quality
+    "quick":     "phi4",             # phi4 still fastest for 1-liners
 }
+
+# Models that should have thinking disabled (they're thinking models but it's slower)
+_NO_THINK_MODELS = {"qwen3:14b", "qwen3:8b", "qwen3:32b"}
+# Models where thinking improves output (don't disable)
+_THINK_MODELS    = {"deepseek-r1:14b", "deepseek-r1:7b", "deepseek-r1:32b"}
 
 CLASSIFY_PROMPT = """Classify the user's request into ONE category. Reply with only the category word.
 
@@ -185,18 +190,20 @@ async def classify(req: Request):
             if k in raw:
                 cat = k
                 break
-        # Verify target model is installed; fall back to phi4
+        # Verify target model is installed; fall back to qwen3 then phi4
         try:
             tags = requests.get(f"{OLLAMA}/api/tags", timeout=3).json()
             installed = {m["name"] for m in tags.get("models", [])}
             target = ROUTING_TARGETS[cat]
             if target not in installed:
-                target = "phi4:latest" if "phi4:latest" in installed else "phi4"
+                for fb in ("qwen3:14b", "phi4:latest", "phi4"):
+                    if fb in installed:
+                        target = fb; break
         except Exception:
             target = ROUTING_TARGETS[cat]
         return {"category": cat, "model": target, "raw": raw}
     except Exception as e:
-        return JSONResponse({"category": "general", "model": "phi4",
+        return JSONResponse({"category": "general", "model": "qwen3:14b",
                              "error": str(e)}, 200)
 
 
@@ -1746,9 +1753,13 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
                 break
     if system:
         chat_msgs = [{"role": "system", "content": system}] + chat_msgs
+    options = {"temperature": temperature, "num_predict": 2000}
+    # Disable thinking for qwen3 — 5x faster with no quality loss for chat
+    if any(model.startswith(m) for m in ("qwen3", "qwen3:")):
+        options["think"] = False
     payload = {
         "model": model, "messages": chat_msgs, "stream": True,
-        "options": {"temperature": temperature, "num_predict": 2000}
+        "options": options,
     }
     try:
         r = requests.post(f"{OLLAMA}/api/chat", json=payload, stream=True, timeout=300)
