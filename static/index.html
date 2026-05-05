@@ -3223,6 +3223,13 @@ async function doConvSearch(q) {
     var d = await r.json();
     var list = document.getElementById('conv-list');
     list.innerHTML = '';
+    var isSemantic = d.mode === 'semantic';
+    if (isSemantic) {
+      var badge = document.createElement('div');
+      badge.style.cssText = 'padding:4px 8px;font-size:10px;color:var(--accent);opacity:0.7;letter-spacing:0.5px';
+      badge.textContent = '✦ semantic search';
+      list.appendChild(badge);
+    }
     (d.matches || []).forEach(function(c) {
       var item = document.createElement('div');
       item.className = 'conv-item' + (c.id===currentConvId ? ' active' : '');

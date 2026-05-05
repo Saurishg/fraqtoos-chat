@@ -1107,41 +1107,168 @@ async def bridge(cmd: str, req: Request):
         return JSONResponse({"error": f"{cmd} failed: {e}"}, 500)
 
 
+# ─── Semantic search (nomic-embed-text) ──────────────────────────────
+EMBED_CACHE_FILE = "/home/work/fraqtoos-chat/conv_embeddings.json"
+EMBED_MODEL      = "nomic-embed-text"
+
+def _embed(text: str) -> list:
+    """Get embedding vector from nomic-embed-text. Returns [] on failure."""
+    try:
+        r = requests.post(f"{OLLAMA}/api/embeddings",
+                          json={"model": EMBED_MODEL, "prompt": text[:2000]},
+                          timeout=10)
+        return r.json().get("embedding", [])
+    except Exception:
+        return []
+
+def _cosine(a: list, b: list) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    na  = sum(x * x for x in a) ** 0.5
+    nb  = sum(y * y for y in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
+def _conv_text(c: dict) -> str:
+    """Extract representative text from a conversation for embedding."""
+    parts = [c.get("title", "")]
+    for m in c.get("history", [])[:8]:
+        role = m.get("role", "")
+        txt  = (m.get("content") or "")[:400]
+        if txt:
+            parts.append(f"{role}: {txt}")
+    return " ".join(parts)[:2000]
+
+def _load_embed_cache() -> dict:
+    try:
+        with open(EMBED_CACHE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_embed_cache(cache: dict):
+    tmp = EMBED_CACHE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(cache, f)
+    os.replace(tmp, EMBED_CACHE_FILE)
+
+def _nomic_available() -> bool:
+    try:
+        tags = requests.get(f"{OLLAMA}/api/tags", timeout=3).json()
+        return any(EMBED_MODEL in m["name"] for m in tags.get("models", []))
+    except Exception:
+        return False
+
+
 # ─── Conversation search ──────────────────────────────────────────────
 @app.get("/conversations/search/q")
 async def conv_search(req: Request, q: str = ""):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    q = (q or "").strip().lower()
+    q = (q or "").strip()
     if not q:
         return {"matches": []}
+
+    # Load all conversations
+    convs = []
+    for fn in os.listdir(CONV_DIR):
+        if not fn.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(CONV_DIR, fn)) as f:
+                convs.append(json.load(f))
+        except Exception:
+            continue
+
+    # ── Semantic search ──────────────────────────────────────────────
+    if _nomic_available():
+        q_emb = _embed(q)
+        if q_emb:
+            cache = _load_embed_cache()
+            cache_dirty = False
+            scored = []
+            for c in convs:
+                cid     = c.get("id", "")
+                updated = c.get("updated", 0)
+                cached  = cache.get(cid, {})
+                # Recompute if missing or conversation was updated since last embed
+                if not cached.get("emb") or cached.get("updated") != updated:
+                    emb = _embed(_conv_text(c))
+                    if emb:
+                        cache[cid] = {"emb": emb, "updated": updated}
+                        cache_dirty = True
+                    else:
+                        emb = cached.get("emb", [])
+                else:
+                    emb = cached["emb"]
+                score = _cosine(q_emb, emb)
+                scored.append((score, c))
+            if cache_dirty:
+                _save_embed_cache(cache)
+            scored.sort(key=lambda x: x[0], reverse=True)
+            matches = []
+            for score, c in scored[:20]:
+                if score < 0.25:
+                    continue
+                # Find a text snippet for context
+                joined = " ".join(m.get("content", "")[:200] for m in c.get("history", [])[:4])
+                matches.append({
+                    "id":      c.get("id"),
+                    "title":   c.get("title", "Untitled"),
+                    "updated": c.get("updated", 0),
+                    "snippet": joined[:120],
+                    "score":   round(score, 3),
+                    "semantic": True,
+                })
+            return {"matches": matches, "mode": "semantic"}
+
+    # ── Fallback: text search ─────────────────────────────────────────
+    ql = q.lower()
     matches = []
+    for c in convs:
+        title  = (c.get("title") or "").lower()
+        joined = "\n".join(m.get("content", "") for m in c.get("history", [])).lower()
+        if ql in title or ql in joined:
+            idx     = joined.find(ql)
+            start   = max(0, idx - 40)
+            snippet = joined[start:idx+len(ql)+80].replace("\n", " ") if idx >= 0 else ""
+            matches.append({
+                "id":       c.get("id"),
+                "title":    c.get("title", "Untitled"),
+                "updated":  c.get("updated", 0),
+                "snippet":  snippet,
+                "in_title": ql in title,
+                "semantic": False,
+            })
+    matches.sort(key=lambda x: x.get("updated", 0), reverse=True)
+    return {"matches": matches[:30], "mode": "text"}
+
+
+@app.post("/conversations/reindex")
+async def conv_reindex(req: Request):
+    """Rebuild the semantic embedding cache for all conversations."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    if not _nomic_available():
+        return JSONResponse({"error": "nomic-embed-text not installed"}, 503)
+    cache = {}
+    count = 0
     for fn in os.listdir(CONV_DIR):
         if not fn.endswith(".json"):
             continue
         try:
             with open(os.path.join(CONV_DIR, fn)) as f:
                 c = json.load(f)
+            emb = _embed(_conv_text(c))
+            if emb:
+                cache[c.get("id", fn)] = {"emb": emb, "updated": c.get("updated", 0)}
+                count += 1
         except Exception:
             continue
-        title  = (c.get("title") or "").lower()
-        joined = "\n".join(m.get("content", "") for m in c.get("history", [])).lower()
-        if q in title or q in joined:
-            idx = joined.find(q)
-            snippet = ""
-            if idx >= 0:
-                start = max(0, idx - 40)
-                snippet = joined[start:idx+len(q)+80].replace("\n", " ")
-            matches.append({
-                "id":      c.get("id"),
-                "title":   c.get("title", "Untitled"),
-                "updated": c.get("updated", 0),
-                "snippet": snippet,
-                "in_title": q in title,
-            })
-    matches.sort(key=lambda x: x.get("updated", 0), reverse=True)
-    return {"matches": matches[:30]}
+    _save_embed_cache(cache)
+    return {"indexed": count, "dims": 768}
 
 
 # ─── Auto-title generation ────────────────────────────────────────────
