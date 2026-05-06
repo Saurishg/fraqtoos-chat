@@ -41,6 +41,28 @@ _RATE_LIMITS = {"chat": (20, 60), "imagine": (5, 60), "search": (30, 60),
 # Locks for shared file writes (prevents race condition data loss)
 _memory_lock     = asyncio.Lock()
 _embed_cache_lock = asyncio.Lock()
+_conv_lock       = asyncio.Lock()
+
+
+def _pgrep_safe(pattern: str, timeout: float = 3) -> "subprocess.CompletedProcess|None":
+    """Run pgrep with a hard timeout and swallow FileNotFoundError/timeouts.
+    Returns None if pgrep is missing or hangs — callers should treat as 'no match'."""
+    try:
+        return subprocess.run(["pgrep", "-af", pattern],
+                              capture_output=True, text=True, timeout=timeout)
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+
+
+async def _safe_json(req: Request) -> "tuple[dict|None, JSONResponse|None]":
+    """Parse request body as JSON. Returns (data, None) on success or (None, error_response) on failure."""
+    try:
+        data = await req.json()
+    except Exception:
+        return None, JSONResponse({"error": "invalid JSON body"}, 400)
+    if not isinstance(data, dict):
+        return None, JSONResponse({"error": "JSON body must be an object"}, 400)
+    return data, None
 
 
 def _rate_ok(ip: str, bucket: str) -> bool:
@@ -305,7 +327,8 @@ async def imagine(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "imagine"):
         return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    data        = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     prompt      = data.get("prompt", "")
     steps       = data.get("steps", None)
     width       = data.get("width", 1024)
@@ -351,7 +374,8 @@ async def imagine_status():
 @app.post("/suggest")
 async def suggest(req: Request):
     """Given recent chat, return 3 short follow-up prompts the user might want to ask."""
-    data = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     msgs = data.get("messages", [])[-6:]
     if not msgs:
         return {"suggestions": []}
@@ -786,7 +810,8 @@ async def wan_video_endpoint(req: Request):
     if not os.path.exists(WAN_VENV_PYTHON):
         return JSONResponse({"error": "Wan2.1 venv not found — check /home/work/Wan2.1/venv/"}, 503)
 
-    data     = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     prompt   = (data.get("prompt") or "").strip()
     negative = (data.get("negative") or "").strip()
     if not prompt:
@@ -932,9 +957,13 @@ async def search(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "search"):
         return JSONResponse({"error": "rate limit: 30 req/min"}, 429)
-    data = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     query = (data.get("query") or "").strip()
-    n     = max(1, min(int(data.get("n", 5)), 10))
+    try:
+        n = max(1, min(int(data.get("n", 5)), 10))
+    except (ValueError, TypeError):
+        n = 5
     if not query:
         return JSONResponse({"error": "query required"}, 400)
     if not _searx_up():
@@ -1323,12 +1352,19 @@ async def conv_autotitle(conv_id: str, req: Request):
         title = title.split("\n")[0][:80] or c.get("title", "Untitled")
     except Exception as e:
         return JSONResponse({"error": f"phi4 failed: {e}"}, 500)
-    c["title"] = title
-    c["updated"] = int(time.time())
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(c, f, indent=2)
-    os.replace(tmp, path)
+    # Re-read inside the lock so we don't clobber a concurrent /conversations save
+    async with _conv_lock:
+        try:
+            with open(path) as f:
+                latest = json.load(f)
+        except Exception:
+            latest = c
+        latest["title"] = title
+        latest["updated"] = int(time.time())
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(latest, f, indent=2)
+        os.replace(tmp, path)
     return {"id": conv_id, "title": title}
 
 
@@ -1390,7 +1426,8 @@ async def conv_save(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    data = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     history = data.get("history", [])
     if not isinstance(history, list):
         return JSONResponse({"error": "history must be list"}, 400)
@@ -1408,17 +1445,21 @@ async def conv_save(req: Request):
         "created": data.get("created", now),
         "updated": now,
     }
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                old = json.load(f)
-            record["created"] = old.get("created", now)
-        except Exception:
-            pass
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(record, f, indent=2)
-    os.replace(tmp, path)
+    async with _conv_lock:
+        if os.path.exists(path):
+            try:
+                with open(path) as f:
+                    old = json.load(f)
+                record["created"] = old.get("created", now)
+                # Preserve title set by autotitle if caller didn't supply one
+                if not data.get("title") and old.get("title"):
+                    record["title"] = old["title"]
+            except Exception:
+                pass
+        tmp = path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(record, f, indent=2)
+        os.replace(tmp, path)
     return {"id": conv_id, "updated": now, "msg_count": len(history)}
 
 
@@ -1559,27 +1600,32 @@ async def conv_delete(conv_id: str, req: Request):
 @app.get("/chia-harvester")
 async def chia_harvester_status():
     """Return Chia harvester running state."""
-    running = bool(subprocess.run(["pgrep", "-f", "chia_harvester"],
-                                  capture_output=True).returncode == 0)
+    loop = asyncio.get_running_loop()
+    r = await loop.run_in_executor(None, lambda: _pgrep_safe("chia_harvester"))
+    running = bool(r and r.returncode == 0)
     return {"running": running}
 
 @app.post("/chia-harvester")
 async def chia_harvester_toggle(req: Request):
     """Start or stop the Chia harvester. Body: {"action": "start"|"stop"}"""
-    body = await req.json()
+    body, err = await _safe_json(req)
+    if err: return err
     action = body.get("action")
     if action not in ("start", "stop"):
         return JSONResponse({"error": "action must be start or stop"}, 400)
     cmd = ["chia", action, "harvester"]
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        output = (result.stdout + result.stderr).strip()
-    except subprocess.TimeoutExpired:
-        output = f"chia {action} harvester timed out — command still running in background"
-    except Exception as e:
-        output = f"error: {e}"
-    running = bool(subprocess.run(["pgrep", "-f", "chia_harvester"],
-                                  capture_output=True).returncode == 0)
+    loop = asyncio.get_running_loop()
+    def _do():
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            return (result.stdout + result.stderr).strip()
+        except subprocess.TimeoutExpired:
+            return f"chia {action} harvester timed out — command still running in background"
+        except Exception as e:
+            return f"error: {e}"
+    output = await loop.run_in_executor(None, _do)
+    r = await loop.run_in_executor(None, lambda: _pgrep_safe("chia_harvester"))
+    running = bool(r and r.returncode == 0)
     return {"running": running, "output": output}
 
 
@@ -1645,7 +1691,8 @@ async def exec_agent(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "chat"):
         return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
-    data  = await req.json()
+    data, err = await _safe_json(req)
+    if err: return err
     task  = (data.get("task") or "").strip()
     model = (data.get("model") or "auto").strip()
     if not task:
@@ -1722,7 +1769,10 @@ async def quick_status(req: Request):
     loop = asyncio.get_running_loop()
     live = {}
     for name, proc in [("Orchestrator", "orchestrator.py"), ("WhatsApp", "wa-service")]:
-        r = subprocess.run(["pgrep", "-af", proc], capture_output=True, text=True)
+        r = await loop.run_in_executor(None, lambda p=proc: _pgrep_safe(p))
+        if r is None:
+            live[name] = False
+            continue
         live[name] = any(proc in l and "grep" not in l and "watchdog" not in l
                          for l in r.stdout.splitlines())
     try:

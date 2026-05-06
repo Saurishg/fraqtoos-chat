@@ -10,3 +10,8 @@ memory.json
 
 # local agent config
 .claude/
+
+# ruflo agent metadata + runtime caches (added 2026-05-07)
+.claude-flow/
+claude-flow.config.json
+conv_embeddings.json
