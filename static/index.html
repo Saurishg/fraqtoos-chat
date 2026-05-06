@@ -1845,6 +1845,7 @@ function finishStream(){
 // Slash-command autocomplete menu
 const SLASH_COMMANDS = [
   { cmd: '/image',     args: '<prompt>',     desc: 'Generate image with FLUX/SDXL' },
+  { cmd: '/animate',   args: '[motion]',     desc: 'Animate attached image with Wan2.1' },
   { cmd: '/remember',  args: '<fact>',       desc: 'Save a persistent memory' },
   { cmd: '/forget',    args: '<substring>',  desc: 'Delete memories matching text' },
   { cmd: '/watchdog',  args: '',             desc: 'Bot health + AI diagnosis' },
@@ -1852,10 +1853,10 @@ const SLASH_COMMANDS = [
   { cmd: '/bots',      args: '',             desc: 'List all FraqtoOS bots' },
   { cmd: '/btc',       args: '',             desc: 'Bitcoin price + recent backtest' },
   { cmd: '/portfolio', args: '',             desc: 'Portfolio P&L from 5Paisa + Kite' },
-  { cmd: '/help',      args: '',             desc: 'Show available bridge commands' },
+  { cmd: '/help',      args: '',             desc: 'Show available slash commands' },
   { cmd: '/exec',      args: '<task>',       desc: 'Run AI agent on server (bash, files, services)' },
-  { cmd: '/status',   args: '',             desc: 'Instant bot status — no AI, live process check' },
-  { cmd: '/logs',     args: '<service>',    desc: 'Tail service logs (crypto|chia|orchestrator|portfolio|btc|fixes)' },
+  { cmd: '/status',    args: '',             desc: 'Instant bot status — no AI, live process check' },
+  { cmd: '/logs',      args: '<service>',    desc: 'Tail service logs (crypto|chia|orchestrator|portfolio|btc|fixes)' },
 ];
 let _slashIdx = 0;
 function _slashMatches(text) {
@@ -2237,14 +2238,14 @@ function renderAttachRow() {
 }
 async function uploadFile(file) {
   if (!file) return null;
-  if (file.size > 10*1024*1024) { alert('File >10MB: '+file.name); return null; }
+  if (file.size > 10*1024*1024) { showToast('File too large (max 10 MB): '+file.name, 'error'); return null; }
   var fd = new FormData(); fd.append('file', file);
   try {
     var r = await fetch('/upload', {method:'POST', body: fd});
     var d = await safeJson(r);
-    if (d.error) { alert('Upload error: '+d.error); return null; }
+    if (d.error) { showToast('Upload error: '+d.error, 'error'); return null; }
     return d;
-  } catch(e) { alert('Upload failed: '+e.message); return null; }
+  } catch(e) { showToast('Upload failed: '+e.message, 'error'); return null; }
 }
 async function attachFromFile(file) {
   var d = await uploadFile(file); if (!d) return;
@@ -2263,7 +2264,7 @@ async function handleFileAttach(ev) {
 function handleVideoAttach(ev) {
   var file = ev.target.files[0]; ev.target.value = '';
   if (!file) return;
-  if (file.size > 200 * 1024 * 1024) { alert('Video too large (max 200 MB): ' + file.name); return; }
+  if (file.size > 200 * 1024 * 1024) { showToast('Video too large (max 200 MB): ' + file.name, 'error'); return; }
   // Remove any previous video attachment
   attachments = attachments.filter(function(a){ return a.kind !== 'video'; });
   attachments.push({kind: 'video', name: file.name, size: file.size, file: file});
@@ -2306,7 +2307,7 @@ function initRecognition() {
 }
 function toggleVoice() {
   if (!recognition) recognition = initRecognition();
-  if (!recognition) { alert('Speech recognition not supported in this browser. Try Chrome/Edge.'); return; }
+  if (!recognition) { showToast('Speech recognition not supported in this browser. Try Chrome/Edge.', 'warn'); return; }
   if (isRecording) {
     recognition.stop();
     isRecording = false;
@@ -2370,7 +2371,7 @@ function newConversation() {
 }
 
 async function saveCurrentConversation() {
-  if (!history.length) { alert('Nothing to save yet.'); return; }
+  if (!history.length) { showToast('Nothing to save yet', 'warn'); return; }
   var firstUser = history.find(function(m){ return m.role==='user'; });
   var defaultTitle = currentConvTitle || (firstUser ? firstUser.content.slice(0,60) : 'Chat');
   var title = prompt('Conversation title:', defaultTitle);
@@ -2382,12 +2383,14 @@ async function saveCurrentConversation() {
 async function loadConversation(id) {
   try {
     var r = await fetch('/conversations/'+encodeURIComponent(id));
-    if (!r.ok) { alert('Failed to load conversation'); return; }
+    if (!r.ok) { showToast('Failed to load conversation', 'error'); return; }
     var c = await r.json();
+    // Set state only after successful fetch — prevents stale currentConvId on failure
+    var newHistory = (c.history || []).slice();
     currentConvId = c.id;
     currentConvTitle = c.title || '';
     localStorage.setItem('fraqtoos_last_conv', currentConvId);
-    history = (c.history || []).slice();
+    history = newHistory;
     if (c.model) {
       var btn = document.querySelector('.model-btn[data-model="'+c.model+'"]');
       if (btn) selectModel(btn);
@@ -2406,7 +2409,7 @@ async function loadConversation(id) {
     highlightAll();
     renderConvList();
     updateTokenCounter();
-  } catch(e) { alert('Load failed: '+e.message); }
+  } catch(e) { showToast('Load failed: '+e.message, 'error'); }
 }
 
 async function persistConversation(refreshList) {
@@ -2865,9 +2868,29 @@ sendMsg = async function() {
     await execShortcut('status'); return;
   }
 
+  // /help — show all slash commands
+  if (text.toLowerCase() === '/help') {
+    addUserMsg(text);
+    history.push({role:'user', content: text});
+    input.value = ''; input.style.height = '52px';
+    var helpLines = SLASH_COMMANDS.map(function(c){
+      return '`' + c.cmd + (c.args ? ' ' + c.args : '') + '` — ' + c.desc;
+    });
+    var helpMsg = '**Available slash commands:**\n\n' + helpLines.join('\n');
+    var hb = addBotMsg('phi4');
+    hb.textEl.innerHTML = renderMarkdown(helpMsg);
+    hb.textEl._rawText = helpMsg;
+    history.push({role:'assistant', content: helpMsg});
+    autoPersist(); updateTokenCounter(); return;
+  }
+
   // /logs <service> — tail service log
   if (text.toLowerCase().startsWith('/logs')) {
+    var _validLogSvcs = ['orchestrator','fraqtoos','crypto','whatsapp','wa','portfolio','btc','chia','watcher','fixes','watchdog'];
     var logSvc = text.slice(5).trim() || 'orchestrator';
+    if (!_validLogSvcs.includes(logSvc)) {
+      showToast('Unknown service "'+logSvc+'". Valid: ' + _validLogSvcs.join(', '), 'warn'); return;
+    }
     await execShortcut('logs-' + logSvc); return;
   }
 
@@ -3283,7 +3306,7 @@ window.addEventListener('drop', async function(e){
   if (!files.length && e.dataTransfer.files && e.dataTransfer.files.length) {
     for (var i = 0; i < e.dataTransfer.files.length; i++) files.push(e.dataTransfer.files[i]);
   }
-  if (!files.length) { alert('Could not read dropped file — try the 📎 button instead.'); return; }
+  if (!files.length) { showToast('Could not read dropped file — try the 📎 button instead.', 'warn'); return; }
   for (var i = 0; i < files.length; i++) await attachFromFile(files[i]);
 });
 input.addEventListener('paste', async function(e){

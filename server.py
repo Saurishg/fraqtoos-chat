@@ -38,6 +38,10 @@ _RATE_BUCKETS: dict[str, dict[str, deque]] = defaultdict(lambda: defaultdict(deq
 _RATE_LIMITS = {"chat": (20, 60), "imagine": (5, 60), "search": (30, 60),
                 "upload": (10, 60), "conv": (60, 60)}
 
+# Locks for shared file writes (prevents race condition data loss)
+_memory_lock     = asyncio.Lock()
+_embed_cache_lock = asyncio.Lock()
+
 
 def _rate_ok(ip: str, bucket: str) -> bool:
     limit, window = _RATE_LIMITS[bucket]
@@ -1205,7 +1209,8 @@ async def conv_search(req: Request, q: str = ""):
                 score = _cosine(q_emb, emb)
                 scored.append((score, c))
             if cache_dirty:
-                _save_embed_cache(cache)
+                async with _embed_cache_lock:
+                    _save_embed_cache(cache)
             scored.sort(key=lambda x: x[0], reverse=True)
             matches = []
             for score, c in scored[:20]:
@@ -1445,10 +1450,11 @@ async def memory_add(req: Request):
         return JSONResponse({"error": "fact required"}, 400)
     if len(fact) > 500:
         fact = fact[:500]
-    items = _load_memory()
-    new_id = f"m_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}"
-    items.append({"id": new_id, "fact": fact, "ts": int(time.time())})
-    _save_memory(items)
+    async with _memory_lock:
+        items = _load_memory()
+        new_id = f"m_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}"
+        items.append({"id": new_id, "fact": fact, "ts": int(time.time())})
+        _save_memory(items)
     return {"id": new_id, "fact": fact, "count": len(items)}
 
 
@@ -1457,11 +1463,12 @@ async def memory_delete(mem_id: str, req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    items = _load_memory()
-    new = [m for m in items if m.get("id") != mem_id]
-    if len(new) == len(items):
-        return JSONResponse({"error": "not found"}, 404)
-    _save_memory(new)
+    async with _memory_lock:
+        items = _load_memory()
+        new = [m for m in items if m.get("id") != mem_id]
+        if len(new) == len(items):
+            return JSONResponse({"error": "not found"}, 404)
+        _save_memory(new)
     return {"ok": True, "count": len(new)}
 
 
@@ -1550,10 +1557,11 @@ async def chia_harvester_toggle(req: Request):
 @app.get("/gpu")
 async def gpu_stats():
     try:
-        out = subprocess.check_output(
+        loop = asyncio.get_running_loop()
+        out = await loop.run_in_executor(None, lambda: subprocess.check_output(
             ['nvidia-smi', '--query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu',
              '--format=csv,noheader,nounits'], timeout=3
-        ).decode().strip()
+        ).decode().strip())
         gpus = []
         for line in out.splitlines():
             parts = [p.strip() for p in line.split(',')]
@@ -1593,7 +1601,7 @@ def _comfyui_ready() -> bool:
     try:
         r = requests.get(f"{COMFYUI}/system_stats", timeout=2)
         return r.status_code == 200
-    except:
+    except Exception:
         return False
 
 
@@ -1682,19 +1690,24 @@ async def quick_status(req: Request):
         except Exception:
             pass
     snap = report.get("snapshot", {})
+    loop = asyncio.get_running_loop()
     live = {}
     for name, proc in [("Orchestrator", "orchestrator.py"), ("WhatsApp", "wa-service")]:
         r = subprocess.run(["pgrep", "-af", proc], capture_output=True, text=True)
         live[name] = any(proc in l and "grep" not in l and "watchdog" not in l
                          for l in r.stdout.splitlines())
     try:
-        disk_out = subprocess.check_output(["df", "-h", "/home/work"], timeout=3).decode().strip().splitlines()
+        disk_raw = await loop.run_in_executor(
+            None, lambda: subprocess.check_output(["df", "-h", "/home/work"], timeout=3).decode().strip())
+        disk_out = disk_raw.splitlines()
         disk = disk_out[-1] if disk_out else "?"
         disk_pct = int(disk.split()[4].rstrip("%")) if len(disk.split()) > 4 else 0
     except Exception:
         disk = "?"; disk_pct = 0
     try:
-        ram_out = subprocess.check_output(["free", "-h"], timeout=3).decode().strip().splitlines()
+        ram_raw = await loop.run_in_executor(
+            None, lambda: subprocess.check_output(["free", "-h"], timeout=3).decode().strip())
+        ram_out = ram_raw.splitlines()
         ram = ram_out[1] if len(ram_out) > 1 else "?"
     except Exception:
         ram = "?"
@@ -1716,6 +1729,7 @@ async def quick_status(req: Request):
 
 @app.get("/logs/{service}")
 async def tail_service_log(service: str, req: Request, lines: int = 60):
+    lines = max(1, min(lines, 200))
     """Tail log lines for a named service. service = orchestrator|crypto|chia|portfolio|btc|watcher|fixes|watchdog"""
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
