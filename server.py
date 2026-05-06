@@ -113,12 +113,22 @@ async def chat(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "chat"):
         return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
-    data        = await req.json()
-    model       = data.get("model", "phi4")
-    messages    = data.get("messages", [])
-    system      = data.get("system", "")
-    images      = data.get("images") or []
-    temperature = max(0.0, min(2.0, float(data.get("temperature", 0.7))))
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, 400)
+    model    = data.get("model", "phi4")
+    messages = data.get("messages", [])
+    if not isinstance(messages, list):
+        return JSONResponse({"error": "messages must be a list"}, 400)
+    system   = data.get("system", "")
+    images   = data.get("images") or []
+    if not isinstance(images, list):
+        images = []
+    try:
+        temperature = max(0.0, min(2.0, float(data.get("temperature", 0.7))))
+    except (TypeError, ValueError):
+        temperature = 0.7
 
     messages, system = _trim_history(messages, system)
 
@@ -130,9 +140,8 @@ async def chat(req: Request):
     if images:
         vision = _has_vision_model()
         if not vision:
-            return StreamingResponse(
-                iter([json.dumps({"error": "No vision model installed. Run: ollama pull llava:7b"})+"\n"]),
-                media_type="text/plain")
+            return JSONResponse(
+                {"error": "No vision model installed. Run: ollama pull llava:7b"}, 503)
         return StreamingResponse(
             ollama_stream(vision, messages, system, images=images),
             media_type="text/plain")
@@ -208,7 +217,7 @@ async def classify(req: Request):
         return {"category": cat, "model": target, "raw": raw}
     except Exception as e:
         return JSONResponse({"category": "general", "model": "qwen3:14b",
-                             "error": str(e)}, 200)
+                             "error": str(e)}, 500)
 
 
 # ─── PWA ─────────────────────────────────────────────────────────────
@@ -1210,7 +1219,9 @@ async def conv_search(req: Request, q: str = ""):
                 scored.append((score, c))
             if cache_dirty:
                 async with _embed_cache_lock:
-                    _save_embed_cache(cache)
+                    current = _load_embed_cache()
+                    current.update(cache)
+                    _save_embed_cache(current)
             scored.sort(key=lambda x: x[0], reverse=True)
             matches = []
             for score, c in scored[:20]:
@@ -1272,7 +1283,8 @@ async def conv_reindex(req: Request):
                 count += 1
         except Exception:
             continue
-    _save_embed_cache(cache)
+    async with _embed_cache_lock:
+        _save_embed_cache(cache)
     return {"indexed": count, "dims": 768}
 
 
@@ -1288,8 +1300,11 @@ async def conv_autotitle(conv_id: str, req: Request):
         return JSONResponse({"error": "invalid id"}, 400)
     if not os.path.exists(path):
         return JSONResponse({"error": "not found"}, 404)
-    with open(path) as f:
-        c = json.load(f)
+    try:
+        with open(path) as f:
+            c = json.load(f)
+    except Exception:
+        return JSONResponse({"error": "conversation corrupted"}, 500)
     hist = c.get("history", [])
     if len(hist) < 2:
         return {"title": c.get("title", "Untitled"), "skipped": "not enough turns"}
@@ -1362,8 +1377,11 @@ async def conv_get(conv_id: str, req: Request):
         return JSONResponse({"error": "invalid id"}, 400)
     if not os.path.exists(path):
         return JSONResponse({"error": "not found"}, 404)
-    with open(path) as f:
-        return json.load(f)
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return JSONResponse({"error": "conversation corrupted"}, 500)
 
 
 @app.post("/conversations")
@@ -1444,7 +1462,10 @@ async def memory_add(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    data = await req.json()
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, 400)
     fact = (data.get("fact") or "").strip()
     if not fact:
         return JSONResponse({"error": "fact required"}, 400)
@@ -1478,7 +1499,10 @@ async def memory_extract(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    data = await req.json()
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, 400)
     text = (data.get("text") or "").strip()
     if not text:
         return {"facts": []}
@@ -1504,7 +1528,7 @@ async def memory_extract(req: Request):
             return {"facts": [], "raw": raw[:200]}
         try:
             facts = json.loads(m.group(0))
-            facts = [str(f).strip() for f in facts if isinstance(f, str) and f.strip()][:3]
+            facts = [str(f).strip().replace('\n', ' ')[:100] for f in facts if isinstance(f, str) and f.strip()][:3]
             return {"facts": facts}
         except Exception:
             return {"facts": [], "raw": raw[:200]}
@@ -1523,6 +1547,11 @@ async def conv_delete(conv_id: str, req: Request):
         return JSONResponse({"error": "invalid id"}, 400)
     if os.path.exists(path):
         os.remove(path)
+        async with _embed_cache_lock:
+            cache = _load_embed_cache()
+            if conv_id in cache:
+                del cache[conv_id]
+                _save_embed_cache(cache)
         return {"ok": True}
     return JSONResponse({"error": "not found"}, 404)
 

@@ -1194,8 +1194,10 @@ async function execShortcut(name) {
     eb.textEl.innerHTML = '<em style="color:var(--text3)">📊 Checking bot status…</em>';
     try {
       var res = await fetch('/status'); var d = await res.json();
-      if (d.error) { eb.textEl.textContent = 'Error: ' + d.error; }
-      else {
+      if (d.error) {
+        eb.textEl.textContent = 'Error: ' + d.error;
+        history.push({role:'assistant', content: 'Error: ' + d.error});
+      } else {
         var lines = ['**Server Status** — ' + d.timestamp, ''];
         (d.bots || []).forEach(function(b) {
           var icon = b.running ? '🟢' : (b.critical ? '🔴' : '🟡');
@@ -1212,7 +1214,10 @@ async function execShortcut(name) {
         eb.textEl._rawText = lines.join('\n');
         history.push({role:'assistant', content: lines.join('\n')});
       }
-    } catch(e) { eb.textEl.textContent = 'Status error: ' + e.message; }
+    } catch(e) {
+      eb.textEl.textContent = 'Status error: ' + e.message;
+      history.push({role:'assistant', content: 'Status error: ' + e.message});
+    }
     eb.statsEl.textContent = _elapsed() + 's · /status';
     finishStream(); autoPersist(); updateTokenCounter(); return;
   }
@@ -1222,8 +1227,10 @@ async function execShortcut(name) {
     eb.textEl.innerHTML = '<em style="color:var(--text3)">🖥 Reading GPU…</em>';
     try {
       var res = await fetch('/gpu'); var d = await res.json();
-      if (d.error) { eb.textEl.textContent = 'GPU error: ' + d.error; }
-      else {
+      if (d.error) {
+        eb.textEl.textContent = 'GPU error: ' + d.error;
+        history.push({role:'assistant', content: 'GPU error: ' + d.error});
+      } else {
         var pct = Math.round(d.vram_used / d.vram_total * 100);
         var lines = ['**GPU Status** (' + d.gpu_count + ' GPU' + (d.gpu_count>1?'s':'') + ')'];
         lines.push('- VRAM: **' + d.vram_used + ' / ' + d.vram_total + ' MiB** (' + pct + '%)');
@@ -1238,7 +1245,10 @@ async function execShortcut(name) {
         eb.textEl._rawText = lines.join('\n');
         history.push({role:'assistant', content: lines.join('\n')});
       }
-    } catch(e) { eb.textEl.textContent = 'GPU error: ' + e.message; }
+    } catch(e) {
+      eb.textEl.textContent = 'GPU error: ' + e.message;
+      history.push({role:'assistant', content: 'GPU error: ' + e.message});
+    }
     eb.statsEl.textContent = _elapsed() + 's · /gpu';
     finishStream(); autoPersist(); updateTokenCounter(); return;
   }
@@ -1790,8 +1800,9 @@ async function sendMsg() {
   sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
 
   var startTime=Date.now(), tokenCount=0;
+  var localModel=currentModel;
   currentAbort=new AbortController();
-  var {textEl,statsEl}=addBotMsg(currentModel);
+  var {textEl,statsEl}=addBotMsg(localModel);
   var full='';
 
   var msgs=history.slice();
@@ -1800,7 +1811,7 @@ async function sendMsg() {
   try {
     var res=await fetch('/chat',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:currentModel,messages:msgs,system:systemPrompt,temperature:currentTemp}),
+      body:JSON.stringify({model:localModel,messages:msgs,system:systemPrompt,temperature:currentTemp}),
       signal:currentAbort.signal
     });
     removeTyping();
@@ -1821,12 +1832,15 @@ async function sendMsg() {
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
     var words=full.trim().split(/\s+/).filter(Boolean).length;
-    statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s · '+words+'w';
-    history.push({role:'assistant', content:full, model:currentModel});
+    statsEl.textContent=elapsed+'s · '+(tokenCount&&elapsed?(tokenCount/elapsed).toFixed(0):0)+' tok/s · '+words+'w';
+    history.push({role:'assistant', content:full, model:localModel});
   } catch(e) {
     removeTyping();
     if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
-    else{textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;}
+    else{
+      textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;
+      if(full) history.push({role:'assistant', content:full, model:localModel});
+    }
   }
   finishStream();
 }
@@ -2444,6 +2458,9 @@ function autoPersist() {
   if (_persistTimer) clearTimeout(_persistTimer);
   _persistTimer = setTimeout(function(){ persistConversation(true); }, 300);
 }
+window.addEventListener('beforeunload', function() {
+  if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; persistConversation(true); }
+});
 
 // On boot: fetch list, restore last conversation if it still exists
 fetchConvList().then(function() {
@@ -2732,7 +2749,7 @@ const _sendBeforeMem = sendMsg;
 sendMsg = async function() {
   var typed = (input.value || '').trim();
   await _sendBeforeMem();
-  if (typed && !typed.startsWith('/')) maybeAutoExtract(typed);
+  if (typed && !typed.startsWith('/')) await maybeAutoExtract(typed);
 };
 
 // Expose suggestion in welcome
@@ -3147,15 +3164,16 @@ sendMsg = async function() {
     sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
 
     var startTime=Date.now(), tokenCount=0;
+    var localModel2=currentModel;
     currentAbort=new AbortController();
-    var displayModel = imgPayload.length ? 'llava:7b' : currentModel;
+    var displayModel = imgPayload.length ? 'llava:7b' : localModel2;
     var {textEl,statsEl}=addBotMsg(displayModel);
     var full='';
     var msgs=history.slice();
     if(systemPrompt&&!isClaude()) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
 
     try {
-      var body = {model:currentModel, messages:msgs, system:systemPrompt, temperature:currentTemp};
+      var body = {model:localModel2, messages:msgs, system:systemPrompt, temperature:currentTemp};
       if (imgPayload.length) body.images = imgPayload;
       var res=await fetch('/chat',{
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -3180,18 +3198,21 @@ sendMsg = async function() {
       }
       var elapsed=((Date.now()-startTime)/1000).toFixed(1);
       var words=full.trim().split(/\s+/).filter(Boolean).length;
-      statsEl.textContent=elapsed+'s · '+(tokenCount/elapsed).toFixed(0)+' tok/s · '+words+'w';
-      history.push({role:'assistant', content:full, model:currentModel});
+      statsEl.textContent=elapsed+'s · '+(tokenCount&&elapsed?(tokenCount/elapsed).toFixed(0):0)+' tok/s · '+words+'w';
+      history.push({role:'assistant', content:full, model:localModel2});
     } catch(e) {
       removeTyping();
       if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
-      else{textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;}
+      else{
+        textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;
+        if(full) history.push({role:'assistant', content:full, model:localModel2});
+      }
     }
     finishStream();
     autoPersist();
     maybeAutoTitle();
     updateTokenCounter();
-    if (text && !text.startsWith('/')) maybeAutoExtract(text);
+    if (text && !text.startsWith('/')) await maybeAutoExtract(text);
     return;
   }
 
@@ -3247,7 +3268,7 @@ async function doConvSearch(q) {
     var list = document.getElementById('conv-list');
     list.innerHTML = '';
     var isSemantic = d.mode === 'semantic';
-    if (isSemantic) {
+    if (isSemantic && (d.matches || []).length > 0) {
       var badge = document.createElement('div');
       badge.style.cssText = 'padding:4px 8px;font-size:10px;color:var(--accent);opacity:0.7;letter-spacing:0.5px';
       badge.textContent = '✦ semantic search';
