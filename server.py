@@ -1535,10 +1535,16 @@ async def chia_harvester_toggle(req: Request):
     if action not in ("start", "stop"):
         return JSONResponse({"error": "action must be start or stop"}, 400)
     cmd = ["chia", action, "harvester"]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        output = (result.stdout + result.stderr).strip()
+    except subprocess.TimeoutExpired:
+        output = f"chia {action} harvester timed out — command still running in background"
+    except Exception as e:
+        output = f"error: {e}"
     running = bool(subprocess.run(["pgrep", "-f", "chia_harvester"],
                                   capture_output=True).returncode == 0)
-    return {"running": running, "output": (result.stdout + result.stderr).strip()}
+    return {"running": running, "output": output}
 
 
 @app.get("/gpu")
