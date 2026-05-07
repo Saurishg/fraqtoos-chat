@@ -83,6 +83,9 @@ body {
 }
 .model-btn:hover { background: var(--surface); color: var(--text); }
 .model-btn.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
+.model-btn.unavailable { opacity: .45; }
+.model-btn.unavailable .model-size::after { content: " · unavailable"; color: #fca5a5; }
+.model-btn.unavailable.active { border-color: rgba(239,68,68,.45); background: rgba(153,27,27,.12); }
 .model-dot {
   width: 7px; height: 7px; border-radius: 50%;
   flex-shrink: 0; background: var(--text3); transition: background .2s;
@@ -180,6 +183,15 @@ body {
 #status-light.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,.6); animation: pulse-red 1s infinite; }
 @keyframes pulse-green { 0%,100%{box-shadow:0 0 4px rgba(34,197,94,.3)} 50%{box-shadow:0 0 10px rgba(34,197,94,.7)} }
 @keyframes pulse-red   { 0%,100%{box-shadow:0 0 3px rgba(239,68,68,.4)} 50%{box-shadow:0 0 10px rgba(239,68,68,.8)} }
+
+#health-summary {
+  display: none; font-size: 11px; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 2px 8px; background: var(--surface);
+  white-space: nowrap;
+}
+#health-summary.ready { display: inline-flex; color: #86efac; border-color: rgba(34,197,94,.28); }
+#health-summary.warn  { display: inline-flex; color: #fca5a5; border-color: rgba(239,68,68,.35); background: rgba(153,27,27,.08); }
 
 #topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
@@ -519,6 +531,26 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 #pm-save:hover { background: var(--accent2); }
 .pm-empty { color: var(--text3); font-size: 13px; padding: 20px 0; text-align: center; }
 
+#model-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.65); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+#model-modal.open { display: flex; }
+#model-modal .mm-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 720px; max-height: 82vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+#model-modal .mm-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+#model-modal .mm-head h3 { font-size: 15px; font-weight: 600; flex: 1; }
+#model-modal .mm-x { background: none; border: none; color: var(--text2); font-size: 18px; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+#model-modal .mm-x:hover { background: var(--surface); color: var(--text); }
+#model-modal .mm-body { padding: 14px 18px; overflow-y: auto; flex: 1; }
+.mm-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.mm-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.mm-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+.mm-stat-value { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-row { display: grid; grid-template-columns: minmax(150px, 1.6fr) 70px 90px 86px 122px; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin-bottom: 6px; font-size: 12px; }
+.mm-row:hover { background: var(--surface2); border-color: var(--accent); }
+.mm-name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-muted { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-use { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
+.mm-use:hover { border-color: var(--accent); color: var(--text); }
+.mm-empty { color: var(--text3); font-size: 13px; padding: 22px 0; text-align: center; }
+
 #features-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
 #features-modal.open { display: flex; }
 #features-modal .fm-card { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 820px; margin: auto; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
@@ -759,6 +791,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span id="model-display">phi4</span>
       <span class="badge" id="model-badge">Local · Ollama</span>
       <span id="status-light" title="Checking…"></span>
+      <span id="health-summary" title="Checking local services…">checking</span>
     </div>
     <div id="topbar-actions">
       <div class="fs-controls">
@@ -767,6 +800,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       </div>
       <button class="icon-btn" id="ctx-btn" onclick="clearContext()" title="Clear AI context (Ctrl+Shift+X)">⟳ Context</button>
       <button class="icon-btn" id="compact-btn" onclick="toggleCompact()" title="Compact view">⊟ Compact</button>
+      <button class="icon-btn" onclick="openModelModal()" title="Local model diagnostics">▦ Models</button>
       <button class="icon-btn" onclick="toggleSysPrompt()">⚙ System</button>
       <button class="icon-btn" onclick="exportChat()">↓ Export</button>
       <button id="cmd-btn" onclick="openCommandPalette()" title="Command palette (Ctrl+K)">⌘ <kbd>K</kbd></button>
@@ -1090,6 +1124,19 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   </div>
 </div>
 
+<!-- MODEL DIAGNOSTICS -->
+<div id="model-modal" onclick="if(event.target.id==='model-modal')closeModelModal()">
+  <div class="mm-card">
+    <div class="mm-head">
+      <h3>▦ Local Model Diagnostics</h3>
+      <button class="mm-x" onclick="closeModelModal()">✕</button>
+    </div>
+    <div class="mm-body" id="model-body">
+      <div class="mm-empty">Loading models…</div>
+    </div>
+  </div>
+</div>
+
 <!-- COMMAND PALETTE -->
 <div id="cmd-palette" onclick="if(event.target.id==='cmd-palette')closeCommandPalette()">
   <div class="cmd-box">
@@ -1112,6 +1159,7 @@ const GPT_MODELS    = new Set(['gpt-oss:20b']);
 const DEEPSEEK      = new Set(['deepseek-r1:14b']);
 const QWEN          = new Set(['qwen3:14b']);
 const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-7':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
+let availableModels = new Set();
 
 let currentModel = localStorage.getItem('fraqtoos_model') || 'qwen3:14b';
 if (currentModel.startsWith('claude-') || currentModel === 'llama4:latest') {
@@ -1127,6 +1175,27 @@ let execHistory  = JSON.parse(localStorage.getItem('fraqtoos_exec_history') || '
 let _execHistIdx = -1;
 
 function isClaude() { return CLAUDE_MODELS.has(currentModel); }
+function modelInstalled(model) {
+  if (!model || model === 'auto') return true;
+  if (CLAUDE_MODELS.has(model)) return true;
+  return availableModels.size === 0 || availableModels.has(model) || availableModels.has(model + ':latest');
+}
+function updateModelAvailability(models) {
+  availableModels = new Set(models || []);
+  document.querySelectorAll('.model-btn[data-model]').forEach(function(btn) {
+    var model = btn.dataset.model;
+    var unavailable = model && model !== 'auto' && !CLAUDE_MODELS.has(model) &&
+      availableModels.size > 0 && !availableModels.has(model) && !availableModels.has(model + ':latest');
+    btn.classList.toggle('unavailable', unavailable);
+    btn.title = unavailable ? 'Model is not installed in Ollama right now' : '';
+  });
+  var badge = document.getElementById('model-badge');
+  if (badge && !modelInstalled(currentModel)) {
+    badge.textContent = 'Missing model';
+  } else if (badge) {
+    badge.textContent = MODEL_BADGE[currentModel] || (currentModel === 'auto' ? 'Smart Router' : 'Local · Ollama');
+  }
+}
 
 function selectModel(btn) {
   document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
@@ -1136,6 +1205,10 @@ function selectModel(btn) {
   document.getElementById('model-display').textContent = btn.querySelector('.model-name').textContent;
   var badge = MODEL_BADGE[currentModel] || (currentModel === 'auto' ? 'Smart Router' : 'Local · Ollama');
   document.getElementById('model-badge').textContent = badge;
+  if (!modelInstalled(currentModel)) {
+    document.getElementById('model-badge').textContent = 'Missing model';
+    showToast('That model is not installed in Ollama right now.', 'error');
+  }
   sendBtn.className = isClaude() ? 'claude-mode' : '';
 }
 
@@ -1891,8 +1964,23 @@ async function sendMsg() {
     });
     removeTyping();
     if(!res.ok){
+      var errText = 'HTTP Error: ' + res.status;
+      try {
+        var body = await res.text();
+        if (body) {
+          try {
+            var parsed = JSON.parse(body);
+            errText = parsed.error || parsed.detail || errText;
+          } catch(_) {
+            errText += ' — ' + body.replace(/<[^>]*>/g,'').trim().slice(0,160);
+          }
+        }
+      } catch(_) {}
       try{ if(res.body) await res.body.cancel(); }catch(_){}
-      textEl.textContent='HTTP Error: '+res.status;finishStream();autoPersist();updateTokenCounter();return;
+      showErrorWithRetry(textEl, errText);
+      textEl._rawText = errText;
+      history.push({role:'assistant', content:errText, model:localModel});
+      finishStream();autoPersist();updateTokenCounter();return;
     }
     var reader=res.body.getReader(),decoder=new TextDecoder();
     var buf='';
@@ -2595,6 +2683,7 @@ fetchConvList().then(function() {
 // ─────────────────────────────────────────────────────────────────
 async function pollHealth() {
   var dot = document.getElementById('status-light');
+  var summary = document.getElementById('health-summary');
   if (!dot) return;
   try {
     var ctl = new AbortController();
@@ -2604,6 +2693,7 @@ async function pollHealth() {
     if (!r.ok) throw new Error('HTTP '+r.status);
     var d = await r.json();
     var ollama = (d.ollama_models||[]).length > 0;
+    updateModelAvailability(d.ollama_models || []);
     var parts = [
       'Ollama: '   + (ollama ? '✓ '+d.ollama_models.length+' models' : '✗ down'),
       'Search: '   + (d.search_ready ? '✓ SearXNG' : '✗ down'),
@@ -2614,10 +2704,24 @@ async function pollHealth() {
     dot.classList.remove('offline');
     dot.classList.add(allCore ? 'online' : 'offline');
     dot.title = (allCore ? 'System online' : 'System degraded') + '\n' + parts.join('\n');
+    if (summary) {
+      var optionalDown = [d.search_ready, d.image_ready].filter(function(v){ return !v; }).length;
+      summary.className = allCore && optionalDown === 0 ? 'ready' : 'warn';
+      summary.textContent = allCore
+        ? (d.ollama_models.length + ' models' + (optionalDown ? ' · ' + optionalDown + ' optional down' : ''))
+        : 'Ollama down';
+      summary.title = parts.join('\n');
+    }
   } catch(e) {
     dot.classList.remove('online');
     dot.classList.add('offline');
     dot.title = 'System OFFLINE — server unreachable\n('+e.message+')';
+    updateModelAvailability([]);
+    if (summary) {
+      summary.className = 'warn';
+      summary.textContent = 'server offline';
+      summary.title = dot.title;
+    }
   }
 }
 pollHealth();
@@ -3633,9 +3737,69 @@ function openFeaturesModal() {
 function closeFeaturesModal() {
   document.getElementById('features-modal').classList.remove('open');
 }
+function formatModelDate(value) {
+  if (!value) return 'unknown';
+  var d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value.slice(0, 10);
+  return d.toLocaleDateString([], {month:'short', day:'numeric'});
+}
+async function openModelModal() {
+  var modal = document.getElementById('model-modal');
+  var body = document.getElementById('model-body');
+  modal.classList.add('open');
+  body.innerHTML = '<div class="mm-empty">Loading models…</div>';
+  try {
+    var r = await fetch('/models', {cache:'no-store'});
+    var d = await safeJson(r);
+    if (d.error) throw new Error(d.error);
+    updateModelAvailability((d.models || []).map(function(m){ return m.name; }));
+    var totalGb = (d.models || []).reduce(function(sum, m){ return sum + (m.size_gb || 0); }, 0);
+    var serviceCount = [d.claude_ready, d.image_ready, d.search_ready].filter(Boolean).length;
+    var html = '<div class="mm-summary">'
+      + '<div class="mm-stat"><div class="mm-stat-label">Installed</div><div class="mm-stat-value">'+(d.count || 0)+' models</div></div>'
+      + '<div class="mm-stat"><div class="mm-stat-label">Disk Used</div><div class="mm-stat-value">'+totalGb.toFixed(1)+' GB</div></div>'
+      + '<div class="mm-stat"><div class="mm-stat-label">Services</div><div class="mm-stat-value">'+serviceCount+'/3 ready</div></div>'
+      + '<div class="mm-stat"><div class="mm-stat-label">Ollama</div><div class="mm-stat-value">'+escHtml(d.ollama_url || 'localhost')+'</div></div>'
+      + '</div>';
+    if (!d.models || !d.models.length) {
+      body.innerHTML = html + '<div class="mm-empty">No Ollama models found.</div>';
+      return;
+    }
+    html += d.models.map(function(m) {
+      var meta = [m.parameter_size, m.quantization].filter(Boolean).join(' · ') || (m.family || 'local');
+      return '<div class="mm-row">'
+        + '<div class="mm-name" title="'+escHtml(m.name)+'">'+escHtml(m.name)+'</div>'
+        + '<div class="mm-muted">'+(m.size_gb || 0).toFixed(1)+' GB</div>'
+        + '<div class="mm-muted" title="'+escHtml(meta)+'">'+escHtml(meta)+'</div>'
+        + '<div class="mm-muted">'+formatModelDate(m.modified_at)+'</div>'
+        + '<button class="mm-use" data-model="'+escHtml(m.name)+'">Use model</button>'
+        + '</div>';
+    }).join('');
+    body.innerHTML = html;
+    body.querySelectorAll('.mm-use').forEach(function(btn) {
+      btn.onclick = function() {
+        var model = btn.dataset.model;
+        var modelBtn = document.querySelector('.model-btn[data-model="'+CSS.escape(model)+'"]');
+        if (modelBtn) selectModel(modelBtn);
+        else {
+          currentModel = model;
+          localStorage.setItem('fraqtoos_model', currentModel);
+          document.getElementById('model-display').textContent = model;
+          document.getElementById('model-badge').textContent = 'Local · Ollama';
+        }
+        closeModelModal();
+        input.focus();
+      };
+    });
+  } catch(e) {
+    body.innerHTML = '<div class="mm-empty">Could not load model inventory.<br>'+escHtml(e.message)+'</div>';
+  }
+}
+function closeModelModal() { document.getElementById('model-modal').classList.remove('open'); }
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
   if (document.getElementById('features-modal').classList.contains('open')) { closeFeaturesModal(); return; }
+  if (document.getElementById('model-modal').classList.contains('open'))    { closeModelModal();    return; }
   if (document.getElementById('star-modal').classList.contains('open'))     { closeStarModal();     return; }
   if (document.getElementById('prompt-modal').classList.contains('open'))   { closePromptLib();     return; }
   if (document.getElementById('mem-modal').classList.contains('open'))      { closeMemoryModal();   return; }
@@ -3704,6 +3868,7 @@ var CMD_ITEMS = [
   {section:'Actions', icon:'⊟',  label:'Toggle Compact Mode', action:toggleCompact},
   {section:'Actions', icon:'⚙',  label:'System Prompt', action:toggleSysPrompt},
   {section:'Actions', icon:'📚', label:'Prompt Library', action:openPromptLib},
+  {section:'Actions', icon:'▦',  label:'Local Model Diagnostics', action:openModelModal},
   {section:'Actions', icon:'⭐', label:'Starred Messages', action:openStarModal},
   {section:'Actions', icon:'🧠', label:'Memory', action:openMemoryModal},
   {section:'Actions', icon:'↓',  label:'Export Chat', action:exportChat},

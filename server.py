@@ -263,7 +263,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v2';
+    sw = """const CACHE = 'fraqtoos-v4';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -279,7 +279,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
-    '/bridge','/classify','/health','/gpu','/memory','/suggest','/exec',
+    '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
     '/status','/logs/',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/manifest.json'];
@@ -1669,6 +1669,45 @@ async def health():
         "claude_ready":  bool(ANTHROPIC_KEY),
         "image_ready":   _comfyui_ready(),
         "search_ready":  _searx_up(),
+    }
+
+
+@app.get("/models")
+async def model_inventory(req: Request):
+    """Detailed local model inventory for the UI model diagnostics panel."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    try:
+        r = requests.get(f"{OLLAMA}/api/tags", timeout=4)
+        r.raise_for_status()
+        raw_models = r.json().get("models", [])
+    except Exception as e:
+        return JSONResponse({"error": str(e), "models": []}, 503)
+
+    models = []
+    for m in raw_models:
+        details = m.get("details") or {}
+        size = int(m.get("size") or 0)
+        models.append({
+            "name": m.get("name") or m.get("model") or "",
+            "model": m.get("model") or m.get("name") or "",
+            "size": size,
+            "size_gb": round(size / (1024 ** 3), 2) if size else 0,
+            "modified_at": m.get("modified_at") or "",
+            "family": details.get("family") or "",
+            "parameter_size": details.get("parameter_size") or "",
+            "quantization": details.get("quantization_level") or "",
+        })
+
+    models.sort(key=lambda item: item["size"], reverse=True)
+    return {
+        "models": models,
+        "count": len(models),
+        "ollama_url": OLLAMA,
+        "claude_ready": bool(ANTHROPIC_KEY),
+        "image_ready": _comfyui_ready(),
+        "search_ready": _searx_up(),
     }
 
 
