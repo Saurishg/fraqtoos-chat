@@ -973,6 +973,8 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">🖼</div><div class="fm-info"><div class="fm-name">Image Vision</div><div class="fm-desc">Attach an image in 👁 Vision mode for a vision model to analyse it.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🎤</div><div class="fm-info"><div class="fm-name">Voice Input</div><div class="fm-desc">Click 🎤 to dictate. Live transcript appears in the input box as you speak.</div><span class="fm-badge">🎤 button</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">📋</div><div class="fm-info"><div class="fm-name">Paste &amp; Drag-Drop</div><div class="fm-desc">Paste images from clipboard or drag files/images directly onto the window.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⚠</div><div class="fm-info"><div class="fm-name">Inline Error Feedback</div><div class="fm-desc">Over-size files, network failures, and validation errors now appear as a persistent red banner above the input — no more vanishing toasts.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">↔</div><div class="fm-info"><div class="fm-name">Compact Attach Row</div><div class="fm-desc">When you stack many attachments, the chip row scrolls horizontally with a fade edge instead of ballooning the input area into 3+ rows.</div></div></div>
         </div>
       </div>
       <div class="fm-section">
@@ -996,13 +998,16 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">🗑</div><div class="fm-info"><div class="fm-name">Forget</div><div class="fm-desc">Delete memories by keyword, or open 🧠 Memory panel and ✕ any entry.</div><span class="fm-badge">/forget &lt;keyword&gt;</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">💾</div><div class="fm-info"><div class="fm-name">Auto-Save Conversations</div><div class="fm-desc">Every reply is auto-saved. Conversations survive refresh and are listed in sidebar.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🏷</div><div class="fm-info"><div class="fm-name">Auto-Title</div><div class="fm-desc">phi4 automatically generates a short title for each conversation.</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">🔍</div><div class="fm-info"><div class="fm-name">Conversation Search</div><div class="fm-desc">Type in sidebar search to search all saved conversation titles and content.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔍</div><div class="fm-info"><div class="fm-name">Semantic Conversation Search</div><div class="fm-desc">Type in the sidebar search to find conversations by meaning, not just keywords. Powered by nomic-embed-text local embeddings — finds "rate limiting" when you search "throttling".</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📅</div><div class="fm-info"><div class="fm-name">Date Grouping</div><div class="fm-desc">Sidebar conversation list groups entries under Today / Yesterday / Last 7 days / Last 30 days / Older for instant orientation.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⌨</div><div class="fm-info"><div class="fm-name">Keyboard-Navigable List</div><div class="fm-desc">Tab onto any conversation, then press Enter or Space to open it. Each entry has a screen-reader label.</div></div></div>
         </div>
       </div>
       <div class="fm-section">
         <div class="fm-section-title">Chat Tools</div>
         <div class="fm-grid">
           <div class="fm-card-item"><div class="fm-icon">✏</div><div class="fm-info"><div class="fm-name">Edit &amp; Resend</div><div class="fm-desc">Click any of your past messages to edit the text and resend from that point.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">↑</div><div class="fm-info"><div class="fm-name">Edit Last Message Shortcut</div><div class="fm-desc">Press ↑ in an empty input to instantly jump into edit mode on your last message. Slack/ChatGPT-style.</div><span class="fm-badge">↑ on empty input</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">↺</div><div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔊</div><div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⧉</div><div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div></div>
@@ -1025,14 +1030,28 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">📱</div><div class="fm-info"><div class="fm-name">PWA — Install as App</div><div class="fm-desc">Add to your home screen / desktop. Works offline for the UI shell.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">◀</div><div class="fm-info"><div class="fm-name">Collapsible Sidebar</div><div class="fm-desc">Click ◀/▶ to hide/show the sidebar. State remembered across sessions.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🌱</div><div class="fm-info"><div class="fm-name">Chia Harvester Toggle</div><div class="fm-desc">🌱 button in the topbar toggles the Chia blockchain harvester on/off. Green = running.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📺</div><div class="fm-info"><div class="fm-name">Wide-Screen Layout</div><div class="fm-desc">On 1600px+ monitors the chat column widens to 880px (74ch) and the input bar matches — better use of horizontal space without breaking line length.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">▎</div><div class="fm-info"><div class="fm-name">Streaming Caret</div><div class="fm-desc">An amber blinking caret follows the bot's text while it streams, so you always know it's still typing.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⌨</div><div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div>
             <div class="fm-desc">
               <span class="fm-badge">Enter</span> send &nbsp;<span class="fm-badge">Shift+Enter</span> newline<br>
+              <span class="fm-badge">↑</span> edit last (empty input) &nbsp;<span class="fm-badge">Esc</span> stop / close<br>
               <span class="fm-badge">Ctrl+N</span> new chat &nbsp;<span class="fm-badge">Ctrl+K</span> palette<br>
               <span class="fm-badge">Ctrl+F</span> search &nbsp;<span class="fm-badge">Ctrl+S</span> save prompt<br>
               <span class="fm-badge">Ctrl+Shift+X</span> clear context
             </div>
           </div></div>
+        </div>
+      </div>
+
+      <div class="fm-section">
+        <div class="fm-section-title">Accessibility</div>
+        <div class="fm-grid">
+          <div class="fm-card-item"><div class="fm-icon">⌨</div><div class="fm-info"><div class="fm-name">Visible Focus Ring</div><div class="fm-desc">Every interactive element shows a clear amber outline when focused via Tab, so keyboard users always know where they are.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🔉</div><div class="fm-info"><div class="fm-name">Screen-Reader Friendly</div><div class="fm-desc">Chat region announces streamed replies via aria-live; every icon button has an aria-label; modals use role="dialog".</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🎞</div><div class="fm-info"><div class="fm-name">Reduced-Motion Mode</div><div class="fm-desc">Honors the OS setting <code>prefers-reduced-motion: reduce</code> — fade-in, smooth scroll, and typing-dot bounce are disabled for users who need still UIs.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📱</div><div class="fm-info"><div class="fm-name">Mobile Touch Targets</div><div class="fm-desc">Tool and send buttons are 44×44 on phones (Apple HIG / WCAG 2.5.5 minimum), 40×40 on the smallest viewports — no more missed taps.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🌗</div><div class="fm-info"><div class="fm-name">WCAG Contrast</div><div class="fm-desc">Secondary text colors were lifted to clear WCAG AA on the dark background — no more washed-out timestamps and helper text.</div></div></div>
         </div>
       </div>
 
