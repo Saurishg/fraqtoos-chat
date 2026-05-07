@@ -21,8 +21,8 @@
   --surface2:  #252220;
   --border:    #2e2b27;
   --text:      #e8e5de;
-  --text2:     #a09d96;
-  --text3:     #5e5c57;
+  --text2:     #aeaba3;
+  --text3:     #7a7770;
   --accent:    #e8952a;
   --accent2:   #f5a83f;
   --user-bg:   #e8952a;
@@ -243,11 +243,14 @@ body {
 #chat::-webkit-scrollbar { width: 5px; }
 #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-.chat-inner { max-width: 760px; margin: 0 auto; width: 100%; padding: 0 24px; }
+.chat-inner { max-width: min(820px, 72ch); margin: 0 auto; width: 100%; padding: 0 28px; }
+@media (min-width: 1600px) { .chat-inner { max-width: min(880px, 74ch); padding: 0 32px; } }
 
-.msg-group { padding: 5px 0; }
+.msg-group { padding: 5px 0; animation: msgFadeIn .22s ease-out; }
 .msg-group.user { display: flex; justify-content: flex-end; margin-bottom: 3px; }
 .msg-group.bot  { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 3px; }
+@keyframes msgFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+#chat { scroll-behavior: smooth; }
 
 .user-bubble {
   background: var(--user-bg); color: var(--user-text);
@@ -274,9 +277,12 @@ body {
 .bot-name { font-size: 11.5px; font-weight: 600; color: var(--text3); margin-bottom: 5px; letter-spacing: .01em; }
 .bot-text { font-size: var(--fs); line-height: 1.72; color: var(--text); word-break: break-word; }
 
-.bot-text h1,.bot-text h2,.bot-text h3 { margin: 14px 0 6px; font-weight: 600; line-height: 1.3; }
-.bot-text h1 { font-size: 19px; } .bot-text h2 { font-size: 16px; } .bot-text h3 { font-size: 14.5px; }
-.bot-text p { margin: 5px 0; }
+.bot-text h1,.bot-text h2,.bot-text h3 { margin: 18px 0 8px; font-weight: 600; line-height: 1.25; letter-spacing: -.015em; }
+.bot-text h1 { font-size: 22px; }
+.bot-text h2 { font-size: 18px; }
+.bot-text h3 { font-size: 15.5px; letter-spacing: -.005em; }
+.bot-text h1:first-child,.bot-text h2:first-child,.bot-text h3:first-child { margin-top: 2px; }
+.bot-text p { margin: 7px 0; }
 .bot-text ul,.bot-text ol { margin: 5px 0 5px 20px; }
 .bot-text li { margin: 3px 0; }
 .bot-text strong { font-weight: 600; }
@@ -301,17 +307,21 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 .bot-text pre { background: #090807; }
 .bot-text pre code.hljs { background: transparent; padding: 0; }
 
-.typing-dots { display: inline-flex; gap: 5px; padding: 4px 0; align-items: center; }
-.typing-dots span { width: 6px; height: 6px; background: var(--text3); border-radius: 50%; animation: bounce 1.3s infinite; }
-.typing-dots span:nth-child(2) { animation-delay: .2s; }
-.typing-dots span:nth-child(3) { animation-delay: .4s; }
-@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+.typing-dots { display: inline-flex; gap: 6px; padding: 4px 0; align-items: center; }
+.typing-dots span { width: 7px; height: 7px; background: var(--text3); border-radius: 50%; animation: bounce 1.2s cubic-bezier(.4,0,.2,1) infinite; opacity: .55; }
+.typing-dots span:nth-child(2) { animation-delay: .15s; }
+.typing-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0); opacity:.45} 40%{transform:translateY(-5px); opacity:1} }
+.bot-text.streaming::after { content: '▎'; color: var(--accent2); margin-left: 2px; animation: caretBlink 1s steps(2) infinite; }
+@keyframes caretBlink { 50% { opacity: 0; } }
 
-.msg-actions { display: flex; align-items: center; gap: 3px; margin-top: 6px; opacity: 0; transition: opacity .15s; }
-.msg-group:hover .msg-actions { opacity: 1; }
-.msg-time  { font-size: 10.5px; color: var(--text3); margin-right: 4px; }
-.msg-stats { font-size: 10.5px; color: var(--accent); margin-right: 4px; }
-.act-btn   { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 5px; }
+.msg-actions { display: flex; align-items: center; gap: 3px; margin-top: 8px; }
+.msg-actions .act-btn { opacity: 0; transition: opacity .15s, background .12s, color .12s; }
+.msg-group:hover .msg-actions .act-btn,
+.msg-group:focus-within .msg-actions .act-btn { opacity: 1; }
+.msg-time  { font-size: 10.5px; color: var(--text3); margin-right: 6px; }
+.msg-stats { font-size: 10.5px; color: var(--accent); margin-right: 6px; }
+.act-btn   { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 4px 7px; border-radius: 6px; min-width: 28px; min-height: 28px; }
 .act-btn:hover { background: var(--surface); color: var(--text2); }
 .act-btn.speaking { color: var(--accent2); animation: pulse 1s infinite; }
 .act-btn.starred  { color: #f59e0b; }
@@ -343,23 +353,30 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 #inputwrap { padding: 10px 20px 12px; background: var(--bg); flex-shrink: 0; }
 
 #input-outer {
-  max-width: 760px; margin: 0 auto; position: relative;
+  max-width: min(820px, 72ch); margin: 0 auto; position: relative;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; transition: border-color .15s;
+  border-radius: 14px; transition: border-color .15s, box-shadow .15s;
   box-shadow: 0 2px 12px rgba(0,0,0,.2);
 }
+@media (min-width: 1600px) { #input-outer, #quick-actions, #exec-shortcuts, #hint { max-width: min(880px, 74ch); } }
 #input-outer:focus-within { border-color: var(--accent); box-shadow: 0 2px 16px rgba(232,149,42,.1); }
 
 #input { width: 100%; background: transparent; border: none; color: var(--text); padding: 13px 16px 4px; font-size: var(--fs); resize: none; min-height: 50px; max-height: 200px; outline: none; font-family: inherit; line-height: 1.6; }
 #input::placeholder { color: var(--text3); }
 
-#attach-row { padding: 0 14px 6px; display: none; flex-wrap: wrap; gap: 5px; }
+#attach-row { padding: 0 14px 6px; display: none; gap: 5px; overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; scrollbar-width: thin; max-height: 42px; mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%); }
 #attach-row.has-attach { display: flex; }
-.attach-chip { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 3px 10px 3px 8px; border-radius: 12px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; }
-.attach-chip .x { cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; }
+#attach-row::-webkit-scrollbar { height: 3px; }
+#attach-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.attach-chip { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 3px 10px 3px 8px; border-radius: 12px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
+.attach-chip .x { cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; padding: 0 2px; min-width: 18px; text-align: center; }
 .attach-chip .x:hover { color: #ef4444; }
 .attach-chip.image { padding: 2px 8px 2px 4px; }
 .attach-chip .thumb { width: 26px; height: 26px; border-radius: 5px; object-fit: cover; border: 1px solid var(--border); }
+.attach-chip.error { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.4); color: #fca5a5; }
+#input-error { display: none; padding: 0 16px 6px; font-size: 12px; color: #fca5a5; }
+#input-error.show { display: block; }
+#input-error::before { content: "⚠ "; }
 
 #neg-row { padding: 0 16px 8px; display: none; }
 #neg-prompt { width: 100%; background: transparent; border: none; border-top: 1px solid var(--border); color: var(--text2); padding: 8px 0; font-size: 13px; outline: none; font-family: inherit; }
@@ -427,10 +444,10 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 #statusbar-right { margin-left: auto; font-size: 11px; color: var(--text3); }
 
 /* ─── WELCOME ─────────────────────────────── */
-#welcome { max-width: 760px; margin: 46px auto 16px; padding: 0 24px; text-align: center; }
-#welcome .w-icon { width: 52px; height: 52px; border-radius: 16px; margin: 0 auto 18px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 20px rgba(232,149,42,.25); }
-#welcome h2 { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 8px; letter-spacing: -.02em; }
-#welcome p  { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 24px; }
+#welcome { max-width: 760px; margin: 56px auto 16px; padding: 0 24px; text-align: center; }
+#welcome .w-icon { width: 56px; height: 56px; border-radius: 18px; margin: 0 auto 22px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 6px 28px rgba(232,149,42,.28); }
+#welcome h2 { font-size: 28px; font-weight: 600; color: var(--text); margin-bottom: 10px; letter-spacing: -.025em; line-height: 1.2; }
+#welcome p  { font-size: 14.5px; color: var(--text2); line-height: 1.6; margin-bottom: 28px; max-width: 520px; margin-left: auto; margin-right: auto; }
 .suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; }
 .suggestion { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; cursor: pointer; font-size: 12.5px; color: var(--text2); transition: all .12s; line-height: 1.4; }
 .suggestion:hover { background: var(--surface2); border-color: var(--accent); color: var(--text); }
@@ -570,6 +587,27 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
+/* ─── FOCUS RING (a11y) ──────────────────── */
+:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; border-radius: 6px; }
+button:focus-visible, .tool-btn:focus-visible, .icon-btn:focus-visible,
+.fs-btn:focus-visible, .act-btn:focus-visible, .conv-item:focus-visible,
+.model-btn:focus-visible, .sidebar-action:focus-visible { outline: 2px solid var(--accent2); outline-offset: 1px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; }
+
+/* ─── REDUCED MOTION ─────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .typing-dots span { animation: none; opacity: .65; }
+}
+
+/* ─── SR-ONLY HELPER ─────────────────────── */
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
 /* ─── COMPACT MODE ───────────────────────── */
 body.compact .chat-inner { padding: 0 16px; }
 body.compact .msg-group { padding: 2px 0; }
@@ -601,10 +639,11 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   #inputwrap { padding: 7px 10px 12px; }
   #input-outer { border-radius: 12px; }
   #input { padding: 10px 12px 4px; font-size: 16px; }
-  #input-bottom { padding: 4px 6px 6px; gap: 3px; flex-wrap: wrap; }
-  .tool-btn { width: 36px; height: 36px; font-size: 16px; }
-  .ctrl-select { font-size: 11px; padding: 5px; max-width: 88px; }
-  #img-btn,#send-btn { width: 38px; height: 38px; font-size: 16px; }
+  #input-bottom { padding: 4px 6px 6px; gap: 4px; flex-wrap: wrap; }
+  .tool-btn { width: 44px; height: 44px; font-size: 17px; touch-action: manipulation; }
+  .ctrl-select { font-size: 11px; padding: 7px 8px; max-width: 92px; min-height: 36px; }
+  #img-btn,#send-btn { width: 44px; height: 44px; font-size: 17px; touch-action: manipulation; }
+  #input { touch-action: manipulation; }
   #hint,#qa-toggle { display: none !important; }
   #quick-actions { display: none !important; }
   #temp-btn { font-size: 10px; padding: 3px 6px; }
@@ -619,7 +658,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
 }
 @media (max-width: 380px) {
   #img-controls,#img-btn { display: none; }
-  .tool-btn { width: 32px; height: 32px; }
+  .tool-btn { width: 40px; height: 40px; }
 }
 </style>
 </head>
@@ -748,7 +787,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
     <button class="chat-search-nav" onclick="closeChatSearch()">✕</button>
   </div>
 
-  <div id="chat">
+  <div id="chat" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Conversation">
     <div class="chat-inner">
       <div id="welcome">
         <div class="w-icon">✦</div>
@@ -791,14 +830,15 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <div id="slash-menu" role="listbox" aria-label="Slash commands"></div>
       <textarea id="input" placeholder="Ask anything… or /image · /video to generate" rows="1"></textarea>
       <div id="attach-row"></div>
+      <div id="input-error" role="alert" aria-live="assertive"></div>
       <div id="neg-row"><input id="neg-prompt" placeholder="Negative prompt: ugly, blurry, watermark…"></div>
       <div id="input-bottom">
-        <button class="tool-btn" id="web-toggle"  onclick="toggleWebSearch()" title="Web search (SearXNG)">🔍</button>
-        <button class="tool-btn" id="attach-btn"  onclick="document.getElementById('file-input').click()" title="Attach file">📎</button>
-        <button class="tool-btn" id="mimic-btn"   onclick="document.getElementById('video-input').click()" title="Attach driving video">🎬</button>
-        <button class="tool-btn" id="mic-btn"     onclick="toggleVoice()" title="Voice input">🎤</button>
-        <button class="tool-btn" id="chia-btn"    onclick="toggleChia()" title="Chia harvester">🌱</button>
-        <button class="tool-btn" id="qa-toggle"   onclick="toggleQuickActions()" title="Quick Actions">⚡</button>
+        <button class="tool-btn" id="web-toggle"  onclick="toggleWebSearch()" title="Web search (SearXNG)" aria-label="Toggle web search" aria-pressed="false">🔍</button>
+        <button class="tool-btn" id="attach-btn"  onclick="document.getElementById('file-input').click()" title="Attach file" aria-label="Attach file">📎</button>
+        <button class="tool-btn" id="mimic-btn"   onclick="document.getElementById('video-input').click()" title="Attach driving video" aria-label="Attach driving video">🎬</button>
+        <button class="tool-btn" id="mic-btn"     onclick="toggleVoice()" title="Voice input" aria-label="Voice input" aria-pressed="false">🎤</button>
+        <button class="tool-btn" id="chia-btn"    onclick="toggleChia()" title="Chia harvester" aria-label="Toggle Chia harvester" aria-pressed="false">🌱</button>
+        <button class="tool-btn" id="qa-toggle"   onclick="toggleQuickActions()" title="Quick Actions" aria-label="Quick actions">⚡</button>
         <button id="temp-btn" onclick="cycleTemp()" title="Temperature — click to cycle">🌡 Balanced</button>
         <input type="file" id="file-input"  style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
         <input type="file" id="video-input" style="display:none" accept="video/*" onchange="handleVideoAttach(event)">
@@ -819,8 +859,8 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
         </div>
         <div id="actions-right">
           <span id="char-counter" style="font-size:11px;color:var(--text3);display:none"></span>
-          <button id="img-btn"  onclick="generateImage()" title="Generate Image">🎨</button>
-          <button id="send-btn" onclick="sendOrStop()">&#9654;</button>
+          <button id="img-btn"  onclick="generateImage()" title="Generate Image" aria-label="Generate image">🎨</button>
+          <button id="send-btn" onclick="sendOrStop()" aria-label="Send message">&#9654;</button>
         </div>
       </div>
     </div>
@@ -1117,6 +1157,13 @@ input.addEventListener('input', function() {
 input.addEventListener('keydown', function(e) {
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sendOrStop();}
   if(e.key==='Escape'&&isStreaming){stopStreaming();}
+  // ↑ on empty input → edit last user message (Slack/ChatGPT-style)
+  if (e.key === 'ArrowUp' && !input.value && input.selectionStart === 0 &&
+      !(input.value.toLowerCase().startsWith('/exec ') && execHistory.length)) {
+    var bubbles = document.querySelectorAll('.user-bubble');
+    var last = bubbles[bubbles.length - 1];
+    if (last && !last.dataset.uneditable) { e.preventDefault(); last.click(); last.scrollIntoView({block:'center'}); return; }
+  }
   // ↑/↓ exec history — only when cursor is on first line and input starts with /exec
   if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && input.value.toLowerCase().startsWith('/exec ') && execHistory.length) {
     var atStart = input.selectionStart <= input.value.indexOf('\n') || input.value.indexOf('\n') === -1;
@@ -1438,13 +1485,20 @@ function getOrCreateInner() {
 }
 
 let _stickToBottom = true;
-function _isAtBottom(){ return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 60; }
+let _scrollRaf = 0;
+function _isAtBottom(){ return chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 80; }
 chatEl.addEventListener('scroll', function() {
-  _stickToBottom = _isAtBottom();
-  document.getElementById('jump-bottom').classList.toggle('show', !_stickToBottom);
-});
+  if (_scrollRaf) return;
+  _scrollRaf = requestAnimationFrame(function(){
+    _scrollRaf = 0;
+    _stickToBottom = _isAtBottom();
+    document.getElementById('jump-bottom').classList.toggle('show', !_stickToBottom);
+  });
+}, { passive: true });
 function scrollBottom(){
-  if (_stickToBottom) chatEl.scrollTop = chatEl.scrollHeight;
+  if (!_stickToBottom) return;
+  if (_scrollRaf) return;
+  _scrollRaf = requestAnimationFrame(function(){ _scrollRaf = 0; chatEl.scrollTop = chatEl.scrollHeight; });
 }
 function scrollBottomForce(){
   _stickToBottom = true;
@@ -2368,16 +2422,42 @@ async function fetchConvList() {
   renderConvList();
 }
 
+function _convBucket(c) {
+  var raw = c.updated || c.ts || c.created || 0;
+  var ts = String(raw).length <= 10 ? raw * 1000 : raw;
+  if (!ts) return 'Older';
+  var d = new Date(ts), now = new Date();
+  var startOfToday = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  var ageDays = (startOfToday - new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()) / 86400000;
+  if (ageDays <= 0) return 'Today';
+  if (ageDays === 1) return 'Yesterday';
+  if (ageDays <= 7) return 'Last 7 days';
+  if (ageDays <= 30) return 'Last 30 days';
+  return 'Older';
+}
 function renderConvList() {
   var list = document.getElementById('conv-list');
   if (!list) return;
   list.innerHTML = '';
+  var lastBucket = null;
   convListCache.forEach(function(c) {
+    var b = _convBucket(c);
+    if (b !== lastBucket) {
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'font-size:9.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;padding:8px 6px 3px;';
+      hdr.textContent = b;
+      list.appendChild(hdr);
+      lastBucket = b;
+    }
     var item = document.createElement('div');
     item.className = 'conv-item' + (c.id===currentConvId ? ' active' : '');
+    item.tabIndex = 0;
+    item.setAttribute('role','button');
+    item.setAttribute('aria-label', 'Open conversation: ' + (c.title||'Untitled'));
     var subtitle = c.msg_count ? ' <span style="color:var(--text3);font-size:10px">('+c.msg_count+')</span>' : '';
-    item.innerHTML = '<span class="conv-title">'+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-del" title="Delete">✕</span>';
+    item.innerHTML = '<span class="conv-title">'+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-del" title="Delete" aria-label="Delete conversation">✕</span>';
     item.querySelector('.conv-title').onclick = function(){ loadConversation(c.id); };
+    item.addEventListener('keydown', function(e){ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); loadConversation(c.id); } });
     item.querySelector('.conv-del').onclick = async function(e){
       e.stopPropagation();
       if (!confirm('Delete "'+(c.title||'Untitled')+'"?')) return;
@@ -3546,8 +3626,17 @@ document.addEventListener('keydown', function(e) {
 // ─────────────────────────────────────────────────────────────────
 // Toast notification system (replaces browser alert for key actions)
 // ─────────────────────────────────────────────────────────────────
+function showInputError(msg) {
+  var e = document.getElementById('input-error');
+  if (!e) return;
+  e.textContent = msg;
+  e.classList.add('show');
+  clearTimeout(showInputError._t);
+  showInputError._t = setTimeout(function(){ e.classList.remove('show'); }, 6000);
+}
 function showToast(msg, type, duration) {
   type = type || 'info'; duration = duration || 3000;
+  if (type === 'error') showInputError(msg);
   var icons = {info:'ℹ️', success:'✓', error:'✕'};
   var tc = document.getElementById('toast-container');
   var t = document.createElement('div');
