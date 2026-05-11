@@ -152,7 +152,8 @@ async def chat(req: Request):
     except (TypeError, ValueError):
         temperature = 0.7
 
-    messages, system = _trim_history(messages, system)
+    loop = asyncio.get_running_loop()
+    messages, system = await loop.run_in_executor(None, _trim_history, messages, system)
 
     # Always prepend persistent user memory to system context
     mem_block = _memory_as_system_block()
@@ -1202,6 +1203,29 @@ def _nomic_available() -> bool:
         return False
 
 
+# ─── Conversation file cache (avoids re-reading unchanged files on every search) ──
+_conv_cache: dict[str, object] = {}        # filename → parsed JSON content
+_conv_cache_mtime: dict[str, float] = {}   # filename → mtime at last read
+
+
+def _load_conv_cached(filepath: str, fn: str) -> "object | None":
+    """Return parsed conversation JSON, re-reading only if mtime changed."""
+    try:
+        mtime = os.path.getmtime(filepath)
+    except OSError:
+        return None
+    if _conv_cache_mtime.get(fn) == mtime:
+        return _conv_cache.get(fn)
+    try:
+        with open(filepath) as f:
+            data = json.load(f)
+        _conv_cache[fn] = data
+        _conv_cache_mtime[fn] = mtime
+        return data
+    except Exception:
+        return None
+
+
 # ─── Conversation search ──────────────────────────────────────────────
 @app.get("/conversations/search/q")
 async def conv_search(req: Request, q: str = ""):
@@ -1212,16 +1236,14 @@ async def conv_search(req: Request, q: str = ""):
     if not q:
         return {"matches": []}
 
-    # Load all conversations
+    # Load conversations using mtime cache — only re-read files that changed
     convs = []
     for fn in os.listdir(CONV_DIR):
         if not fn.endswith(".json"):
             continue
-        try:
-            with open(os.path.join(CONV_DIR, fn)) as f:
-                convs.append(json.load(f))
-        except Exception:
-            continue
+        data = _load_conv_cached(os.path.join(CONV_DIR, fn), fn)
+        if data is not None:
+            convs.append(data)
 
     # ── Semantic search ──────────────────────────────────────────────
     if _nomic_available():
