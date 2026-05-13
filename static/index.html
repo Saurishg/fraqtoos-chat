@@ -222,9 +222,9 @@ button, a, input, textarea { transition: all .15s ease; }
   background: none; border: 1px solid var(--border); color: var(--text2);
   padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer;
   display: flex; align-items: center; gap: 5px; white-space: nowrap;
-  transition: all .12s; height: 30px;
+  transition: all .15s ease; height: 30px;
 }
-.icon-btn:hover { background: var(--surface); color: var(--text); border-color: var(--text3); }
+.icon-btn:hover { background: var(--surface); color: var(--text); border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
 #ctx-btn { color: var(--text3); font-size: 11px; }
 #ctx-btn:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,.07); }
 #compact-btn.on { background: var(--surface2); color: var(--accent2); border-color: var(--accent); }
@@ -338,8 +338,9 @@ button, a, input, textarea { transition: all .15s ease; }
 .bot-text tr:hover td { background: var(--surface); }
 .bot-text p>code,.bot-text li>code,.user-bubble code { background: var(--surface2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
 
-.code-block { position: relative; margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
-.code-header { background: var(--surface2); padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+.code-block { position: relative; margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); transition: border-color .2s, box-shadow .2s; }
+.code-block:hover { border-color: var(--text3); box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.code-header { background: var(--surface2); padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; }
 .code-lang { font-size: 10.5px; color: var(--text3); font-family: monospace; text-transform: uppercase; letter-spacing: .06em; }
 .code-copy { background: none; border: 1px solid var(--border); color: var(--text2); font-size: 11px; padding: 2px 9px; border-radius: 5px; cursor: pointer; }
 .code-copy:hover { background: var(--surface); color: var(--text); }
@@ -425,9 +426,9 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 
 #input-bottom { display: flex; align-items: center; padding: 6px 10px 8px; gap: 5px; }
 
-.tool-btn { background: transparent; border: 1px solid transparent; color: var(--text3); width: 32px; height: 32px; border-radius: 8px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .12s; }
-.tool-btn:hover { background: var(--surface2); color: var(--text2); border-color: var(--border); }
-.tool-btn.on { background: rgba(232,149,42,.12); color: var(--accent2); border-color: rgba(232,149,42,.3); }
+.tool-btn { background: transparent; border: 1px solid transparent; color: var(--text3); width: 32px; height: 32px; border-radius: 8px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s ease; }
+.tool-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--border); transform: translateY(-1px); }
+.tool-btn.on { background: rgba(232,149,42,.12); color: var(--accent2); border-color: rgba(232,149,42,.3); box-shadow: 0 0 12px rgba(232,149,42,.2); }
 .tool-btn.recording { background: rgba(153,27,27,.2); color: #fca5a5; border-color: rgba(239,68,68,.4); animation: pulse 1s infinite; }
 
 #img-controls { display: flex; gap: 5px; align-items: center; }
@@ -628,9 +629,9 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 
 /* ─── TOAST NOTIFICATIONS ─────────────────── */
 #toast-container { position: fixed; bottom: 40px; right: 16px; z-index: 300; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-.toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px 14px; border-radius: 10px; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.4); display: flex; align-items: center; gap: 8px; pointer-events: auto; max-width: 340px; animation: toastIn .18s ease; line-height: 1.4; }
-.toast.success { border-color: rgba(34,197,94,.4); }
-.toast.error   { border-color: rgba(239,68,68,.4); }
+.toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 16px; border-radius: 12px; font-size: 13px; box-shadow: 0 8px 28px rgba(0,0,0,.5); display: flex; align-items: center; gap: 10px; pointer-events: auto; max-width: 340px; animation: toastIn .25s cubic-bezier(.34,1.56,.64,1); line-height: 1.4; backdrop-filter: blur(8px); }
+.toast.success { border-color: rgba(34,197,94,.4); box-shadow: 0 8px 28px rgba(34,197,94,.15); }
+.toast.error   { border-color: rgba(239,68,68,.4); box-shadow: 0 8px 28px rgba(239,68,68,.15); }
 .toast.success .t-icon { color: #22c55e; }
 .toast.error   .t-icon { color: #ef4444; }
 .toast .t-icon { font-size: 15px; flex-shrink: 0; }
