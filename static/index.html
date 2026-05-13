@@ -124,7 +124,7 @@ body {
 .conv-item.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
 .conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-del { opacity: 0; color: var(--text3); cursor: pointer; padding: 0 4px; font-size: 12px; flex-shrink: 0; }
-.conv-item:hover .conv-del { opacity: 1; }
+.conv-item:hover .conv-del, .conv-item:hover .conv-pin { opacity: 1 !important; }
 .conv-del:hover { color: #ef4444; }
 .conv-snippet { font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -1145,6 +1145,26 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   </div>
 </div>
 
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<div id="shortcuts-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;padding:20px" onclick="if(event.target.id==='shortcuts-modal')this.style.display='none'">
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:14px;width:100%;max-width:480px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700">⌨️ Keyboard Shortcuts</h3>
+      <button onclick="document.getElementById('shortcuts-modal').style.display='none'" style="background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Command palette</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+K</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>New conversation</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+N</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Stop generating</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Esc</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Clear context</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+Shift+X</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Edit last message</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">↑ (empty input)</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Search conversations</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+F</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span>Toggle sidebar</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+B</kbd></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0"><span>Show shortcuts</span><kbd style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:11px">Ctrl+/</kbd></div>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST CONTAINER -->
 <div id="toast-container"></div>
 
@@ -1270,6 +1290,7 @@ input.addEventListener('keydown', function(e) {
   }
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isStreaming)stopStreaming();});
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();document.getElementById('shortcuts-modal').style.display='flex';}});
 
 // Fetch CHAMP guidance mode once (full=4-guidance or pose=DWPose-only)
 window._champMode = null;
@@ -1550,6 +1571,8 @@ function addBotMsg(model) {
         '<button class="act-btn" title="Copy" onclick="copyBotMsg(this)">⧉</button>'+
         '<button class="act-btn" title="Read aloud" onclick="speakMsg(this)">🔊</button>'+
         '<button class="act-btn star-btn" title="Star this message" onclick="toggleStar(this)">☆</button>'+
+        '<button class="act-btn feedback-btn" title="Good response" onclick="feedbackMsg(this,1)">👍</button>'+
+        '<button class="act-btn feedback-btn" title="Bad response" onclick="feedbackMsg(this,-1)">👎</button>'+
         '<button class="act-btn" title="Regenerate" onclick="regenerate()">↺</button>'+
       '</div>'+
     '</div>';
@@ -1612,6 +1635,14 @@ function highlightCode(el) {
 function copyBotMsg(btn) {
   var text = btn.closest('.bot-body').querySelector('.bot-text')._rawText || btn.closest('.bot-body').querySelector('.bot-text').textContent;
   navigator.clipboard.writeText(text).then(function(){btn.textContent='✓';setTimeout(()=>btn.textContent='⧉',1500);});
+}
+
+function feedbackMsg(btn, score) {
+  var actions = btn.closest('.msg-actions');
+  actions.querySelectorAll('.feedback-btn').forEach(function(b){ b.style.opacity='0.3'; });
+  btn.style.opacity='1';
+  btn.style.color = score > 0 ? '#10b981' : '#ef4444';
+  showToast(score > 0 ? '👍 Thanks for the feedback!' : '👎 Noted — will improve');
 }
 
 // ── Read Aloud (TTS) ──────────────────────────────────────────────
@@ -2519,6 +2550,7 @@ function toggleVoice() {
 let currentConvId = localStorage.getItem('fraqtoos_last_conv') || null;
 let currentConvTitle = '';
 let convListCache = [];
+let pinnedConvs = new Set(JSON.parse(localStorage.getItem('fraqtoos_pinned') || '[]'));
 
 async function fetchConvList() {
   try {
@@ -2547,7 +2579,8 @@ function renderConvList() {
   if (!list) return;
   list.innerHTML = '';
   var lastBucket = null;
-  convListCache.forEach(function(c) {
+  var sorted = [...convListCache].sort(function(a,b){ return (pinnedConvs.has(b.id)?1:0) - (pinnedConvs.has(a.id)?1:0); });
+  sorted.forEach(function(c) {
     var b = _convBucket(c);
     if (b !== lastBucket) {
       var hdr = document.createElement('div');
@@ -2562,9 +2595,16 @@ function renderConvList() {
     item.setAttribute('role','button');
     item.setAttribute('aria-label', 'Open conversation: ' + (c.title||'Untitled'));
     var subtitle = c.msg_count ? ' <span style="color:var(--text3);font-size:10px">('+c.msg_count+')</span>' : '';
-    item.innerHTML = '<span class="conv-title">'+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-del" title="Delete" aria-label="Delete conversation">✕</span>';
+    var pinIcon = pinnedConvs.has(c.id) ? '📌' : '';
+    item.innerHTML = '<span class="conv-title">'+pinIcon+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-pin" title="Pin" style="opacity:0;cursor:pointer;padding:0 3px;font-size:11px" aria-label="Pin conversation">'+(pinnedConvs.has(c.id)?'📌':'📌')+'</span><span class="conv-del" title="Delete" aria-label="Delete conversation">✕</span>';
     item.querySelector('.conv-title').onclick = function(){ loadConversation(c.id); };
     item.addEventListener('keydown', function(e){ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); loadConversation(c.id); } });
+    item.querySelector('.conv-pin').onclick = function(e){
+      e.stopPropagation();
+      if (pinnedConvs.has(c.id)) pinnedConvs.delete(c.id); else pinnedConvs.add(c.id);
+      localStorage.setItem('fraqtoos_pinned', JSON.stringify([...pinnedConvs]));
+      renderConvList();
+    };
     item.querySelector('.conv-del').onclick = async function(e){
       e.stopPropagation();
       if (!confirm('Delete "'+(c.title||'Untitled')+'"?')) return;
