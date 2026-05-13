@@ -203,6 +203,21 @@ button, a, input, textarea { transition: all .15s ease; }
 
 #topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
+.chia-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.chia-label { font-size: 14px; }
+.chia-switch input { display: none; }
+.chia-slider {
+  width: 36px; height: 20px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 99px; position: relative; transition: all .25s ease;
+}
+.chia-slider::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--text3); transition: all .25s ease;
+}
+.chia-switch input:checked + .chia-slider { background: var(--green); border-color: #22c55e; }
+.chia-switch input:checked + .chia-slider::after { left: 18px; background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,.5); }
+
 .icon-btn {
   background: none; border: 1px solid var(--border); color: var(--text2);
   padding: 5px 10px; border-radius: 7px; font-size: 12px; cursor: pointer;
@@ -811,6 +826,11 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span id="health-summary" title="Checking local services…">checking</span>
     </div>
     <div id="topbar-actions">
+      <label class="chia-switch" title="Chia Harvester">
+        <span class="chia-label">🌱</span>
+        <input type="checkbox" id="chia-toggle" onchange="toggleChia()">
+        <span class="chia-slider"></span>
+      </label>
       <div class="fs-controls">
         <button class="fs-btn" onclick="adjustFontSize(-1)" title="Smaller text">A−</button>
         <button class="fs-btn" onclick="adjustFontSize(1)"  title="Larger text">A+</button>
@@ -888,7 +908,6 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
         <button class="tool-btn" id="attach-btn"  onclick="document.getElementById('file-input').click()" title="Attach file" aria-label="Attach file">📎</button>
         <button class="tool-btn" id="mimic-btn"   onclick="document.getElementById('video-input').click()" title="Attach driving video" aria-label="Attach driving video">🎬</button>
         <button class="tool-btn" id="mic-btn"     onclick="toggleVoice()" title="Voice input" aria-label="Voice input" aria-pressed="false">🎤</button>
-        <button class="tool-btn" id="chia-btn"    onclick="toggleChia()" title="Chia harvester" aria-label="Toggle Chia harvester" aria-pressed="false">🌱</button>
         <button class="tool-btn" id="qa-toggle"   onclick="toggleQuickActions()" title="Quick Actions" aria-label="Quick actions">⚡</button>
         <button id="temp-btn" onclick="cycleTemp()" title="Temperature — click to cycle">🌡 Balanced</button>
         <input type="file" id="file-input"  style="display:none" accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,image/*" onchange="handleFileAttach(event)">
@@ -2372,17 +2391,9 @@ refreshWebToggle();
 // ── Chia harvester toggle ──────────────────────────────────────────────────
 var _chiaRunning = false;
 function _refreshChiaBtn() {
-  var btn = document.getElementById('chia-btn');
-  if (!btn) return;
-  if (_chiaRunning) {
-    btn.classList.add('on');
-    btn.title = 'Chia harvester: RUNNING — click to stop';
-    btn.style.color = '#22c55e';
-  } else {
-    btn.classList.remove('on');
-    btn.title = 'Chia harvester: STOPPED — click to start';
-    btn.style.color = '';
-  }
+  var toggle = document.getElementById('chia-toggle');
+  if (!toggle) return;
+  toggle.checked = _chiaRunning;
 }
 async function _pollChia() {
   try {
@@ -2391,18 +2402,16 @@ async function _pollChia() {
   } catch(e) {}
 }
 async function toggleChia() {
-  var btn = document.getElementById('chia-btn');
-  btn.disabled = true;
+  var toggle = document.getElementById('chia-toggle');
+  var action = toggle.checked ? 'start' : 'stop';
   try {
-    var action = _chiaRunning ? 'stop' : 'start';
     var r = await fetch('/chia-harvester', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action: action})
     });
     if (r.ok) { var d = await r.json(); _chiaRunning = d.running; _refreshChiaBtn(); }
-  } catch(e) { console.error('Chia toggle error', e); }
-  btn.disabled = false;
+  } catch(e) { console.error('Chia toggle error', e); toggle.checked = _chiaRunning; }
 }
 _pollChia();
 setInterval(_pollChia, 30000);
