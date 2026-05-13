@@ -750,9 +750,9 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
 
   <div class="sb-section">
     <div class="sb-label">Local Models</div>
-    <button class="model-btn active" data-model="qwen3:14b" onclick="selectModel(this)">
+    <button class="model-btn active" data-model="qwen3:30b-a3b" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">qwen3:14b ⭐</span><span class="model-size">Alibaba · 9.3 GB · Best chat</span></div>
+      <div class="model-info"><span class="model-name">qwen3:30b-a3b ⭐</span><span class="model-size">Alibaba · 9.3 GB · Best chat</span></div>
     </button>
     <button class="model-btn" data-model="phi4" onclick="selectModel(this)">
       <span class="model-dot"></span>
@@ -863,7 +863,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <div id="welcome">
         <div class="w-icon">✦</div>
         <h2>What can I help you with?</h2>
-        <p>Local AI running on your server — qwen3:14b (default), phi4, DeepSeek-R1, GPT-OSS, gemma4.</p>
+        <p>Local AI running on your server — qwen3:30b-a3b (default), phi4, DeepSeek-R1, GPT-OSS, gemma4.</p>
         <div class="suggestion-grid">
           <div class="suggestion" onclick="fillInput(this.querySelector('strong').textContent)">
             <strong>/watchdog</strong>Live bot health + AI diagnosis
@@ -1011,8 +1011,8 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">✨</div><div class="fm-info"><div class="fm-name">Auto-Routing</div><div class="fm-desc">phi4 classifies your message and picks the best model automatically.</div><span class="fm-badge">model: Auto ✨</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">φ</div><div class="fm-info"><div class="fm-name">phi4 — Fast</div><div class="fm-desc">Microsoft's 9 GB model. Default for quick Q&amp;A, summaries, routing.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔵</div><div class="fm-info"><div class="fm-name">DeepSeek-R1</div><div class="fm-desc">14B reasoning model. Best for code, math, multi-step logic.</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">🟠</div><div class="fm-info"><div class="fm-name">qwen3:14b</div><div class="fm-desc">Alibaba's smart 9 GB model. Finance, analysis, research.</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">🟢</div><div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / llama4</div><div class="fm-desc">Google / OpenAI-OSS / Meta models for copy, long-form, creative.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🟠</div><div class="fm-info"><div class="fm-name">qwen3:30b-a3b (MoE)</div><div class="fm-desc">Alibaba's 30B MoE model — only 3B active params per token. Fast + smart. Default chat model.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🟢</div><div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / deepseek-r1</div><div class="fm-desc">Google (vision+creative) / OpenAI-OSS (code) / DeepSeek (deep reasoning).</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">✦</div><div class="fm-info"><div class="fm-name">Claude (Sonnet / Opus / Haiku)</div><div class="fm-desc">Anthropic cloud models via API key. Requires ANTHROPIC_API_KEY.</div></div></div>
         </div>
       </div>
@@ -1020,6 +1020,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
         <div class="fm-section-title">Image Generation &amp; Editing</div>
         <div class="fm-grid">
           <div class="fm-card-item"><div class="fm-icon">🎨</div><div class="fm-info"><div class="fm-name">Text → Image</div><div class="fm-desc">Generate with FLUX Schnell, FLUX Dev, SDXL, Juggernaut XI v11, SD 1.5.</div><span class="fm-badge">/image &lt;prompt&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🧠</div><div class="fm-info"><div class="fm-name">HiDream-O1-Image (NEW)</div><div class="fm-desc">Next-gen 8B image model — reasoning-driven generation up to 2048×2048. Text-to-image, editing, and subject personalization. Runs on port 7860.</div><span class="fm-badge">localhost:7860</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">✏️</div><div class="fm-info"><div class="fm-name">Edit Image (FLUX Kontext)</div><div class="fm-desc">Attach a photo, cycle to ✏️ Edit mode, then describe your change.</div><span class="fm-badge">attach → ✏️ Edit</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">🪄</div><div class="fm-info"><div class="fm-name">Avatar in Scene (PuLID-FLUX)</div><div class="fm-desc">Attach your face photo, cycle to 🪄 Avatar, then describe a scene.</div><span class="fm-badge">attach → 🪄 Avatar</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔄</div><div class="fm-info"><div class="fm-name">Face Swap (insightface)</div><div class="fm-desc">Attach two images: set one as 🔄 Source (face) and one as 🎯 Target.</div><span class="fm-badge">attach → 🔄/🎯</span></div></div>
@@ -1081,6 +1082,9 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">↺</div><div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔊</div><div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⧉</div><div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">👍</div><div class="fm-info"><div class="fm-name">Message Feedback</div><div class="fm-desc">Rate any AI response with 👍/👎 to track quality over time.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">📌</div><div class="fm-info"><div class="fm-name">Pin Conversations</div><div class="fm-desc">Hover a conversation in the sidebar and click 📌 to pin it to the top. Persists across sessions.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⌨️</div><div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div><div class="fm-desc">Press Ctrl+/ to see all shortcuts. Ctrl+K command palette, Ctrl+N new chat, Esc stop, and more.</div><span class="fm-badge">Ctrl+/</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">💡</div><div class="fm-info"><div class="fm-name">Follow-up Chips</div><div class="fm-desc">After each reply, phi4 suggests 3 follow-up questions as clickable chips.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⟳</div><div class="fm-info"><div class="fm-name">Clear Context</div><div class="fm-desc">Resets AI memory for current chat while keeping messages visible.</div><span class="fm-badge">Ctrl+Shift+X</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔎</div><div class="fm-info"><div class="fm-name">In-Chat Search</div><div class="fm-desc">Search and highlight text across all messages. Navigate with ▲▼.</div><span class="fm-badge">Ctrl+F</span></div></div>
@@ -1213,13 +1217,13 @@ const imgModelSel = document.getElementById('img-model');
 const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001']);
 const GPT_MODELS    = new Set(['gpt-oss:20b']);
 const DEEPSEEK      = new Set(['deepseek-r1:14b']);
-const QWEN          = new Set(['qwen3:14b']);
+const QWEN          = new Set(['qwen3:30b-a3b']);
 const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-7':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
 let availableModels = new Set();
 
-let currentModel = localStorage.getItem('fraqtoos_model') || 'qwen3:14b';
+let currentModel = localStorage.getItem('fraqtoos_model') || 'qwen3:30b-a3b';
 if (currentModel.startsWith('claude-') || currentModel === 'llama4:latest') {
-  currentModel = 'qwen3:14b';
+  currentModel = 'qwen3:30b-a3b';
   localStorage.setItem('fraqtoos_model', currentModel);
 }
 let systemPrompt = localStorage.getItem('fraqtoos_sysprompt') || '';
@@ -1560,7 +1564,7 @@ function getAvatarLabel(model) {
 function getModelName(model) {
   if (!model) return 'AI';
   var names = {
-    'phi4':'phi4','gemma4:latest':'gemma4','qwen3:14b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
+    'phi4':'phi4','gemma4:latest':'gemma4','qwen3:30b-a3b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
     'gpt-oss:20b':'GPT-OSS','auto':'Auto',
     'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-7':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
   };
@@ -2860,7 +2864,7 @@ async function classifyAndRoute(text) {
     });
     var d = await safeJson(r);
     return d; // {category, model}
-  } catch(e) { return {category:'general', model:'qwen3:14b'}; }
+  } catch(e) { return {category:'general', model:'qwen3:30b-a3b'}; }
 }
 
 // Wrap sendMsg again to inject auto-routing
@@ -3923,7 +3927,7 @@ var CMD_ITEMS = [
   {section:'Models', icon:'✨', label:'Auto ✨ — smart router', action:function(){ var b=document.querySelector('.model-btn[data-model="auto"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'φ',  label:'phi4 — Microsoft 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="phi4"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🟢', label:'gemma4 — Google 9.6GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gemma4:latest"]'); if(b) selectModel(b); }},
-  {section:'Models', icon:'🟠', label:'qwen3:14b — Alibaba 9.3GB', action:function(){ var b=document.querySelector('.model-btn[data-model="qwen3:14b"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🟠', label:'qwen3:30b-a3b — Alibaba 9.3GB', action:function(){ var b=document.querySelector('.model-btn[data-model="qwen3:14b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🔵', label:'DeepSeek-R1 — Reasoning 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="deepseek-r1:14b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🟣', label:'GPT-OSS — OpenAI 14GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gpt-oss:20b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🦙', label:'llama4 — Meta 67GB', action:function(){ var b=document.querySelector('.model-btn[data-model="llama4:latest"]'); if(b) selectModel(b); }},
