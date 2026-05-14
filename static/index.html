@@ -35,6 +35,21 @@
   --fs:        15px;
 }
 
+/* ── LIGHT THEME ─────────────────────────────────────────────── */
+body.light-theme {
+  --bg:        #f5f3ef;
+  --sidebar:   #ede9e3;
+  --surface:   #e8e3db;
+  --surface2:  #ddd8cf;
+  --border:    #c8c2b8;
+  --text:      #1a1714;
+  --text2:     #4a4540;
+  --text3:     #7a7770;
+  --bg3:       #d8d2c8;
+}
+body.light-theme .bot-text { color: #1a1714; }
+body.light-theme pre, body.light-theme code { background: #e0dbd2 !important; }
+
 body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter','Segoe UI',sans-serif;
@@ -130,7 +145,7 @@ button, a, input, textarea { transition: all .15s ease; }
 .conv-item.active { background: var(--surface2); border-color: var(--accent); color: var(--text); box-shadow: inset 3px 0 0 var(--accent); }
 .conv-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-del { opacity: 0; color: var(--text3); cursor: pointer; padding: 0 4px; font-size: 12px; flex-shrink: 0; }
-.conv-item:hover .conv-del, .conv-item:hover .conv-pin { opacity: 1 !important; }
+.conv-item:hover .conv-del, .conv-item:hover .conv-pin, .conv-item:hover .conv-folder { opacity: 1 !important; }
 .conv-del:hover { color: #ef4444; }
 .conv-snippet { font-size: 10px; color: var(--text3); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -781,6 +796,12 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span class="sa-icon">+</span> New Chat
     </button>
     <input id="conv-search" placeholder="Search conversations…" oninput="onConvSearch(this.value)">
+    <div style="display:flex;gap:4px;padding:2px 0">
+      <select id="folder-filter" onchange="renderConvList()" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:4px 6px;font-size:11px;cursor:pointer">
+        <option value="">📁 All folders</option>
+      </select>
+      <button onclick="createFolder()" title="New folder" style="background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer">+📁</button>
+    </div>
     <div class="conv-list" id="conv-list"></div>
     <button class="sidebar-action" onclick="saveCurrentConversation()" style="padding:5px 4px;margin-top:2px">
       <span class="sa-icon">💾</span> Rename Current
@@ -827,6 +848,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span id="health-summary" title="Checking local services…">checking</span>
     </div>
     <div id="topbar-actions">
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark theme">🌙</button>
       <label class="chia-switch" title="Chia Harvester">
         <span class="chia-label">🌱</span>
         <input type="checkbox" id="chia-toggle" onchange="toggleChia()">
@@ -840,7 +862,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <button class="icon-btn" id="compact-btn" onclick="toggleCompact()" title="Compact view">⊟ Compact</button>
       <button class="icon-btn" onclick="openModelModal()" title="Local model diagnostics">▦ Models</button>
       <button class="icon-btn" onclick="toggleSysPrompt()">⚙ System</button>
-      <button class="icon-btn" onclick="exportChat()">↓ Export</button>
+      <button class="icon-btn" onclick="exportChat()" title="Export as Markdown">↓ MD</button><button class="icon-btn" onclick="exportChat('pdf')" title="Export as PDF">↓ PDF</button>
       <button id="cmd-btn" onclick="openCommandPalette()" title="Command palette (Ctrl+K)">⌘ <kbd>K</kbd></button>
     </div>
   </div>
@@ -900,7 +922,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   <div id="inputwrap">
     <div id="input-outer">
       <div id="slash-menu" role="listbox" aria-label="Slash commands"></div>
-      <textarea id="input" placeholder="Ask anything… or /image · /video to generate" rows="1"></textarea>
+      <textarea id="input" placeholder="Ask anything… or /image · /flux · /video to generate" rows="1"></textarea>
       <div id="attach-row"></div>
       <div id="input-error" role="alert" aria-live="assertive"></div>
       <div id="neg-row"><input id="neg-prompt" placeholder="Negative prompt: ugly, blurry, watermark…"></div>
@@ -1922,7 +1944,7 @@ input.addEventListener('keydown', function(e){
 // Init prompt count badge
 document.getElementById('prompt-count').textContent = _loadPrompts().length;
 
-function exportChat() {
+function exportChat(format) {
   var md = '# FraqtoOS Chat\n_Exported: ' + new Date().toLocaleString() + '_\n\n---\n\n';
   history.forEach(function(m) {
     if (m.role === 'user') {
@@ -1932,10 +1954,20 @@ function exportChat() {
       md += '**' + label + ':** ' + m.content + '\n\n---\n\n';
     }
   });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([md], {type: 'text/markdown'}));
-  a.download = 'chat-' + Date.now() + '.md';
-  a.click();
+  if (format === 'pdf') {
+    // Use browser print-to-PDF
+    var win = window.open('', '_blank');
+    win.document.write('<html><head><title>Chat Export</title><style>body{font-family:sans-serif;max-width:800px;margin:40px auto;line-height:1.6}hr{border:1px solid #eee}strong{color:#333}</style></head><body>');
+    win.document.write('<pre style="white-space:pre-wrap">' + md.replace(/</g,'&lt;') + '</pre>');
+    win.document.write('</body></html>');
+    win.document.close();
+    win.print();
+  } else {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([md], {type: 'text/markdown'}));
+    a.download = 'chat-' + Date.now() + '.md';
+    a.click();
+  }
 }
 
 function stopStreaming(){ if(currentAbort){currentAbort.abort();currentAbort=null;} }
@@ -2206,7 +2238,7 @@ async function maybeRenderFollowups() {
 
 // Image generation
 async function generateImage() {
-  var prompt=input.value.trim().replace(/^\/image\s*/i,'');
+  var prompt=input.value.trim().replace(/^\/(image|flux)\s*/i,'');
   if(!prompt){return;}
   var imgBtn=document.getElementById('img-btn');
   var sizeVal=parseInt(document.getElementById('img-size').value);
@@ -2264,7 +2296,7 @@ function showErrorWithRetry(textEl, message) {
 
 // /image shortcut
 document.getElementById('inputwrap').querySelector('textarea').addEventListener('keydown',function(e){
-  if(e.key==='Enter'&&!e.shiftKey&&input.value.trim().startsWith('/image')){e.preventDefault();generateImage();}
+  if(e.key==='Enter'&&!e.shiftKey&&input.value.trim().match(/^\/(?:image|flux)/i)){e.preventDefault();generateImage();}
 },true);
 
 // ─── Wan2.1 text-to-video ─────────────────────────────────────────
@@ -2392,6 +2424,17 @@ function toggleWebSearch() {
   refreshWebToggle();
 }
 refreshWebToggle();
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+(function(){
+  var saved = localStorage.getItem('fraqtoos_theme');
+  if (saved === 'light') { document.body.classList.add('light-theme'); document.getElementById('theme-btn').textContent = '☀️'; }
+})();
+function toggleTheme() {
+  var isLight = document.body.classList.toggle('light-theme');
+  document.getElementById('theme-btn').textContent = isLight ? '☀️' : '🌙';
+  localStorage.setItem('fraqtoos_theme', isLight ? 'light' : 'dark');
+}
 
 // ── Chia harvester toggle ──────────────────────────────────────────────────
 var _chiaRunning = false;
@@ -2583,6 +2626,44 @@ let currentConvTitle = '';
 let convListCache = [];
 let pinnedConvs = new Set(JSON.parse(localStorage.getItem('fraqtoos_pinned') || '[]'));
 
+// ── Conversation folders ───────────────────────────────────────────────────
+let convFolders = JSON.parse(localStorage.getItem('fraqtoos_folders') || '{}'); // {convId: folderName}
+let folderList  = JSON.parse(localStorage.getItem('fraqtoos_folder_list') || '[]');
+
+function saveFolderData() {
+  localStorage.setItem('fraqtoos_folders', JSON.stringify(convFolders));
+  localStorage.setItem('fraqtoos_folder_list', JSON.stringify(folderList));
+  _refreshFolderSelect();
+}
+function _refreshFolderSelect() {
+  var sel = document.getElementById('folder-filter');
+  if (!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">📁 All folders</option>' +
+    folderList.map(f => `<option value="${f}"${f===cur?' selected':''}>${f}</option>`).join('');
+}
+function createFolder() {
+  var name = prompt('Folder name:');
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  if (!folderList.includes(name)) { folderList.push(name); saveFolderData(); }
+  showToast('📁 Folder "' + name + '" created');
+}
+function assignFolder(convId, e) {
+  e.stopPropagation();
+  var folder = prompt('Assign to folder (leave blank to remove):', convFolders[convId] || '');
+  if (folder === null) return;
+  if (folder.trim()) {
+    convFolders[convId] = folder.trim();
+    if (!folderList.includes(folder.trim())) folderList.push(folder.trim());
+  } else {
+    delete convFolders[convId];
+  }
+  saveFolderData();
+  renderConvList();
+}
+_refreshFolderSelect();
+
 async function fetchConvList() {
   try {
     var r = await fetch('/conversations');
@@ -2610,7 +2691,10 @@ function renderConvList() {
   if (!list) return;
   list.innerHTML = '';
   var lastBucket = null;
+  var folderFilter = (document.getElementById('folder-filter') || {}).value || '';
   var sorted = [...convListCache].sort(function(a,b){ return (pinnedConvs.has(b.id)?1:0) - (pinnedConvs.has(a.id)?1:0); });
+  // Apply folder filter
+  if (folderFilter) sorted = sorted.filter(c => convFolders[c.id] === folderFilter);
   sorted.forEach(function(c) {
     var b = _convBucket(c);
     if (b !== lastBucket) {
@@ -2627,9 +2711,11 @@ function renderConvList() {
     item.setAttribute('aria-label', 'Open conversation: ' + (c.title||'Untitled'));
     var subtitle = c.msg_count ? ' <span style="color:var(--text3);font-size:10px">('+c.msg_count+')</span>' : '';
     var pinIcon = pinnedConvs.has(c.id) ? '📌' : '';
-    item.innerHTML = '<span class="conv-title">'+pinIcon+escHtml(c.title||'Untitled')+subtitle+'</span><span class="conv-pin" title="Pin" style="opacity:0;cursor:pointer;padding:0 3px;font-size:11px" aria-label="Pin conversation">'+(pinnedConvs.has(c.id)?'📌':'📌')+'</span><span class="conv-del" title="Delete" aria-label="Delete conversation">✕</span>';
+    var folderBadge = convFolders[c.id] ? '<span style="font-size:9px;color:var(--accent);margin-left:3px">📁'+escHtml(convFolders[c.id])+'</span>' : '';
+    item.innerHTML = '<span class="conv-title">'+pinIcon+escHtml(c.title||'Untitled')+subtitle+folderBadge+'</span><span class="conv-folder" title="Assign folder" style="opacity:0;cursor:pointer;padding:0 3px;font-size:11px">📁</span><span class="conv-pin" title="Pin" style="opacity:0;cursor:pointer;padding:0 3px;font-size:11px" aria-label="Pin conversation">'+(pinnedConvs.has(c.id)?'📌':'📌')+'</span><span class="conv-del" title="Delete" aria-label="Delete conversation">✕</span>';
     item.querySelector('.conv-title').onclick = function(){ loadConversation(c.id); };
     item.addEventListener('keydown', function(e){ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); loadConversation(c.id); } });
+    item.querySelector('.conv-folder').onclick = function(e){ assignFolder(c.id, e); };
     item.querySelector('.conv-pin').onclick = function(e){
       e.stopPropagation();
       if (pinnedConvs.has(c.id)) pinnedConvs.delete(c.id); else pinnedConvs.add(c.id);
