@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start 3 Cloudflare quick tunnels: Chat, ComfyUI, Creator Dashboard
+# Start Cloudflare quick tunnels: Chat, ComfyUI, Creator Dashboard, AtInUs
 # Also captures Grafana + Obsidian tunnel URLs from their systemd services
 # Waits for all URLs then sends one WhatsApp message
 
@@ -9,7 +9,21 @@ CF="/usr/local/bin/cloudflared"
 > "$LOGDIR/tunnel_chat.log"
 > "$LOGDIR/tunnel_comfyui.log"
 > "$LOGDIR/tunnel_dashboard.log"
-rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian
+> "$LOGDIR/tunnel_atinus.log"
+rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus
+
+# ── Start the AtInUs static server (port 8765) ─────────────────────────────
+ATINUS_DIR="/home/work/atinus-website"
+ATINUS_PORT=8765
+ATINUS_LOG="$LOGDIR/atinus_server.log"
+
+# Kill any existing process on the port before starting fresh
+fuser -k -n tcp $ATINUS_PORT 2>/dev/null
+sleep 1
+if [ -d "$ATINUS_DIR" ]; then
+  ( cd "$ATINUS_DIR" && /usr/bin/python3 -m http.server $ATINUS_PORT >> "$ATINUS_LOG" 2>&1 ) &
+  echo "AtInUs static server started on port $ATINUS_PORT (PID $!)"
+fi
 
 # Start a tunnel and write its URL to a file when detected
 start_tunnel() {
@@ -49,6 +63,7 @@ watch_service_tunnel() {
 start_tunnel 8080 /tmp/cf_url_chat      "$LOGDIR/tunnel_chat.log"
 start_tunnel 8188 /tmp/cf_url_comfyui   "$LOGDIR/tunnel_comfyui.log"
 start_tunnel 3000 /tmp/cf_url_dashboard "$LOGDIR/tunnel_dashboard.log"
+start_tunnel $ATINUS_PORT /tmp/cf_url_atinus "$LOGDIR/tunnel_atinus.log"
 start_tunnel_url "http://192.168.2.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"
 watch_service_tunnel cloudflared-grafana  /tmp/cf_url_grafana
 watch_service_tunnel cloudflared-obsidian /tmp/cf_url_obsidian
@@ -63,7 +78,8 @@ for i in $(seq 1 90); do
   GRAFANA=$(cat /tmp/cf_url_grafana 2>/dev/null)
   OBSIDIAN=$(cat /tmp/cf_url_obsidian 2>/dev/null)
   IPMI=$(cat /tmp/cf_url_ipmi 2>/dev/null)
-  [ -n "$CHAT" ] && [ -n "$COMFY" ] && [ -n "$DASHBOARD" ] && break
+  ATINUS=$(cat /tmp/cf_url_atinus 2>/dev/null)
+  [ -n "$CHAT" ] && [ -n "$COMFY" ] && [ -n "$DASHBOARD" ] && [ -n "$ATINUS" ] && break
 done
 
 echo "Chat:      ${CHAT:-not found}"
@@ -72,6 +88,7 @@ echo "Dashboard: ${DASHBOARD:-not found}"
 echo "Grafana:   ${GRAFANA:-not found}"
 echo "Obsidian:  ${OBSIDIAN:-not found}"
 echo "IPMI:      ${IPMI:-not found}"
+echo "AtInUs:    ${ATINUS:-not found}"
 
 /usr/bin/python3 /home/work/fraqtoos-chat/notify_url.py "${CHAT:-}" "${COMFY:-}" "${GRAFANA:-}" "${DASHBOARD:-}" &
 
