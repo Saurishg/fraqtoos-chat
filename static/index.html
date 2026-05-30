@@ -1113,6 +1113,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <div class="fm-section">
         <div class="fm-section-title">Input &amp; Attachments</div>
         <div class="fm-grid">
+          <div class="fm-card-item"><div class="fm-icon">⏹</div><div class="fm-info"><div class="fm-name">Stop / Cancel (NEW)</div><div class="fm-desc">The send button turns into ⏹ while busy. Click it (or press Esc) to stop — this now also <b>interrupts running image/video generations on the GPU</b>, freeing it instantly instead of waiting out a long render.</div><span class="fm-badge">⏹ button · Esc</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">📎</div><div class="fm-info"><div class="fm-name">File Attach</div><div class="fm-desc">Attach .txt, .md, .pdf, .json, .csv, code files — text sent as context.</div><span class="fm-badge">📎 button</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">🖼</div><div class="fm-info"><div class="fm-name">Image Vision</div><div class="fm-desc">Attach an image in 👁 Vision mode for a vision model to analyse it.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🎤</div><div class="fm-info"><div class="fm-name">Voice Input</div><div class="fm-desc">Click 🎤 to dictate. Live transcript appears in the input box as you speak.</div><span class="fm-badge">🎤 button</span></div></div>
@@ -2023,7 +2024,14 @@ function exportChat(format) {
   }
 }
 
-function stopStreaming(){ if(currentAbort){currentAbort.abort();currentAbort=null;} }
+function stopStreaming(){
+  if(currentAbort){currentAbort.abort();currentAbort=null;}
+  // Also interrupt any running ComfyUI image/video generation so the GPU is freed
+  // (text chat = abort above; media jobs run on ComfyUI and need an explicit interrupt).
+  fetch('/comfy-interrupt',{method:'POST'}).then(function(){
+    if(typeof showToast==='function') showToast('⏹ Generation stopped');
+  }).catch(function(){});
+}
 function sendOrStop(){ if(isStreaming){stopStreaming();}else{sendMsg();} }
 
 // Safe JSON parse — throws a readable error if server returns HTML/non-JSON

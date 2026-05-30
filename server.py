@@ -275,7 +275,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v13';
+    sw = """const CACHE = 'fraqtoos-v15';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -294,7 +294,7 @@ self.addEventListener('fetch', e => {
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
     '/status','/logs/',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
-    '/wan-video','/wan-i2v','/wan-animate','/vace','/manifest.json'];
+    '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
@@ -1879,6 +1879,24 @@ async def gpu_amd():
         "gpu_util":      busy,
         "temp":          temp,
     }
+
+
+@app.post("/comfy-interrupt")
+async def comfy_interrupt(req: Request):
+    """Cancel the running image/video generation by interrupting both ComfyUI
+    instances (8188 image / 8189 ROCm video) — frees the GPU immediately."""
+    loop = asyncio.get_running_loop()
+    def _hit(url):
+        try:
+            requests.post(f"{url}/interrupt", timeout=4)
+            return "interrupted"
+        except Exception:
+            return "unreachable"
+    results = {}
+    for name, url in (("image_8188", "http://127.0.0.1:8188"),
+                      ("rocm_8189",  "http://127.0.0.1:8189")):
+        results[name] = await loop.run_in_executor(None, _hit, url)
+    return {"ok": True, "interrupted": results}
 
 
 @app.get("/health")
