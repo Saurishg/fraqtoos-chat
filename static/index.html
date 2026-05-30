@@ -218,21 +218,22 @@ button, a, input, textarea { transition: all .15s ease; }
 
 #topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
-/* Live AMD GPU VRAM chip */
-#gpu-stat { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+/* Live GPU VRAM chips (AMD + NVIDIA) */
+.gpu-stat { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px;
   color: var(--text3); background: var(--surface, rgba(255,255,255,.04));
   border: 1px solid var(--border); border-radius: 99px; padding: 3px 9px;
   white-space: nowrap; font-variant-numeric: tabular-nums; }
-#gpu-stat .gpu-ic { font-size: 12px; line-height: 1; }
-#gpu-bar { position: relative; width: 46px; height: 6px; border-radius: 99px;
+.gpu-stat .gpu-ic { font-size: 12px; line-height: 1; }
+.gpu-stat .gpu-lbl { font-weight: 700; font-size: 9.5px; letter-spacing: .04em; }
+.gpu-bar { position: relative; width: 40px; height: 6px; border-radius: 99px;
   background: rgba(255,255,255,.10); overflow: hidden; }
-#gpu-bar-fill { position: absolute; inset: 0 100% 0 0; border-radius: 99px;
+.gpu-bar-fill { position: absolute; inset: 0 100% 0 0; border-radius: 99px;
   background: #22c55e; transition: right .6s ease, background .6s ease; }
-#gpu-text { color: var(--text2, var(--text3)); }
-#gpu-stat.warn #gpu-bar-fill { background: #f59e0b; }
-#gpu-stat.hot  #gpu-bar-fill { background: #ef4444; }
-#gpu-stat.stale { opacity: .45; }
-@media (max-width: 640px) { #gpu-bar { display: none; } }
+.gpu-stat .gpu-text { color: var(--text2, var(--text3)); }
+.gpu-stat.warn .gpu-bar-fill { background: #f59e0b; }
+.gpu-stat.hot  .gpu-bar-fill { background: #ef4444; }
+.gpu-stat.stale { opacity: .45; }
+@media (max-width: 640px) { .gpu-bar { display: none; } }
 
 .chia-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
 .chia-label { font-size: 14px; }
@@ -883,10 +884,15 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span class="badge" id="model-badge">Local · Ollama</span>
       <span id="status-light" title="Checking…"></span>
       <span id="health-summary" title="Checking local services…">checking</span>
-      <span id="gpu-stat" title="AMD RX 6800 XT — live VRAM / util / temp">
-        <span class="gpu-ic">🎮</span>
-        <span id="gpu-bar"><span id="gpu-bar-fill"></span></span>
-        <span id="gpu-text">GPU …</span>
+      <span id="gpu-stat" class="gpu-stat" title="AMD RX 6800 XT — live VRAM / util / temp">
+        <span class="gpu-ic">🎮</span><span class="gpu-lbl">AMD</span>
+        <span class="gpu-bar"><span id="gpu-bar-fill" class="gpu-bar-fill"></span></span>
+        <span id="gpu-text" class="gpu-text">…</span>
+      </span>
+      <span id="gpu-stat-nv" class="gpu-stat" title="NVIDIA RTX 3080 Ti — live VRAM / util / temp">
+        <span class="gpu-ic">🟢</span><span class="gpu-lbl">NV</span>
+        <span class="gpu-bar"><span id="gpu-bar-fill-nv" class="gpu-bar-fill"></span></span>
+        <span id="gpu-text-nv" class="gpu-text">…</span>
       </span>
     </div>
     <div id="topbar-actions">
@@ -2974,6 +2980,37 @@ async function pollGpu() {
 }
 pollGpu();
 setInterval(pollGpu, 5000);
+
+// Live NVIDIA RTX 3080 Ti VRAM — polls /gpu (nvidia-smi, MiB). Shared with Chia.
+async function pollGpuNv() {
+  var chip = document.getElementById('gpu-stat-nv');
+  var fill = document.getElementById('gpu-bar-fill-nv');
+  var text = document.getElementById('gpu-text-nv');
+  if (!chip) return;
+  try {
+    var ctl = new AbortController();
+    var timer = setTimeout(function(){ ctl.abort(); }, 4000);
+    var r = await fetch('/gpu', {signal: ctl.signal, cache: 'no-store'});
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    var d = await r.json();
+    if (d.error) throw new Error(d.error);
+    var usedGB = (d.vram_used / 1024).toFixed(1), totGB = (d.vram_total / 1024).toFixed(1);
+    var pct = d.vram_total > 0 ? Math.round(d.vram_used / d.vram_total * 100) : 0;
+    chip.classList.remove('stale','warn','hot');
+    if (pct >= 90) chip.classList.add('hot');
+    else if (pct >= 70) chip.classList.add('warn');
+    if (fill) fill.style.right = (100 - pct) + '%';
+    text.textContent = usedGB + '/' + totGB + 'GB · ' + d.gpu_util + '%';
+    chip.title = 'NVIDIA RTX 3080 Ti — VRAM ' + usedGB + '/' + totGB + ' GB (' + pct + '%)'
+               + ' · util ' + d.gpu_util + '% · ' + d.temp + '°C (shared with Chia)';
+  } catch(e) {
+    chip.classList.add('stale');
+    if (text) text.textContent = 'GPU n/a';
+  }
+}
+pollGpuNv();
+setInterval(pollGpuNv, 5000);
 
 // ─────────────────────────────────────────────────────────────────
 // Code highlighting — debounced, runs during streaming
