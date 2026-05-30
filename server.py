@@ -230,7 +230,7 @@ async def classify(req: Request):
             "model": "phi4", "stream": False,
             "prompt": CLASSIFY_PROMPT.format(q=q[:1500]),
             "options": {"temperature": 0.0, "num_predict": 8}
-        }, timeout=15)
+        }, timeout=45)
         raw = (r.json().get("response", "") or "").strip().lower()
         cat = "general"
         for k in ROUTING_TARGETS:
@@ -250,7 +250,7 @@ async def classify(req: Request):
             target = ROUTING_TARGETS[cat]
         return {"category": cat, "model": target, "raw": raw}
     except Exception as e:
-        return JSONResponse({"category": "general", "model": "qwen3:14b",
+        return JSONResponse({"category": "general", "model": "qwen3:30b-a3b",
                              "error": str(e)}, 500)
 
 
