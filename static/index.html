@@ -218,6 +218,22 @@ button, a, input, textarea { transition: all .15s ease; }
 
 #topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
+/* Live AMD GPU VRAM chip */
+#gpu-stat { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+  color: var(--text3); background: var(--surface, rgba(255,255,255,.04));
+  border: 1px solid var(--border); border-radius: 99px; padding: 3px 9px;
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+#gpu-stat .gpu-ic { font-size: 12px; line-height: 1; }
+#gpu-bar { position: relative; width: 46px; height: 6px; border-radius: 99px;
+  background: rgba(255,255,255,.10); overflow: hidden; }
+#gpu-bar-fill { position: absolute; inset: 0 100% 0 0; border-radius: 99px;
+  background: #22c55e; transition: right .6s ease, background .6s ease; }
+#gpu-text { color: var(--text2, var(--text3)); }
+#gpu-stat.warn #gpu-bar-fill { background: #f59e0b; }
+#gpu-stat.hot  #gpu-bar-fill { background: #ef4444; }
+#gpu-stat.stale { opacity: .45; }
+@media (max-width: 640px) { #gpu-bar { display: none; } }
+
 .chia-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
 .chia-label { font-size: 14px; }
 .chia-switch input { display: none; }
@@ -803,6 +819,10 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span class="model-dot"></span>
       <div class="model-info"><span class="model-name">Llama 3.3</span><span class="model-size">Meta · 42 GB · Top general</span></div>
     </button>
+    <button class="model-btn" data-model="mistral-small:latest" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">Mistral Small ⚡</span><span class="model-size">Mistral · 24B · 14 GB · Fast + smart</span></div>
+    </button>
   </div>
 
   <div class="sb-divider"></div>
@@ -863,6 +883,11 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
       <span class="badge" id="model-badge">Local · Ollama</span>
       <span id="status-light" title="Checking…"></span>
       <span id="health-summary" title="Checking local services…">checking</span>
+      <span id="gpu-stat" title="AMD RX 6800 XT — live VRAM / util / temp">
+        <span class="gpu-ic">🎮</span>
+        <span id="gpu-bar"><span id="gpu-bar-fill"></span></span>
+        <span id="gpu-text">GPU …</span>
+      </span>
     </div>
     <div id="topbar-actions">
       <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark theme">🌙</button>
@@ -1075,6 +1100,8 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
           <div class="fm-card-item"><div class="fm-icon">🕺</div><div class="fm-info"><div class="fm-name">MimicMotion</div><div class="fm-desc">Attach avatar image (🪄 mode) + driving video. SVD-XT transfers the motion onto the avatar.</div><span class="fm-badge">🎬 button → 🪄 Avatar</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">🕺</div><div class="fm-info"><div class="fm-name">AnimateAnyone</div><div class="fm-desc">Pose-driven animation with AnimateAnyone pipeline. Toggle video chip to 🕺.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🥋</div><div class="fm-info"><div class="fm-name">CHAMP</div><div class="fm-desc">Full-body SMPL motion transfer. Toggle video chip to 🥋 CHAMP.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">💃</div><div class="fm-info"><div class="fm-name">Wan2.2-Animate (NEW)</div><div class="fm-desc">Attach a character image (🪄 Avatar mode) + a driving video, then cycle the video chip to 💃 Wan2.2-Animate. The 14B model (Q8 GGUF) replicates the body motion and facial expression onto your character. Runs on the AMD 6800 XT via ROCm (ComfyUI :8189), accelerated by the LightX2V 8-step distill LoRA. ~3–8 min/clip.</div><span class="fm-badge">🎬 + 🪄 → 💃 Wan2.2-Animate</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">🎛️</div><div class="fm-info"><div class="fm-name">VACE Control (NEW — best for motion control)</div><div class="fm-desc">Wan2.1-VACE-14B (Q8 GGUF) — structure/motion-controlled video generation. Attach a control video (its motion/structure guides the output) + a reference image (the look), cycle the video chip to 🎛️ VACE Control, and add a text prompt. Also handles depth/pose/edge control videos. Runs on the 6800 XT (ComfyUI :8189), accelerated by the LightX2V 8-step distill LoRA. ~2–7 min/clip.</div><span class="fm-badge">🎬 + 🪄 → 🎛️ VACE Control</span></div></div>
         </div>
       </div>
       <div class="fm-section">
@@ -1605,7 +1632,7 @@ function getModelName(model) {
   if (!model) return 'AI';
   var names = {
     'phi4':'phi4','gemma4:latest':'gemma4','qwen3:30b-a3b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
-    'gpt-oss:20b':'GPT-OSS','llama3.3:latest':'Llama 3.3','auto':'Auto',
+    'gpt-oss:20b':'GPT-OSS','llama3.3:latest':'Llama 3.3','mistral-small:latest':'Mistral Small','auto':'Auto',
     'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-8':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
   };
   return names[model] || model;
@@ -2543,9 +2570,9 @@ function renderAttachRow() {
     } else if (a.kind === 'video') {
       a.animMode = a.animMode || 'mimic';
       var mb = (a.size / 1024 / 1024).toFixed(1);
-      var animModes = ['mimic','animateanyone','champ'];
-      var animLabels = {'mimic':'🎬 MimicMotion','animateanyone':'🕺 AnimateAnyone','champ':'🥋 CHAMP'};
-      var animColors = {'mimic':'#b45309','animateanyone':'#0e7490','champ':'#7c3aed'};
+      var animModes = ['mimic','animateanyone','champ','wananimate','vace'];
+      var animLabels = {'mimic':'🎬 MimicMotion','animateanyone':'🕺 AnimateAnyone','champ':'🥋 CHAMP','wananimate':'💃 Wan2.2-Animate','vace':'🎛️ VACE Control'};
+      var animColors = {'mimic':'#b45309','animateanyone':'#0e7490','champ':'#7c3aed','wananimate':'#db2777','vace':'#0d9488'};
       var modeLabel = animLabels[a.animMode] || animLabels['mimic'];
       var modeBg    = animColors[a.animMode] || animColors['mimic'];
       var champSuffix = '';
@@ -2915,42 +2942,38 @@ pollHealth();
 setInterval(pollHealth, 15000);
 
 // ─────────────────────────────────────────────────────────────────
-// GPU VRAM live usage (polls /gpu every 10s)
+// Live AMD GPU (RX 6800 XT) VRAM usage — polls /gpu-amd every 5s
+// This is the GPU Ollama runs on (NVIDIA 3080 Ti is reserved for Chia).
 // ─────────────────────────────────────────────────────────────────
 async function pollGpu() {
-  var widget = document.getElementById('gpu-widget');
-  var bar    = document.getElementById('gpu-bar-inner');
-  var label  = document.getElementById('gpu-label');
-  if (!widget) return;
+  var chip = document.getElementById('gpu-stat');
+  var fill = document.getElementById('gpu-bar-fill');
+  var text = document.getElementById('gpu-text');
+  if (!chip) return;
   try {
     var ctl = new AbortController();
     var timer = setTimeout(function(){ ctl.abort(); }, 4000);
-    var r = await fetch('/gpu', {signal: ctl.signal, cache: 'no-store'});
+    var r = await fetch('/gpu-amd', {signal: ctl.signal, cache: 'no-store'});
     clearTimeout(timer);
     if (!r.ok) throw new Error('HTTP '+r.status);
     var d = await r.json();
     if (d.error) throw new Error(d.error);
-    widget.style.display = 'flex';
-    var usedGB  = (d.vram_used  / 1024).toFixed(1);
-    var totalGB = (d.vram_total / 1024).toFixed(1);
-    var pct     = d.vram_total > 0 ? Math.round(d.vram_used / d.vram_total * 100) : 0;
-    bar.style.width = pct + '%';
-    bar.style.background = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : 'var(--accent)';
-    label.textContent = usedGB + '/' + totalGB + 'GB · ' + d.gpu_util + '%';
-    var tip = 'VRAM: ' + d.vram_used + ' / ' + d.vram_total + ' MiB (' + pct + '%)\n'
-            + 'Util: ' + d.gpu_util + '% · Temp: ' + d.temp + '°C';
-    if (d.gpus && d.gpus.length > 1) {
-      tip += '\n' + d.gpus.map(function(g,i){
-        return 'GPU'+i+': '+(g.vram_used/1024).toFixed(1)+'/'+(g.vram_total/1024).toFixed(1)+'GB '+g.gpu_util+'% '+g.temp+'°C';
-      }).join('\n');
-    }
-    widget.title = tip;
+    var pct = d.vram_pct;
+    chip.classList.remove('stale','warn','hot');
+    if (pct >= 90) chip.classList.add('hot');
+    else if (pct >= 70) chip.classList.add('warn');
+    if (fill) fill.style.right = (100 - pct) + '%';
+    var util = (d.gpu_util == null ? '–' : d.gpu_util + '%');
+    text.textContent = d.vram_used_gb + '/' + d.vram_total_gb + 'GB · ' + util;
+    chip.title = d.name + ' — VRAM ' + d.vram_used_gb + '/' + d.vram_total_gb + ' GB (' + pct + '%)'
+               + ' · util ' + util + (d.temp != null ? ' · ' + d.temp + '°C' : '');
   } catch(e) {
-    widget.style.display = 'none';
+    chip.classList.add('stale');
+    if (text) text.textContent = 'GPU n/a';
   }
 }
 pollGpu();
-setInterval(pollGpu, 10000);
+setInterval(pollGpu, 5000);
 
 // ─────────────────────────────────────────────────────────────────
 // Code highlighting — debounced, runs during streaming
@@ -3479,10 +3502,10 @@ sendMsg = async function() {
   var mimicAvatar = imgAttach.find(function(a){ return a.mode === 'avatar'; });
   if (mimicAvatar && videoAttach) {
     var mode = videoAttach.animMode || 'mimic';
-    var apiEndpoint = mode === 'animateanyone' ? '/animate-anyone' : (mode === 'champ' ? '/champ' : '/mimic-motion');
-    var modelLabel  = mode === 'animateanyone' ? 'animate-anyone' : (mode === 'champ' ? 'champ' : 'mimic-motion');
-    var modelEmoji  = mode === 'animateanyone' ? '🕺' : (mode === 'champ' ? '🥋' : '🎬');
-    var estTime     = mode === 'animateanyone' ? '3-8 min' : (mode === 'champ' ? '5-30 min' : '5-20 min');
+    var apiEndpoint = mode === 'animateanyone' ? '/animate-anyone' : (mode === 'champ' ? '/champ' : (mode === 'wananimate' ? '/wan-animate' : (mode === 'vace' ? '/vace' : '/mimic-motion')));
+    var modelLabel  = mode === 'animateanyone' ? 'animate-anyone' : (mode === 'champ' ? 'champ' : (mode === 'wananimate' ? 'wan2.2-animate' : (mode === 'vace' ? 'wan-vace' : 'mimic-motion')));
+    var modelEmoji  = mode === 'animateanyone' ? '🕺' : (mode === 'champ' ? '🥋' : (mode === 'wananimate' ? '💃' : (mode === 'vace' ? '🎛️' : '🎬')));
+    var estTime     = mode === 'animateanyone' ? '3-8 min' : (mode === 'champ' ? '5-30 min' : (mode === 'wananimate' ? '3-8 min' : (mode === 'vace' ? '2-7 min' : '5-20 min')));
     addUserMsg(modelEmoji+' '+modelLabel+': '+mimicAvatar.name+' + '+videoAttach.name);
     history.push({role:'user', content:'['+modelLabel+': avatar='+mimicAvatar.name+' driving='+videoAttach.name+']'});
     input.value=''; input.style.height='52px';
@@ -4075,6 +4098,7 @@ var CMD_ITEMS = [
   {section:'Models', icon:'🔵', label:'DeepSeek-R1 — Reasoning 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="deepseek-r1:14b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🟣', label:'GPT-OSS — OpenAI 14GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gpt-oss:20b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🦙', label:'Llama 3.3 — Meta 42GB', action:function(){ var b=document.querySelector('.model-btn[data-model="llama3.3:latest"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'⚡', label:'Mistral Small — 24B 14GB', action:function(){ var b=document.querySelector('.model-btn[data-model="mistral-small:latest"]'); if(b) selectModel(b); }},
   // Actions
   {section:'Actions', icon:'+',  label:'New Chat', key:'Ctrl+N', action:newConversation},
   {section:'Actions', icon:'⟳',  label:'Clear Context', key:'Ctrl+Shift+X', action:clearContext},

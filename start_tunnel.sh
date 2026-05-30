@@ -10,7 +10,8 @@ CF="/usr/local/bin/cloudflared"
 > "$LOGDIR/tunnel_comfyui.log"
 > "$LOGDIR/tunnel_dashboard.log"
 > "$LOGDIR/tunnel_atinus.log"
-rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus
+> "$LOGDIR/tunnel_comfyui_rocm.log"
+rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus /tmp/cf_url_comfyui_rocm
 
 # ── Start the AtInUs static server (port 8765) ─────────────────────────────
 ATINUS_DIR="/home/work/atinus-website"
@@ -64,6 +65,7 @@ start_tunnel 8080 /tmp/cf_url_chat      "$LOGDIR/tunnel_chat.log"
 start_tunnel 8188 /tmp/cf_url_comfyui   "$LOGDIR/tunnel_comfyui.log"
 start_tunnel 3000 /tmp/cf_url_dashboard "$LOGDIR/tunnel_dashboard.log"
 start_tunnel $ATINUS_PORT /tmp/cf_url_atinus "$LOGDIR/tunnel_atinus.log"
+start_tunnel 8189 /tmp/cf_url_comfyui_rocm "$LOGDIR/tunnel_comfyui_rocm.log"
 start_tunnel_url "http://192.168.2.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"
 watch_service_tunnel cloudflared-grafana  /tmp/cf_url_grafana
 watch_service_tunnel cloudflared-obsidian /tmp/cf_url_obsidian

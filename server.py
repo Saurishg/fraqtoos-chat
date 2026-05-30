@@ -275,7 +275,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v6';
+    sw = """const CACHE = 'fraqtoos-v12';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -294,7 +294,7 @@ self.addEventListener('fetch', e => {
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
     '/status','/logs/',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
-    '/wan-video','/wan-i2v','/manifest.json'];
+    '/wan-video','/wan-i2v','/wan-animate','/vace','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
   e.respondWith(
@@ -520,6 +520,11 @@ CHAMP_SCRIPT      = "/home/work/champ/run_api.py"
 WAN_VENV_PYTHON   = "/home/work/Wan2.1/venv/bin/python"
 WAN_SCRIPT        = "/home/work/Wan2.1/run_wan.py"
 WAN_I2V_SCRIPT    = "/home/work/Wan2.1/run_wan_i2v.py"
+# Wan2.2-Animate: ROCm venv + runner (preprocess + ComfyUI GGUF on 6800 XT / port 8189)
+WANANIM_VENV_PYTHON = "/home/work/ComfyUI/venv-rocm/bin/python"
+WANANIM_SCRIPT      = "/home/work/Wan2.2/wan_animate_run.py"
+# Wan2.1-VACE-14B: motion/structure control (control video + optional reference image)
+VACE_SCRIPT         = "/home/work/Wan2.2/vace_run.py"
 
 
 def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
@@ -678,6 +683,145 @@ async def animate_anyone_endpoint(req: Request, avatar: UploadFile = File(...), 
                                       width=width, height=height, chunk=chunk,
                                       steps=steps, cfg=cfg, fps=fps),
         "model": "animate-anyone"
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+def _run_wan_animate(avatar_bytes: bytes, avatar_name: str,
+                     driving_bytes: bytes, driving_name: str,
+                     prompt: str = "a person performing the motion, high quality",
+                     frames: int = 49, steps: int = 15,
+                     width: int = 832, height: int = 480) -> str:
+    """Wan2.2-Animate-14B (Q8 GGUF) on the 6800 XT: image + driving video -> base64 mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="wananim_")
+    try:
+        avatar_path  = os.path.join(tmp, avatar_name)
+        driving_path = os.path.join(tmp, driving_name)
+        output_path  = os.path.join(tmp, "output.mp4")
+        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
+        with open(driving_path, "wb") as f: f.write(driving_bytes)
+        cmd = [WANANIM_VENV_PYTHON, WANANIM_SCRIPT,
+               "--image", avatar_path, "--video", driving_path, "--output", output_path,
+               "--prompt", prompt, "--frames", str(frames), "--steps", str(steps),
+               "--width", str(width), "--height", str(height)]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "Wan2.2-Animate failed")[-1000:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("Wan2.2-Animate produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/wan-animate")
+async def wan_animate_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
+    """Wan2.2-Animate-14B: animate `avatar` image with `driving` video. NDJSON -> {video: base64_mp4}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(WANANIM_SCRIPT):
+        return JSONResponse({"error": "Wan2.2-Animate runner not found"}, 503)
+    # ComfyUI-ROCm (6800 XT) must be up on :8189
+    try:
+        requests.get("http://127.0.0.1:8189/system_stats", timeout=3).raise_for_status()
+    except Exception:
+        return JSONResponse({"error": "ComfyUI-ROCm (port 8189) is not running — start comfyui-rocm.service"}, 503)
+
+    form = await req.form()
+    prompt = (form.get("prompt") or "a person performing the motion, high quality").strip()
+    try:    frames = max(5, min(int(form.get("frames") or 49), 121))
+    except (ValueError, TypeError): frames = 49
+    try:    steps  = max(6, min(int(form.get("steps") or 15), 30))
+    except (ValueError, TypeError): steps  = 15
+
+    avatar_bytes  = await avatar.read()
+    driving_bytes = await driving.read()
+    if len(avatar_bytes) > 12 * 1024 * 1024:
+        return JSONResponse({"error": "character image too large (max 12 MB)"}, 413)
+    if len(driving_bytes) > 200 * 1024 * 1024:
+        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
+
+    avatar_name  = avatar.filename  or f"char_{int(time.time())}.jpg"
+    driving_name = driving.filename or f"drive_{int(time.time())}.mp4"
+
+    fn = lambda: {
+        "video": _run_wan_animate(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                  prompt=prompt, frames=frames, steps=steps),
+        "model": "wan2.2-animate"
+    }
+    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
+
+
+def _run_vace(driving_bytes: bytes, driving_name: str,
+              ref_bytes: bytes = b"", ref_name: str = "",
+              prompt: str = "high quality, detailed, smooth motion",
+              frames: int = 49, steps: int = 20, strength: float = 1.0) -> str:
+    """Wan2.1-VACE-14B (Q8 GGUF) on the 6800 XT: control video (+ optional ref image) -> base64 mp4."""
+    import tempfile, shutil
+    tmp = tempfile.mkdtemp(prefix="vace_")
+    try:
+        driving_path = os.path.join(tmp, driving_name)
+        output_path  = os.path.join(tmp, "output.mp4")
+        with open(driving_path, "wb") as f: f.write(driving_bytes)
+        cmd = [WANANIM_VENV_PYTHON, VACE_SCRIPT,
+               "--video", driving_path, "--output", output_path, "--prompt", prompt,
+               "--frames", str(frames), "--steps", str(steps), "--strength", str(strength)]
+        if ref_bytes:
+            ref_path = os.path.join(tmp, ref_name or "ref.png")
+            with open(ref_path, "wb") as f: f.write(ref_bytes)
+            cmd += ["--image", ref_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
+        if result.returncode != 0:
+            raise RuntimeError((result.stderr or "VACE failed")[-1000:])
+        if not os.path.exists(output_path):
+            raise RuntimeError("VACE produced no output file")
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@app.post("/vace")
+async def vace_endpoint(req: Request, driving: UploadFile = File(...), avatar: UploadFile = File(None)):
+    """Wan2.1-VACE-14B motion/structure control: control video (+ optional reference image). NDJSON -> {video}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
+    if not os.path.exists(VACE_SCRIPT):
+        return JSONResponse({"error": "VACE runner not found"}, 503)
+    try:
+        requests.get("http://127.0.0.1:8189/system_stats", timeout=3).raise_for_status()
+    except Exception:
+        return JSONResponse({"error": "ComfyUI-ROCm (port 8189) is not running — start comfyui-rocm.service"}, 503)
+
+    form = await req.form()
+    prompt = (form.get("prompt") or "high quality, detailed, smooth motion").strip()
+    try:    frames   = max(5, min(int(form.get("frames") or 49), 121))
+    except (ValueError, TypeError): frames = 49
+    try:    steps    = max(6, min(int(form.get("steps") or 20), 40))
+    except (ValueError, TypeError): steps = 20
+    try:    strength = max(0.0, min(float(form.get("strength") or 1.0), 2.0))
+    except (ValueError, TypeError): strength = 1.0
+
+    driving_bytes = await driving.read()
+    if len(driving_bytes) > 200 * 1024 * 1024:
+        return JSONResponse({"error": "control video too large (max 200 MB)"}, 413)
+    driving_name = driving.filename or f"ctrl_{int(time.time())}.mp4"
+
+    ref_bytes, ref_name = b"", ""
+    if avatar is not None:
+        ref_bytes = await avatar.read()
+        if len(ref_bytes) > 12 * 1024 * 1024:
+            return JSONResponse({"error": "reference image too large (max 12 MB)"}, 413)
+        ref_name = avatar.filename or f"ref_{int(time.time())}.jpg"
+
+    fn = lambda: {
+        "video": _run_vace(driving_bytes, driving_name, ref_bytes, ref_name,
+                           prompt=prompt, frames=frames, steps=steps, strength=strength),
+        "model": "wan-vace"
     }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
@@ -1687,6 +1831,54 @@ async def gpu_stats():
                 "gpu_count": len(gpus), "gpus": gpus}
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
+
+
+def _read_int(path):
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def _amd_card_path():
+    """Find the amdgpu card's sysfs device dir (the 6800 XT Ollama runs on)."""
+    import glob
+    for c in sorted(glob.glob("/sys/class/drm/card*/device")):
+        try:
+            drv = os.path.basename(os.path.realpath(os.path.join(c, "driver")))
+        except Exception:
+            drv = ""
+        if drv == "amdgpu" and os.path.exists(os.path.join(c, "mem_info_vram_total")):
+            return c
+    return None
+
+
+@app.get("/gpu-amd")
+async def gpu_amd():
+    """Live AMD GPU (RX 6800 XT) VRAM/util/temp straight from sysfs — fast, no sudo."""
+    import glob
+    c = _amd_card_path()
+    if not c:
+        return JSONResponse({"error": "no amdgpu card found"}, 404)
+    total = _read_int(f"{c}/mem_info_vram_total")
+    used  = _read_int(f"{c}/mem_info_vram_used")
+    if total is None or used is None or total == 0:
+        return JSONResponse({"error": "vram info unavailable"}, 500)
+    busy = _read_int(f"{c}/gpu_busy_percent")
+    temp = None
+    hw = sorted(glob.glob(f"{c}/hwmon/hwmon*"))
+    if hw:
+        t = _read_int(f"{hw[0]}/temp1_input")
+        temp = round(t / 1000) if t is not None else None
+    return {
+        "name": "RX 6800 XT",
+        "vram_used_gb":  round(used / 1073741824, 1),
+        "vram_total_gb": round(total / 1073741824, 1),
+        "vram_pct":      round(used / total * 100),
+        "gpu_util":      busy,
+        "temp":          temp,
+    }
 
 
 @app.get("/health")
