@@ -27,7 +27,7 @@ COMFYUI       = "http://localhost:8188"
 STATIC        = "/home/work/fraqtoos-chat/static"
 CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
-CLAUDE_MODELS = {"claude-sonnet-4-6", "claude-opus-4-7", "claude-haiku-4-5-20251001"}
+CLAUDE_MODELS = {"claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"}
 
 os.makedirs(CONV_DIR, exist_ok=True)
 
@@ -82,20 +82,31 @@ async def index():
     return FileResponse(f"{STATIC}/index.html")
 
 
-VISION_MODELS = {"llava:7b", "llava:13b", "llava", "llama3.2-vision",
-                 "qwen2-vl", "bakllava", "moondream"}
+# Substrings that identify a vision-capable model regardless of tag/version.
+_VISION_KEYWORDS = ("llava", "vision", "-vl", "vl-", "bakllava", "moondream",
+                    "minicpm-v", "gemma3", "qwen2-vl", "qwen2.5-vl")
+# Preferred order when several vision models are installed.
+_VISION_PREFERENCE = ("llava", "llama3.2-vision", "qwen2.5-vl", "qwen2-vl",
+                      "minicpm-v", "bakllava", "moondream")
 
 
 def _has_vision_model() -> str:
-    """Return first available vision model name, or empty string."""
+    """Return the name of an installed vision-capable model, or empty string.
+    Detects any model whose name contains a known vision keyword, so new tags
+    (qwen2.5-vl, minicpm-v, …) are picked up without a code change."""
     try:
         r = requests.get(f"{OLLAMA}/api/tags", timeout=3)
-        installed = {m["name"].split(":")[0] for m in r.json().get("models", [])}
-        installed.update(m["name"] for m in r.json().get("models", []))
-        for v in ["llava:7b", "llava:13b", "llava", "llama3.2-vision",
-                  "qwen2-vl", "bakllava", "moondream"]:
-            if v in installed or v.split(":")[0] in installed:
-                return v
+        installed = [m["name"] for m in r.json().get("models", [])]
+        vision = [n for n in installed
+                  if any(k in n.lower() for k in _VISION_KEYWORDS)]
+        if not vision:
+            return ""
+        # Prefer well-known families, else just take the first match.
+        for pref in _VISION_PREFERENCE:
+            for n in vision:
+                if pref in n.lower():
+                    return n
+        return vision[0]
     except Exception:
         pass
     return ""
@@ -177,15 +188,15 @@ async def chat(req: Request):
 ROUTING_TARGETS = {
     "code":      "deepseek-r1:14b",  # reasoning model, thinking ON
     "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON
-    "finance":   "qwen3:14b",        # fastest on finance with think=False
-    "copy":      "qwen3:14b",        # replaces gemma4 (broken thinking model)
-    "long":      "qwen3:14b",        # replaces llama4 (times out)
-    "general":   "qwen3:14b",        # 57 tok/s beats phi4 on quality
+    "finance":   "qwen3:30b-a3b",    # MoE, fast on finance with think=False
+    "copy":      "qwen3:30b-a3b",    # replaces gemma4 (broken thinking model)
+    "long":      "qwen3:30b-a3b",    # replaces llama4 (times out)
+    "general":   "qwen3:30b-a3b",    # beats phi4 on quality, ~57 tok/s
     "quick":     "phi4",             # phi4 still fastest for 1-liners
 }
 
 # Models that should have thinking disabled (they're thinking models but it's slower)
-_NO_THINK_MODELS = {"qwen3:14b", "qwen3:8b", "qwen3:32b"}
+_NO_THINK_MODELS = {"qwen3:30b-a3b", "qwen3:14b", "qwen3:8b", "qwen3:32b"}
 # Models where thinking improves output (don't disable)
 _THINK_MODELS    = {"deepseek-r1:14b", "deepseek-r1:7b", "deepseek-r1:32b"}
 
@@ -232,7 +243,7 @@ async def classify(req: Request):
             installed = {m["name"] for m in tags.get("models", [])}
             target = ROUTING_TARGETS[cat]
             if target not in installed:
-                for fb in ("qwen3:14b", "phi4:latest", "phi4"):
+                for fb in ("qwen3:30b-a3b", "qwen3:14b", "phi4:latest", "phi4"):
                     if fb in installed:
                         target = fb; break
         except Exception:
@@ -264,7 +275,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v4';
+    sw = """const CACHE = 'fraqtoos-v6';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -2057,6 +2068,16 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
                 if token:
                     yield json.dumps({"token": token}) + "\n"
                 if d.get("done"):
+                    # Forward real generation stats so the UI can show true tok/s
+                    eval_count = d.get("eval_count") or 0
+                    eval_ns    = d.get("eval_duration") or 0
+                    tok_s = round(eval_count / (eval_ns / 1e9), 1) if eval_count and eval_ns else 0
+                    yield json.dumps({"stats": {
+                        "model": model,
+                        "prompt_tokens": d.get("prompt_eval_count") or 0,
+                        "completion_tokens": eval_count,
+                        "tok_s": tok_s,
+                    }}) + "\n"
                     break
     except Exception as e:
         yield json.dumps({"error": str(e)}) + "\n"

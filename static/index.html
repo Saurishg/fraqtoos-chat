@@ -299,8 +299,21 @@ button, a, input, textarea { transition: all .15s ease; }
 @media (min-width: 1600px) { .chat-inner { max-width: min(880px, 74ch); padding: 0 32px; } }
 
 .msg-group { padding: 5px 0; animation: msgFadeIn .22s ease-out; }
-.msg-group.user { display: flex; justify-content: flex-end; margin-bottom: 3px; }
+.msg-group.user { display: flex; justify-content: flex-end; margin-bottom: 3px; position: relative; }
 .msg-group.bot  { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 3px; }
+.user-del-btn {
+  position: absolute; top: -6px; right: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface2); color: var(--text3);
+  border: 1px solid var(--border);
+  font-size: 13px; line-height: 1; cursor: pointer; opacity: 0;
+  transition: opacity .15s, color .12s, background .12s, border-color .12s;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2; padding: 0;
+}
+.msg-group.user:hover .user-del-btn,
+.msg-group.user:focus-within .user-del-btn { opacity: 1; }
+.user-del-btn:hover { color: #fca5a5; background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); }
 @keyframes msgFadeIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 #chat { scroll-behavior: smooth; }
 
@@ -758,7 +771,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
 
   <div class="sb-section">
     <div class="sb-label">Auto Mode</div>
-    <button class="model-btn auto-model" data-model="auto" onclick="selectModel(this)">
+    <button class="model-btn auto-model active" data-model="auto" onclick="selectModel(this)">
       <span class="model-dot"></span>
       <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → qwen3/DeepSeek/phi4</span></div>
     </button>
@@ -766,7 +779,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
 
   <div class="sb-section">
     <div class="sb-label">Local Models</div>
-    <button class="model-btn active" data-model="qwen3:30b-a3b" onclick="selectModel(this)">
+    <button class="model-btn" data-model="qwen3:30b-a3b" onclick="selectModel(this)">
       <span class="model-dot"></span>
       <div class="model-info"><span class="model-name">qwen3:30b-a3b ⭐</span><span class="model-size">Alibaba · 9.3 GB · Best chat</span></div>
     </button>
@@ -785,6 +798,10 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
     <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
       <span class="model-dot"></span>
       <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Thinking only</span></div>
+    </button>
+    <button class="model-btn" data-model="llama3.3:latest" onclick="selectModel(this)">
+      <span class="model-dot"></span>
+      <div class="model-info"><span class="model-name">Llama 3.3</span><span class="model-size">Meta · 42 GB · Top general</span></div>
     </button>
   </div>
 
@@ -1237,16 +1254,16 @@ const input     = document.getElementById('input');
 const sendBtn   = document.getElementById('send-btn');
 const imgModelSel = document.getElementById('img-model');
 
-const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-7','claude-haiku-4-5-20251001']);
+const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5-20251001']);
 const GPT_MODELS    = new Set(['gpt-oss:20b']);
 const DEEPSEEK      = new Set(['deepseek-r1:14b']);
 const QWEN          = new Set(['qwen3:30b-a3b']);
-const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-7':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
+const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-8':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
 let availableModels = new Set();
 
-let currentModel = localStorage.getItem('fraqtoos_model') || 'qwen3:30b-a3b';
+let currentModel = localStorage.getItem('fraqtoos_model') || 'auto';
 if (currentModel.startsWith('claude-') || currentModel === 'llama4:latest') {
-  currentModel = 'qwen3:30b-a3b';
+  currentModel = 'auto';
   localStorage.setItem('fraqtoos_model', currentModel);
 }
 let systemPrompt = localStorage.getItem('fraqtoos_sysprompt') || '';
@@ -1588,8 +1605,8 @@ function getModelName(model) {
   if (!model) return 'AI';
   var names = {
     'phi4':'phi4','gemma4:latest':'gemma4','qwen3:30b-a3b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
-    'gpt-oss:20b':'GPT-OSS','auto':'Auto',
-    'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-7':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
+    'gpt-oss:20b':'GPT-OSS','llama3.3:latest':'Llama 3.3','auto':'Auto',
+    'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-8':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
   };
   return names[model] || model;
 }
@@ -1604,7 +1621,9 @@ function addUserMsg(text) {
   var inner = getOrCreateInner();
   var div = document.createElement('div');
   div.className = 'msg-group user';
-  div.innerHTML = '<div class="user-bubble"></div>';
+  div.innerHTML =
+    '<button class="user-del-btn" title="Delete message" onclick="deleteMsg(event, this)" aria-label="Delete message">&#215;</button>' +
+    '<div class="user-bubble"></div>';
   var bubble = div.querySelector('.user-bubble');
   bubble.innerHTML = escHtml(text).replace(/\n/g,'<br>');
   bubble._rawText = text;
@@ -1637,6 +1656,7 @@ function addBotMsg(model) {
         '<button class="act-btn feedback-btn" title="Good response" onclick="feedbackMsg(this,1)">👍</button>'+
         '<button class="act-btn feedback-btn" title="Bad response" onclick="feedbackMsg(this,-1)">👎</button>'+
         '<button class="act-btn" title="Regenerate" onclick="regenerate()">↺</button>'+
+        '<button class="act-btn" title="Delete message" onclick="deleteMsg(event, this)">&#128465;</button>'+
       '</div>'+
     '</div>';
   inner.appendChild(div);
@@ -2050,7 +2070,7 @@ async function sendMsg() {
   sendBtn.innerHTML='&#9632;';
   sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
 
-  var startTime=Date.now(), tokenCount=0;
+  var startTime=Date.now(), tokenCount=0, srvStats=null;
   var localModel=currentModel;
   if (currentAbort) { try { currentAbort.abort(); } catch(_) {} }
   currentAbort=new AbortController();
@@ -2099,6 +2119,7 @@ async function sendMsg() {
         try{
           var d=JSON.parse(line);
           if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+          if(d.stats){srvStats=d.stats;}
           if(d.error){textEl.textContent='Error: '+d.error;}
         }catch(e){}
       }
@@ -2109,12 +2130,21 @@ async function sendMsg() {
       try {
         var d=JSON.parse(tail);
         if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+        if(d.stats){srvStats=d.stats;}
         if(d.error){textEl.textContent='Error: '+d.error;}
       }catch(e){}
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
     var words=full.trim().split(/\s+/).filter(Boolean).length;
-    statsEl.textContent=elapsed+'s · '+(tokenCount&&elapsed?(tokenCount/elapsed).toFixed(0):0)+' tok/s · '+words+'w';
+    if(srvStats){
+      // Real numbers reported by Ollama (eval_count / eval_duration)
+      var ts = srvStats.tok_s ? srvStats.tok_s+' tok/s' : (tokenCount/elapsed).toFixed(0)+' tok/s';
+      statsEl.textContent = elapsed+'s · '+ts+' · '+words+'w'
+        + ' · '+srvStats.prompt_tokens+'→'+srvStats.completion_tokens+' tok';
+      statsEl.title = 'prompt '+srvStats.prompt_tokens+' tok, completion '+srvStats.completion_tokens+' tok';
+    } else {
+      statsEl.textContent=elapsed+'s · '+(tokenCount&&elapsed?(tokenCount/elapsed).toFixed(0):0)+' tok/s · '+words+'w';
+    }
     history.push({role:'assistant', content:full, model:localModel});
   } catch(e) {
     removeTyping();
@@ -3204,6 +3234,33 @@ function saveEdit(btn) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Message deletion (single message — DOM + history index-aligned)
+// ─────────────────────────────────────────────────────────────────
+function deleteMsg(ev, btn) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  if (isStreaming) return;
+  var group = btn.closest('.msg-group');
+  if (!group) return;
+  var groups = Array.from(chatEl.querySelectorAll('.msg-group')).filter(function(g){ return g.id !== 'typing-indicator'; });
+  var idx = groups.indexOf(group);
+  if (idx < 0) return;
+  // Stop any TTS speaking this message
+  if (window.speechSynthesis) {
+    try { speechSynthesis.cancel(); } catch(_) {}
+  }
+  // Remove DOM node + any followup-row that immediately follows it
+  var next = group.nextElementSibling;
+  group.remove();
+  if (next && next.classList && next.classList.contains('followup-row')) next.remove();
+  // history is index-aligned with msg-groups (system prompt is NOT stored in history)
+  if (idx < history.length) history.splice(idx, 1);
+  // If we deleted the last assistant message, also clear lastUserMsg if it was its pair
+  if (!history.length) lastUserMsg = '';
+  autoPersist();
+  updateTokenCounter();
+}
+
+// ─────────────────────────────────────────────────────────────────
 // FEATURE 6: Token counter
 // ─────────────────────────────────────────────────────────────────
 function updateTokenCounter() {
@@ -4014,10 +4071,10 @@ var CMD_ITEMS = [
   {section:'Models', icon:'✨', label:'Auto ✨ — smart router', action:function(){ var b=document.querySelector('.model-btn[data-model="auto"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'φ',  label:'phi4 — Microsoft 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="phi4"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🟢', label:'gemma4 — Google 9.6GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gemma4:latest"]'); if(b) selectModel(b); }},
-  {section:'Models', icon:'🟠', label:'qwen3:30b-a3b — Alibaba 9.3GB', action:function(){ var b=document.querySelector('.model-btn[data-model="qwen3:14b"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🟠', label:'qwen3:30b-a3b — Alibaba 9.3GB', action:function(){ var b=document.querySelector('.model-btn[data-model="qwen3:30b-a3b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🔵', label:'DeepSeek-R1 — Reasoning 9GB', action:function(){ var b=document.querySelector('.model-btn[data-model="deepseek-r1:14b"]'); if(b) selectModel(b); }},
   {section:'Models', icon:'🟣', label:'GPT-OSS — OpenAI 14GB', action:function(){ var b=document.querySelector('.model-btn[data-model="gpt-oss:20b"]'); if(b) selectModel(b); }},
-  {section:'Models', icon:'🦙', label:'llama4 — Meta 67GB', action:function(){ var b=document.querySelector('.model-btn[data-model="llama4:latest"]'); if(b) selectModel(b); }},
+  {section:'Models', icon:'🦙', label:'Llama 3.3 — Meta 42GB', action:function(){ var b=document.querySelector('.model-btn[data-model="llama3.3:latest"]'); if(b) selectModel(b); }},
   // Actions
   {section:'Actions', icon:'+',  label:'New Chat', key:'Ctrl+N', action:newConversation},
   {section:'Actions', icon:'⟳',  label:'Clear Context', key:'Ctrl+Shift+X', action:clearContext},
