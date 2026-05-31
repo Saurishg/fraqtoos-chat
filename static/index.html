@@ -3011,9 +3011,11 @@ async function pollGpu() {
     else if (pct >= 70) chip.classList.add('warn');
     if (fill) fill.style.right = (100 - pct) + '%';
     var util = (d.gpu_util == null ? '–' : d.gpu_util + '%');
-    text.textContent = d.vram_used_gb + '/' + d.vram_total_gb + 'GB · ' + util;
-    chip.title = d.name + ' — VRAM ' + d.vram_used_gb + '/' + d.vram_total_gb + ' GB (' + pct + '%)'
-               + ' · util ' + util + (d.temp != null ? ' · ' + d.temp + '°C' : '');
+    // Show VRAM % (matches the bar); GPU compute util goes in the tooltip to avoid
+    // the "6 GB used but 0%" confusion (0% = idle compute, not VRAM).
+    text.textContent = d.vram_used_gb + '/' + d.vram_total_gb + 'GB · ' + pct + '%';
+    chip.title = d.name + ' — VRAM ' + d.vram_used_gb + '/' + d.vram_total_gb + ' GB (' + pct + '% used)'
+               + ' · GPU compute ' + util + (d.temp != null ? ' · ' + d.temp + '°C' : '');
   } catch(e) {
     chip.classList.add('stale');
     if (text) text.textContent = 'GPU n/a';
@@ -3042,9 +3044,9 @@ async function pollGpuNv() {
     if (pct >= 90) chip.classList.add('hot');
     else if (pct >= 70) chip.classList.add('warn');
     if (fill) fill.style.right = (100 - pct) + '%';
-    text.textContent = usedGB + '/' + totGB + 'GB · ' + d.gpu_util + '%';
-    chip.title = 'NVIDIA RTX 3080 Ti — VRAM ' + usedGB + '/' + totGB + ' GB (' + pct + '%)'
-               + ' · util ' + d.gpu_util + '% · ' + d.temp + '°C (shared with Chia)';
+    text.textContent = usedGB + '/' + totGB + 'GB · ' + pct + '%';
+    chip.title = 'NVIDIA RTX 3080 Ti — VRAM ' + usedGB + '/' + totGB + ' GB (' + pct + '% used)'
+               + ' · GPU compute ' + d.gpu_util + '% · ' + d.temp + '°C (shared with Chia)';
   } catch(e) {
     chip.classList.add('stale');
     if (text) text.textContent = 'GPU n/a';
