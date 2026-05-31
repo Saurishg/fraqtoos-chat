@@ -542,9 +542,9 @@ WAN_SCRIPT        = "/home/work/Wan2.1/run_wan.py"
 WAN_I2V_SCRIPT    = "/home/work/Wan2.1/run_wan_i2v.py"
 # Wan2.2-Animate: ROCm venv + runner (preprocess + ComfyUI GGUF on 6800 XT / port 8189)
 WANANIM_VENV_PYTHON = "/home/work/ComfyUI/venv-rocm/bin/python"
-WANANIM_SCRIPT      = "/home/work/Wan2.2/wan_animate_run.py"
+WANANIM_SCRIPT      = "/home/work/fraqtoos-chat/scripts/wan_animate_run.py"
 # Wan2.1-VACE-14B: motion/structure control (control video + optional reference image)
-VACE_SCRIPT         = "/home/work/Wan2.2/vace_run.py"
+VACE_SCRIPT         = "/home/work/fraqtoos-chat/scripts/vace_run.py"
 
 
 def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
@@ -757,7 +757,7 @@ async def wan_animate_endpoint(req: Request, avatar: UploadFile = File(...), dri
 
     form = await req.form()
     prompt = (form.get("prompt") or "a person performing the motion, high quality").strip()
-    try:    frames = max(5, min(int(form.get("frames") or 49), 121))
+    try:    frames = max(5, min(int(form.get("frames") or 33), 121))
     except (ValueError, TypeError): frames = 49
     try:    steps  = max(6, min(int(form.get("steps") or 15), 30))
     except (ValueError, TypeError): steps  = 15
@@ -826,7 +826,7 @@ async def vace_endpoint(req: Request, driving: UploadFile = File(...), avatar: U
 
     form = await req.form()
     prompt = (form.get("prompt") or "high quality, detailed, smooth motion").strip()
-    try:    frames   = max(5, min(int(form.get("frames") or 49), 121))
+    try:    frames   = max(5, min(int(form.get("frames") or 33), 121))
     except (ValueError, TypeError): frames = 49
     try:    steps    = max(6, min(int(form.get("steps") or 20), 40))
     except (ValueError, TypeError): steps = 20
