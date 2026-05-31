@@ -221,7 +221,9 @@ async def classify(req: Request):
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
-    data = await req.json()
+    data, err = await _safe_json(req)
+    if err:
+        return err
     q = (data.get("text") or "").strip()
     if not q:
         return {"category": "general", "model": ROUTING_TARGETS["general"]}
@@ -332,6 +334,12 @@ async def _stream_image_job(fn):
         yield json.dumps(fut.result()) + "\n"
     except Exception as e:
         yield json.dumps({"error": str(e)}) + "\n"
+    finally:
+        # Always retrieve the future's outcome (e.g. on client disconnect) so asyncio
+        # doesn't log "Future exception was never retrieved".
+        if fut.done() and not fut.cancelled():
+            try: fut.exception()
+            except Exception: pass
 
 
 @app.post("/imagine")
@@ -1215,7 +1223,6 @@ def _bridge_bots() -> str:
 
 
 def _bridge_btc() -> str:
-    import glob as _glob
     cache = "/home/work/crypto-trading-bot/btc_1h_cache.csv"
     out = ["## BTC Live Snapshot"]
     if os.path.exists(cache):
@@ -2311,7 +2318,7 @@ def claude_stream(model, messages, system="", temperature=0.7):
 
 
 if __name__ == "__main__":
-    print(f"FraqtoOS Chat → http://192.168.2.108:8080")
+    print("FraqtoOS Chat → http://192.168.2.108:8080")
     print(f"Claude: {'✓ loaded' if ANTHROPIC_KEY else '✗ no key'}")
     print(f"Images: ComfyUI on {COMFYUI}")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
