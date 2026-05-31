@@ -5,7 +5,15 @@ Access: http://192.168.2.108:8080
 Supports: Ollama models + Claude API + FLUX.1-schnell image generation
 """
 import asyncio
-import json, os, requests, base64, uuid, time, sys, io, subprocess
+import json
+import os
+import requests
+import base64
+import uuid
+import time
+import sys
+import io
+import subprocess
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
@@ -17,8 +25,10 @@ sys.path.insert(0, "/home/work/fraqtoos")
 try:
     from core.web_search import search as _web_search, is_up as _searx_up
 except Exception:
-    _web_search = lambda *a, **k: []
-    _searx_up   = lambda: False
+    def _web_search(*a, **k):
+        return []
+    def _searx_up():
+        return False
 
 load_dotenv("/home/work/fraqtoos-chat/.env")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -361,8 +371,9 @@ async def imagine(req: Request):
     if not _comfyui_ready():
         return JSONResponse({"error": "Image generator not ready."}, 503)
 
-    fn = lambda: {"image": _generate(prompt, image_model, steps, width, height, negative),
-                  "prompt": prompt, "model": image_model}
+    def fn():
+        return {"image": _generate(prompt, image_model, steps, width, height, negative),
+                      "prompt": prompt, "model": image_model}
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -511,9 +522,10 @@ async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", s
         if len(face_b) > 12 * 1024 * 1024:
             return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
         fname  = face.filename or f"face_{int(time.time())}.png"
-        fn = lambda: {"image": _avatar_image(face_b, fname, prompt, max(8, min(int(steps), 40)),
-                                              int(width), int(height), float(weight)),
-                      "prompt": prompt, "model": "pulid-flux"}
+        def fn():
+            return {"image": _avatar_image(face_b, fname, prompt, max(8, min(int(steps), 40)),
+                                                      int(width), int(height), float(weight)),
+                              "prompt": prompt, "model": "pulid-flux"}
         return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)
@@ -541,7 +553,8 @@ def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
                        fps: int = 15, steps: int = 25,
                        guidance: float = 2.0, stride: int = 4) -> str:
     """Run MimicMotion in its own venv; return base64-encoded mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="mimic_")
     try:
         avatar_path  = os.path.join(tmp, avatar_name)
@@ -606,12 +619,13 @@ async def mimic_motion_endpoint(req: Request, avatar: UploadFile = File(...), dr
     avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
     driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
 
-    fn = lambda: {
-        "video": _run_mimic_motion(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                    num_frames=num_frames, resolution=resolution, fps=fps,
-                                    steps=steps, guidance=guidance, stride=stride),
-        "model": "mimic-motion"
-    }
+    def fn():
+        return {
+            "video": _run_mimic_motion(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                        num_frames=num_frames, resolution=resolution, fps=fps,
+                                        steps=steps, guidance=guidance, stride=stride),
+            "model": "mimic-motion"
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -621,7 +635,8 @@ def _run_animate_anyone(avatar_bytes: bytes, avatar_name: str,
                          chunk: int = 16, steps: int = 20,
                          cfg: float = 3.5, fps: int = 30) -> str:
     """Run AnimateAnyone in its own venv; return base64-encoded mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="aa_")
     try:
         avatar_path  = os.path.join(tmp, avatar_name)
@@ -686,12 +701,13 @@ async def animate_anyone_endpoint(req: Request, avatar: UploadFile = File(...), 
     avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
     driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
 
-    fn = lambda: {
-        "video": _run_animate_anyone(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                      width=width, height=height, chunk=chunk,
-                                      steps=steps, cfg=cfg, fps=fps),
-        "model": "animate-anyone"
-    }
+    def fn():
+        return {
+            "video": _run_animate_anyone(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                          width=width, height=height, chunk=chunk,
+                                          steps=steps, cfg=cfg, fps=fps),
+            "model": "animate-anyone"
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -701,7 +717,8 @@ def _run_wan_animate(avatar_bytes: bytes, avatar_name: str,
                      frames: int = 49, steps: int = 15,
                      width: int = 832, height: int = 480) -> str:
     """Wan2.2-Animate-14B (Q8 GGUF) on the 6800 XT: image + driving video -> base64 mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="wananim_")
     try:
         avatar_path  = os.path.join(tmp, avatar_name)
@@ -755,11 +772,12 @@ async def wan_animate_endpoint(req: Request, avatar: UploadFile = File(...), dri
     avatar_name  = avatar.filename  or f"char_{int(time.time())}.jpg"
     driving_name = driving.filename or f"drive_{int(time.time())}.mp4"
 
-    fn = lambda: {
-        "video": _run_wan_animate(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                  prompt=prompt, frames=frames, steps=steps),
-        "model": "wan2.2-animate"
-    }
+    def fn():
+        return {
+            "video": _run_wan_animate(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                      prompt=prompt, frames=frames, steps=steps),
+            "model": "wan2.2-animate"
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -768,7 +786,8 @@ def _run_vace(driving_bytes: bytes, driving_name: str,
               prompt: str = "high quality, detailed, smooth motion",
               frames: int = 49, steps: int = 20, strength: float = 1.0) -> str:
     """Wan2.1-VACE-14B (Q8 GGUF) on the 6800 XT: control video (+ optional ref image) -> base64 mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="vace_")
     try:
         driving_path = os.path.join(tmp, driving_name)
@@ -826,11 +845,12 @@ async def vace_endpoint(req: Request, driving: UploadFile = File(...), avatar: U
             return JSONResponse({"error": "reference image too large (max 12 MB)"}, 413)
         ref_name = avatar.filename or f"ref_{int(time.time())}.jpg"
 
-    fn = lambda: {
-        "video": _run_vace(driving_bytes, driving_name, ref_bytes, ref_name,
-                           prompt=prompt, frames=frames, steps=steps, strength=strength),
-        "model": "wan-vace"
-    }
+    def fn():
+        return {
+            "video": _run_vace(driving_bytes, driving_name, ref_bytes, ref_name,
+                               prompt=prompt, frames=frames, steps=steps, strength=strength),
+            "model": "wan-vace"
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -839,7 +859,8 @@ def _run_champ(avatar_bytes: bytes, avatar_name: str,
                width: int = 512, height: int = 512, frames: int = 9999,
                steps: int = 20, guidance: float = 3.5, fps: int = 30) -> str:
     """Run CHAMP across both GPUs; return base64-encoded mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="champ_")
     try:
         avatar_path  = os.path.join(tmp, avatar_name)
@@ -922,12 +943,13 @@ async def champ_endpoint(req: Request, avatar: UploadFile = File(...), driving: 
     avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
     driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
 
-    fn = lambda: {
-        "video": _run_champ(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                             width=width, height=height, frames=frames,
-                             steps=steps, guidance=guidance, fps=fps),
-        "model": "champ"
-    }
+    def fn():
+        return {
+            "video": _run_champ(avatar_bytes, avatar_name, driving_bytes, driving_name,
+                                 width=width, height=height, frames=frames,
+                                 steps=steps, guidance=guidance, fps=fps),
+            "model": "champ"
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -936,7 +958,8 @@ def _run_wan(prompt: str, negative: str = "", frames: int = 81,
              steps: int = 50, guidance: float = 5.0,
              fps: int = 16, seed: int = 42) -> str:
     """Run Wan2.1 T2V in its own venv; return base64-encoded mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="wan_")
     try:
         output_path = os.path.join(tmp, "output.mp4")
@@ -996,11 +1019,12 @@ async def wan_video_endpoint(req: Request):
     try:    seed     = int(data.get("seed", 42))
     except (ValueError, TypeError): seed     = 42
 
-    fn = lambda: {
-        "video":  _run_wan(prompt, negative, frames, width, height, steps, guidance, fps, seed),
-        "prompt": prompt,
-        "model":  "wan2.1-t2v-1.3b",
-    }
+    def fn():
+        return {
+            "video":  _run_wan(prompt, negative, frames, width, height, steps, guidance, fps, seed),
+            "prompt": prompt,
+            "model":  "wan2.1-t2v-1.3b",
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -1010,7 +1034,8 @@ def _run_wan_i2v(image_bytes: bytes, image_name: str,
                  steps: int = 50, guidance: float = 5.0,
                  fps: int = 16, seed: int = 42) -> str:
     """Run Wan2.1 I2V in its own venv; return base64-encoded mp4."""
-    import tempfile, shutil
+    import tempfile
+    import shutil
     tmp = tempfile.mkdtemp(prefix="wan_i2v_")
     try:
         image_path  = os.path.join(tmp, image_name)
@@ -1070,12 +1095,13 @@ async def wan_i2v_endpoint(req: Request, image: UploadFile = File(...),
         return JSONResponse({"error": "image too large (max 20 MB)"}, 413)
     image_name = image.filename or f"input_{int(time.time())}.jpg"
 
-    fn = lambda: {
-        "video":  _run_wan_i2v(image_bytes, image_name, prompt, negative,
-                               frames, 832, 480, steps, 5.0, fps, seed),
-        "prompt": prompt,
-        "model":  "wan2.1-i2v-14b",
-    }
+    def fn():
+        return {
+            "video":  _run_wan_i2v(image_bytes, image_name, prompt, negative,
+                                   frames, 832, 480, steps, 5.0, fps, seed),
+            "prompt": prompt,
+            "model":  "wan2.1-i2v-14b",
+        }
     return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
 
 
@@ -1108,8 +1134,9 @@ async def edit_image(req: Request, image: UploadFile = File(...), prompt: str = 
         if len(img_bytes) > 12 * 1024 * 1024:
             return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
         fname = image.filename or f"upload_{int(time.time())}.png"
-        fn = lambda: {"image": _edit_image(img_bytes, fname, prompt, max(4, min(steps, 40))),
-                      "prompt": prompt, "model": "flux-kontext"}
+        def fn():
+            return {"image": _edit_image(img_bytes, fname, prompt, max(4, min(steps, 40))),
+                              "prompt": prompt, "model": "flux-kontext"}
         return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
     except Exception as e:
         return JSONResponse({"error": str(e)}, 500)

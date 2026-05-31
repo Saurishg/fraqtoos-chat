@@ -1612,6 +1612,30 @@ function renderMarkdown(text) {
   return h;
 }
 
+// While streaming, temporarily close an unterminated ``` fence so partial code
+// renders as a block instead of raw text (the closing ``` arrives token by token).
+function renderMarkdownStreaming(text) {
+  if ((text.match(/```/g) || []).length % 2 === 1) text += '\n```';
+  return renderMarkdown(text);
+}
+
+// Re-rendering full markdown on every token is O(n^2) and flickers on long
+// replies. Throttle to one paint per animation frame; caller flushes at end.
+function streamRender(textEl, full) {
+  textEl._pending = full;
+  textEl.classList.add('streaming');
+  if (textEl._raf) return;
+  textEl._raf = requestAnimationFrame(function(){
+    textEl._raf = 0;
+    textEl.innerHTML = renderMarkdownStreaming(textEl._pending);
+  });
+}
+function streamRenderFlush(textEl, full) {
+  if (textEl._raf) { cancelAnimationFrame(textEl._raf); textEl._raf = 0; }
+  textEl.classList.remove('streaming');
+  textEl.innerHTML = renderMarkdown(full);
+}
+
 function copyCode(id){
   var el=document.getElementById(id);
   if(!el)return;
@@ -2159,7 +2183,7 @@ async function sendMsg() {
         var line=lines[i].trim(); if(!line)continue;
         try{
           var d=JSON.parse(line);
-          if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+          if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
           if(d.stats){srvStats=d.stats;}
           if(d.error){textEl.textContent='Error: '+d.error;}
         }catch(e){}
@@ -2170,13 +2194,14 @@ async function sendMsg() {
     if (tail) {
       try {
         var d=JSON.parse(tail);
-        if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+        if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
         if(d.stats){srvStats=d.stats;}
         if(d.error){textEl.textContent='Error: '+d.error;}
       }catch(e){}
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
     var words=full.trim().split(/\s+/).filter(Boolean).length;
+    streamRenderFlush(textEl, full);
     if(srvStats){
       // Real numbers reported by Ollama (eval_count / eval_duration)
       var ts = srvStats.tok_s ? srvStats.tok_s+' tok/s' : (tokenCount/elapsed).toFixed(0)+' tok/s';
@@ -2191,6 +2216,8 @@ async function sendMsg() {
     removeTyping();
     if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
     else{
+      if(textEl._raf){cancelAnimationFrame(textEl._raf);textEl._raf=0;}
+      textEl.classList.remove('streaming');
       textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;
       if(full) history.push({role:'assistant', content:full, model:localModel});
     }
@@ -3705,7 +3732,7 @@ sendMsg = async function() {
           var line=lines[i].trim(); if(!line)continue;
           try{
             var d=JSON.parse(line);
-            if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+            if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
             if(d.error){textEl.textContent='Error: '+d.error;}
           }catch(e){}
         }
@@ -3715,18 +3742,21 @@ sendMsg = async function() {
       if (tail) {
         try {
           var d=JSON.parse(tail);
-          if(d.token){full+=d.token;tokenCount++;textEl.innerHTML=renderMarkdown(full);textEl._rawText=full;scrollBottom();}
+          if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
           if(d.error){textEl.textContent='Error: '+d.error;}
         }catch(e){}
       }
       var elapsed=((Date.now()-startTime)/1000).toFixed(1);
       var words=full.trim().split(/\s+/).filter(Boolean).length;
+      streamRenderFlush(textEl, full);
       statsEl.textContent=elapsed+'s · '+(tokenCount&&elapsed?(tokenCount/elapsed).toFixed(0):0)+' tok/s · '+words+'w';
       history.push({role:'assistant', content:full, model:localModel2});
     } catch(e) {
       removeTyping();
       if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
       else{
+        if(textEl._raf){cancelAnimationFrame(textEl._raf);textEl._raf=0;}
+        textEl.classList.remove('streaming');
         textEl.innerHTML=renderMarkdown(full)||'<em style="color:var(--text3)">Stopped.</em>';textEl._rawText=full;
         if(full) history.push({role:'assistant', content:full, model:localModel2});
       }
