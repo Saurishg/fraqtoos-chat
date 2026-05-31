@@ -53,7 +53,7 @@ body.light-theme pre, body.light-theme code { background: #e0dbd2 !important; }
 body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter','Segoe UI',sans-serif;
-  height: 100vh; display: flex; overflow: hidden;
+  height: 100vh; height: 100dvh; display: flex; overflow: hidden;
   font-size: var(--fs); -webkit-tap-highlight-color: transparent;
 }
 
@@ -736,7 +736,11 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   #sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; transform: translateX(-100%); transition: transform .22s ease-out; width: 280px; min-width: 280px; }
   #sidebar.open { transform: translateX(0); }
   #sidebar-toggle-btn { display: none; }
-  #topbar { padding: 8px 12px; gap: 8px; }
+  #topbar { padding: max(8px, env(safe-area-inset-top)) 12px 8px; gap: 8px; }
+  /* Declutter topbar: keep the primary AMD VRAM chip, hide the secondary NVIDIA one */
+  #gpu-stat-nv { display: none; }
+  #chat { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+  #sidebar, .conv-list { -webkit-overflow-scrolling: touch; }
   #current-model-label { flex: 1; min-width: 0; overflow: hidden; }
   #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .badge,.token-badge { display: none; }
@@ -746,7 +750,7 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   .user-bubble { max-width: 90%; font-size: 14px; }
   .bot-text { font-size: 14px; }
   .bot-avatar { width: 26px; height: 26px; font-size: 12px; }
-  #inputwrap { padding: 7px 10px 12px; }
+  #inputwrap { padding: 7px 10px calc(12px + env(safe-area-inset-bottom)); }
   #input-outer { border-radius: 12px; }
   #input { padding: 10px 12px 4px; font-size: 16px; }
   #input-bottom { padding: 4px 6px 6px; gap: 4px; flex-wrap: wrap; }
@@ -769,6 +773,8 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
 @media (max-width: 380px) {
   #img-controls,#img-btn { display: none; }
   .tool-btn { width: 40px; height: 40px; }
+  #gpu-stat { display: none; }  /* free up the narrow topbar for the model name */
+  #current-model-label { gap: 6px; }
 }
 </style>
 </head>
