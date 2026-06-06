@@ -27,7 +27,6 @@
   --accent2:   #ffffff;
   --user-bg:   #ffffff;
   --user-text: #000000;
-  --claude-accent: #a855f7;
   --green:     #22c55e;
   --red:       #ef4444;
   --radius:    12px;
@@ -119,7 +118,6 @@ body.light-theme ::selection { background: rgba(0,0,0,.15); }
 }
 .model-btn.active .model-dot { background: var(--text); }
 .model-btn.auto-model.active .model-dot { background: var(--green); }
-.model-btn.claude-model.active .model-dot { background: var(--claude-accent); }
 .model-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .model-name { font-weight: 500; color: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
 .model-size { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
@@ -360,7 +358,6 @@ body.light-theme ::selection { background: rgba(0,0,0,.15); }
   transition: background .2s ease; border: 1px solid var(--border);
 }
 .msg-group.bot:hover .bot-avatar { background: var(--surface); }
-.bot-avatar.claude   { background: var(--surface2); color: var(--claude-accent); }
 .bot-avatar.gpt      { background: var(--surface2); color: var(--green); }
 .bot-avatar.deepseek { background: var(--surface2); color: #60a5fa; }
 .bot-avatar.qwen     { background: var(--surface2); color: #fb923c; }
@@ -544,8 +541,6 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 #send-btn:hover { opacity: .8; }
 #send-btn:hover { background: var(--text); }
 #send-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; box-shadow: none; }
-#send-btn.claude-mode { background: var(--claude-accent); box-shadow: 0 2px 8px rgba(124,58,237,.3); }
-#send-btn.claude-mode:hover { background: #6d28d9; }
 #send-btn.stop-mode { background: #7f1d1d; box-shadow: none; }
 #send-btn.stop-mode:hover { background: #991b1b; }
 
@@ -892,7 +887,6 @@ body.light-theme .ripple-host .ripple-circle { background: rgba(0,0,0,.08); }
 }
 
 /* Send button states */
-#send-btn.claude-mode { background: var(--claude-accent); color: #fff; }
 #send-btn.stop-mode { background: var(--red); color: #fff; }
 
 /* Bot messages: subtle hover */
@@ -1356,7 +1350,6 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
           <div class="fm-card-item"><div class="fm-icon">🔵</div><div class="fm-info"><div class="fm-name">DeepSeek-R1</div><div class="fm-desc">14B reasoning model. Best for code, math, multi-step logic.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🟠</div><div class="fm-info"><div class="fm-name">qwen3:30b-a3b (MoE)</div><div class="fm-desc">Alibaba's 30B MoE model — only 3B active params per token. Fast + smart. Default chat model.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🟢</div><div class="fm-info"><div class="fm-name">gemma4 / GPT-OSS / deepseek-r1</div><div class="fm-desc">Google (vision+creative) / OpenAI-OSS (code) / DeepSeek (deep reasoning).</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">✦</div><div class="fm-info"><div class="fm-name">Claude (Sonnet / Opus / Haiku)</div><div class="fm-desc">Anthropic cloud models via API key. Requires ANTHROPIC_API_KEY.</div></div></div>
         </div>
       </div>
       <div class="fm-section">
@@ -1560,11 +1553,10 @@ const input     = document.getElementById('input');
 const sendBtn   = document.getElementById('send-btn');
 const imgModelSel = document.getElementById('img-model');
 
-const CLAUDE_MODELS = new Set(['claude-sonnet-4-6','claude-opus-4-8','claude-haiku-4-5-20251001']);
 const GPT_MODELS    = new Set(['gpt-oss:20b']);
 const DEEPSEEK      = new Set(['deepseek-r1:14b']);
 const QWEN          = new Set(['qwen3:30b-a3b']);
-const MODEL_BADGE   = {'claude-sonnet-4-6':'Claude API','claude-opus-4-8':'Claude API','claude-haiku-4-5-20251001':'Claude API','gpt-oss:20b':'OpenAI OSS'};
+const MODEL_BADGE   = {'gpt-oss:20b':'OpenAI OSS'};
 let availableModels = new Set();
 
 /* ── Ripple effect: adds tactile click feedback to interactive elements ── */
@@ -1679,6 +1671,7 @@ let availableModels = new Set();
 })();
 
 let currentModel = localStorage.getItem('fraqtoos_model') || 'auto';
+// Migrate any stale cloud/removed model selection back to the smart router.
 if (currentModel.startsWith('claude-') || currentModel === 'llama4:latest') {
   currentModel = 'auto';
   localStorage.setItem('fraqtoos_model', currentModel);
@@ -1691,17 +1684,15 @@ let lastUserMsg  = '';
 let execHistory  = JSON.parse(localStorage.getItem('fraqtoos_exec_history') || '[]');
 let _execHistIdx = -1;
 
-function isClaude() { return CLAUDE_MODELS.has(currentModel); }
 function modelInstalled(model) {
   if (!model || model === 'auto') return true;
-  if (CLAUDE_MODELS.has(model)) return true;
   return availableModels.size === 0 || availableModels.has(model) || availableModels.has(model + ':latest');
 }
 function updateModelAvailability(models) {
   availableModels = new Set(models || []);
   document.querySelectorAll('.model-btn[data-model]').forEach(function(btn) {
     var model = btn.dataset.model;
-    var unavailable = model && model !== 'auto' && !CLAUDE_MODELS.has(model) &&
+    var unavailable = model && model !== 'auto' &&
       availableModels.size > 0 && !availableModels.has(model) && !availableModels.has(model + ':latest');
     btn.classList.toggle('unavailable', unavailable);
     btn.title = unavailable ? 'Model is not installed in Ollama right now' : '';
@@ -1726,7 +1717,7 @@ function selectModel(btn) {
     document.getElementById('model-badge').textContent = 'Missing model';
     showToast('That model is not installed in Ollama right now.', 'error');
   }
-  sendBtn.className = isClaude() ? 'claude-mode' : '';
+  sendBtn.className = '';
 }
 
 // Restore saved model
@@ -2032,14 +2023,12 @@ function copyCode(id){
 }
 
 function getAvatarClass(model) {
-  if(CLAUDE_MODELS.has(model)) return 'claude';
   if(GPT_MODELS.has(model)) return 'gpt';
   if(DEEPSEEK.has(model)) return 'deepseek';
   if(QWEN.has(model)) return 'qwen';
   return '';
 }
 function getAvatarLabel(model) {
-  if(CLAUDE_MODELS.has(model)) return '✦';
   if(GPT_MODELS.has(model)) return 'G';
   if(DEEPSEEK.has(model)) return 'D';
   if(model==='phi4') return 'φ';
@@ -2049,8 +2038,7 @@ function getModelName(model) {
   if (!model) return 'AI';
   var names = {
     'phi4':'phi4','gemma4:latest':'gemma4','qwen3:30b-a3b':'qwen3 ⭐','deepseek-r1:14b':'DeepSeek-R1',
-    'gpt-oss:20b':'GPT-OSS','llama3.3:latest':'Llama 3.3','mistral-small:latest':'Mistral Small','auto':'Auto',
-    'claude-sonnet-4-6':'Claude Sonnet','claude-opus-4-8':'Claude Opus','claude-haiku-4-5-20251001':'Claude Haiku'
+    'gpt-oss:20b':'GPT-OSS','llama3.3:latest':'Llama 3.3','mistral-small:latest':'Mistral Small','auto':'Auto'
   };
   return names[model] || model;
 }
@@ -2571,7 +2559,7 @@ async function sendMsg() {
   isStreaming=true;
   document.title = '● Thinking… — FraqtoOS Chat';
   sendBtn.innerHTML='&#9632;';
-  sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
+  sendBtn.className='stop-mode';
 
   var startTime=Date.now(), tokenCount=0, srvStats=null;
   var localModel=currentModel;
@@ -2581,7 +2569,7 @@ async function sendMsg() {
   var full='';
 
   var msgs=history.slice();
-  if(systemPrompt&&!isClaude()) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
+  if(systemPrompt) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
 
   try {
     var res=await fetch('/chat',{
@@ -2666,7 +2654,7 @@ async function sendMsg() {
 function finishStream(){
   isStreaming=false; currentAbort=null;
   sendBtn.innerHTML='&#9654;';
-  sendBtn.className=isClaude()?'claude-mode':'';
+  sendBtn.className='';
   sendBtn.disabled=false; input.focus();
   maybeRenderFollowups();
   // Restore title and notify if tab is in background
@@ -3444,7 +3432,6 @@ async function pollHealth() {
       'Ollama: '   + (ollama ? '✓ '+d.ollama_models.length+' models' : '✗ down'),
       'Search: '   + (d.search_ready ? '✓ SearXNG' : '✗ down'),
       'Images: '   + (d.image_ready  ? '✓ ComfyUI' : '✗ down'),
-      'Claude: '   + (d.claude_ready ? '✓ key set' : '✗ no key'),
     ];
     var allCore = ollama; // ollama is the only essential — others are optional
     dot.classList.remove('offline');
@@ -4031,13 +4018,13 @@ sendMsg = async function() {
     addTyping();
     isStreaming = true;
     sendBtn.innerHTML = '&#9632;';
-    sendBtn.className = (isClaude() ? 'claude-mode ' : '') + 'stop-mode';
+    sendBtn.className = 'stop-mode';
     var startTime = Date.now(), tokenCount = 0, localModel = currentModel, full = '';
     if (currentAbort) { try { currentAbort.abort(); } catch(_) {} }
     currentAbort = new AbortController();
     var out = addBotMsg(localModel);
     var msgs = history.slice(0, -1).concat([{role:'user', content:webPrompt}]);
-    if (systemPrompt && !isClaude()) msgs = [{role:'system',content:systemPrompt}].concat(msgs);
+    if (systemPrompt) msgs = [{role:'system',content:systemPrompt}].concat(msgs);
     try {
       var res = await fetch('/chat', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -4085,7 +4072,7 @@ sendMsg = async function() {
     addTyping();
     isStreaming = true;
     sendBtn.innerHTML = '&#9632;';
-    sendBtn.className = (isClaude() ? 'claude-mode ' : '') + 'stop-mode';
+    sendBtn.className = 'stop-mode';
     var vStart = Date.now(), vTok = 0, vModel = currentModel, vFull = '';
     if (currentAbort) { try { currentAbort.abort(); } catch(_) {} }
     currentAbort = new AbortController();
@@ -4093,7 +4080,7 @@ sendMsg = async function() {
     try {
       var vres = await fetch('/ask-vault', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({text: vQuery, model: (vModel && !isClaude()) ? vModel : undefined}),
+        body: JSON.stringify({text: vQuery, model: vModel || undefined}),
         signal: currentAbort.signal
       });
       removeTyping();
@@ -4417,7 +4404,7 @@ sendMsg = async function() {
     addTyping();
     isStreaming=true;
     sendBtn.innerHTML='&#9632;';
-    sendBtn.className=(isClaude()?'claude-mode ':'')+'stop-mode';
+    sendBtn.className='stop-mode';
 
     var startTime=Date.now(), tokenCount=0;
     var localModel2=currentModel;
@@ -4427,7 +4414,7 @@ sendMsg = async function() {
     var {textEl,statsEl}=addBotMsg(displayModel);
     var full='';
     var msgs=history.slice();
-    if(systemPrompt&&!isClaude()) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
+    if(systemPrompt) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
 
     try {
       var body = {model:localModel2, messages:msgs, system:systemPrompt, temperature:currentTemp};
@@ -4788,7 +4775,7 @@ async function openModelModal() {
     if (d.error) throw new Error(d.error);
     updateModelAvailability((d.models || []).map(function(m){ return m.name; }));
     var totalGb = (d.models || []).reduce(function(sum, m){ return sum + (m.size_gb || 0); }, 0);
-    var serviceCount = [d.claude_ready, d.image_ready, d.search_ready].filter(Boolean).length;
+    var serviceCount = [d.image_ready, d.search_ready].filter(Boolean).length;
     var html = '<div class="mm-summary">'
       + '<div class="mm-stat"><div class="mm-stat-label">Installed</div><div class="mm-stat-value">'+(d.count || 0)+' models</div></div>'
       + '<div class="mm-stat"><div class="mm-stat-label">Disk Used</div><div class="mm-stat-value">'+totalGb.toFixed(1)+' GB</div></div>'

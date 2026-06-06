@@ -2,7 +2,7 @@
 """
 FraqtoOS Chat — Tailscale chatbot.
 Access: http://192.168.2.108:8080
-Supports: Ollama models + Claude API + FLUX.1-schnell image generation
+Supports: Ollama models + FLUX.1-schnell image generation
 """
 import asyncio
 import json
@@ -31,22 +31,11 @@ except Exception:
         return False
 
 load_dotenv("/home/work/fraqtoos-chat/.env")
-ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 OLLAMA        = "http://localhost:11434"
 COMFYUI       = "http://localhost:8188"
 STATIC        = "/home/work/fraqtoos-chat/static"
 CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
-CLAUDE_MODELS = {"claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"}
-
-
-def _claude_key() -> str:
-    """Return the Anthropic API key only if it looks like a real API key.
-    Guards against the `.env` placeholder ('your-key-here') and OAuth tokens
-    (sk-ant-oat*/sk-ant-ort*) which don't work with the Messages API — both
-    would otherwise make /health report claude_ready=true while every call 401s."""
-    k = (ANTHROPIC_KEY or "").strip()
-    return k if k.startswith("sk-ant-api") else ""
 
 os.makedirs(CONV_DIR, exist_ok=True)
 
@@ -198,8 +187,6 @@ async def chat(req: Request):
         return StreamingResponse(
             ollama_stream(vision, messages, system, images=images),
             media_type="text/plain")
-    if model in CLAUDE_MODELS:
-        return StreamingResponse(claude_stream(model, messages, system, temperature=min(temperature,1.0)), media_type="text/plain")
     return StreamingResponse(ollama_stream(model, messages, system, images=images, temperature=temperature), media_type="text/plain")
 
 
@@ -296,7 +283,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v18';
+    sw = """const CACHE = 'fraqtoos-v19';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -2086,7 +2073,6 @@ async def health():
     return {
         "status":        "ok",
         "ollama_models": models,
-        "claude_ready":  bool(_claude_key()),
         "image_ready":   _comfyui_ready(),
         "search_ready":  _searx_up(),
     }
@@ -2125,7 +2111,6 @@ async def model_inventory(req: Request):
         "models": models,
         "count": len(models),
         "ollama_url": OLLAMA,
-        "claude_ready": bool(_claude_key()),
         "image_ready": _comfyui_ready(),
         "search_ready": _searx_up(),
     }
@@ -2469,30 +2454,7 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
         yield json.dumps({"error": str(e)}) + "\n"
 
 
-def claude_stream(model, messages, system="", temperature=0.7):
-    key = _claude_key()
-    if not key:
-        hint = ("placeholder" if (ANTHROPIC_KEY or "").strip() and not _claude_key()
-                else "missing")
-        yield json.dumps({"error": f"Claude unavailable ({hint} key). Add a real "
-                          "ANTHROPIC_API_KEY (sk-ant-api…) to "
-                          "/home/work/fraqtoos-chat/.env"}) + "\n"
-        return
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=key)
-        kwargs = dict(model=model, max_tokens=4096, messages=messages, temperature=round(temperature,2))
-        if system:
-            kwargs["system"] = system
-        with client.messages.stream(**kwargs) as stream:
-            for text in stream.text_stream:
-                yield json.dumps({"token": text}) + "\n"
-    except Exception as e:
-        yield json.dumps({"error": str(e)}) + "\n"
-
-
 if __name__ == "__main__":
     print("FraqtoOS Chat → http://192.168.2.108:8080")
-    print(f"Claude: {'✓ loaded' if _claude_key() else '✗ no valid key'}")
     print(f"Images: ComfyUI on {COMFYUI}")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
