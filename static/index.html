@@ -89,7 +89,6 @@ body.light-theme ::selection { background: rgba(0,0,0,.15); }
   box-shadow: none;
   animation: none;
 }
-@keyframes logoPulse { 0%,100% { box-shadow: none; } 50% { box-shadow: none; } }
 .logo-text { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -.02em; }
 .logo-sub  { font-size: 10.5px; color: var(--text3); margin-top: 2px; letter-spacing: .01em; }
 
@@ -208,7 +207,6 @@ body.light-theme ::selection { background: rgba(0,0,0,.15); }
 }
 #status-light.online  { background: var(--green); box-shadow: none; animation: none; }
 #status-light.offline { background: var(--red); box-shadow: none; animation: pulse-red 1s infinite; }
-@keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:.6} }
 @keyframes pulse-red   { 0%,100%{opacity:1} 50%{opacity:.5} }
 
 #health-summary {
@@ -571,7 +569,6 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 #welcome { max-width: 680px; margin: 80px auto 16px; padding: 0 24px; text-align: center; animation: welcomeFade .4s ease-out; }
 #welcome .w-icon { width: 48px; height: 48px; border-radius: 50%; margin: 0 auto 24px; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: none; animation: none; }
 @keyframes welcomeFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes welcomePulse { 0%,100% { opacity: 1; } 50% { opacity: .8; } }
 #welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin-bottom: 8px; letter-spacing: -.03em; line-height: 1.2; }
 #welcome p  { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 32px; max-width: 440px; margin-left: auto; margin-right: auto; }
 .suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; }
@@ -710,13 +707,12 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 
 /* ─── TOAST NOTIFICATIONS ─────────────────── */
 #toast-container { position: fixed; bottom: 40px; right: 16px; z-index: 300; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-.toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 16px; border-radius: 12px; font-size: 13px; box-shadow: 0 8px 28px rgba(0,0,0,.5); display: flex; align-items: center; gap: 10px; pointer-events: auto; max-width: 340px; animation: toastIn .25s cubic-bezier(.34,1.56,.64,1); line-height: 1.4; backdrop-filter: blur(8px); }
+.toast { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 16px; border-radius: 12px; font-size: 13px; box-shadow: 0 8px 28px rgba(0,0,0,.5); display: flex; align-items: center; gap: 10px; pointer-events: auto; max-width: 340px; line-height: 1.4; backdrop-filter: blur(8px); }
 .toast.success { border-color: rgba(34,197,94,.4); box-shadow: 0 8px 28px rgba(34,197,94,.15); }
 .toast.error   { border-color: rgba(239,68,68,.4); box-shadow: 0 8px 28px rgba(239,68,68,.15); }
 .toast.success .t-icon { color: #22c55e; }
 .toast.error   .t-icon { color: #ef4444; }
 .toast .t-icon { font-size: 15px; flex-shrink: 0; }
-@keyframes toastIn  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 @keyframes toastOut { to  {opacity:0;transform:translateY(6px)} }
 
 /* ─── DROP OVERLAY ───────────────────────── */

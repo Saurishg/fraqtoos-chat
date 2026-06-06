@@ -185,7 +185,7 @@ async def chat(req: Request):
             return JSONResponse(
                 {"error": "No vision model installed. Run: ollama pull llava:7b"}, 503)
         return StreamingResponse(
-            ollama_stream(vision, messages, system, images=images),
+            ollama_stream(vision, messages, system, images=images, temperature=temperature),
             media_type="text/plain")
     return StreamingResponse(ollama_stream(model, messages, system, images=images, temperature=temperature), media_type="text/plain")
 
@@ -200,11 +200,6 @@ ROUTING_TARGETS = {
     "general":   "qwen3:30b-a3b",    # beats phi4 on quality, ~57 tok/s
     "quick":     "phi4",             # phi4 still fastest for 1-liners
 }
-
-# Models that should have thinking disabled (they're thinking models but it's slower)
-_NO_THINK_MODELS = {"qwen3:30b-a3b", "qwen3:14b", "qwen3:8b", "qwen3:32b"}
-# Models where thinking improves output (don't disable)
-_THINK_MODELS    = {"deepseek-r1:14b", "deepseek-r1:7b", "deepseek-r1:32b"}
 
 CLASSIFY_PROMPT = """Classify the user's request into ONE category. Reply with only the category word.
 
@@ -283,7 +278,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v19';
+    sw = """const CACHE = 'fraqtoos-v20';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
