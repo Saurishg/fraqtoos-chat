@@ -39,6 +39,15 @@ CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
 CLAUDE_MODELS = {"claude-sonnet-4-6", "claude-opus-4-8", "claude-haiku-4-5-20251001"}
 
+
+def _claude_key() -> str:
+    """Return the Anthropic API key only if it looks like a real API key.
+    Guards against the `.env` placeholder ('your-key-here') and OAuth tokens
+    (sk-ant-oat*/sk-ant-ort*) which don't work with the Messages API — both
+    would otherwise make /health report claude_ready=true while every call 401s."""
+    k = (ANTHROPIC_KEY or "").strip()
+    return k if k.startswith("sk-ant-api") else ""
+
 os.makedirs(CONV_DIR, exist_ok=True)
 
 app = FastAPI()
@@ -287,7 +296,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v17';
+    sw = """const CACHE = 'fraqtoos-v18';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -304,7 +313,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
-    '/status','/logs/',
+    '/status','/logs/','/ask-vault',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
@@ -1249,44 +1258,6 @@ def _bridge_bots() -> str:
     return "\n".join(out)
 
 
-def _bridge_btc() -> str:
-    cache = "/home/work/crypto-trading-bot/btc_1h_cache.csv"
-    out = ["## BTC Live Snapshot"]
-    if os.path.exists(cache):
-        try:
-            import csv
-            with open(cache) as f:
-                rows = list(csv.DictReader(f))
-            if rows:
-                last = rows[-1]
-                price = float(last.get("close", 0))
-                ts    = last.get("timestamp", "")[:16]
-                # simple 24h change: last row vs row 24h ago
-                prev = rows[-25] if len(rows) >= 25 else rows[0]
-                prev_price = float(prev.get("close", price))
-                chg = (price - prev_price) / prev_price * 100 if prev_price else 0
-                sign = "+" if chg >= 0 else ""
-                out.append(f"**Price:** ${price:,.2f}  ({sign}{chg:.2f}% 24h)")
-                out.append(f"**As of:** {ts} UTC")
-                out.append(f"**Candles cached:** {len(rows)}")
-        except Exception as e:
-            out.append(f"Cache read error: {e}")
-    else:
-        out.append("Cache not found — run btc_strategy.py first.")
-    # attach latest backtest summary from ai_context
-    ctx = "/home/work/fraqtoos/logs/ai_context.json"
-    if os.path.exists(ctx):
-        try:
-            with open(ctx) as _f: d = json.load(_f)
-            today = sorted(d.keys())[-1]
-            btc_summary = d[today].get("BTC Strategy Bot", "")
-            if btc_summary:
-                out.append(f"\n**Last backtest:** {btc_summary}")
-        except Exception:
-            pass
-    return "\n".join(out)
-
-
 def _bridge_portfolio() -> str:
     ctx = "/home/work/fraqtoos/logs/ai_context.json"
     if not os.path.exists(ctx):
@@ -1307,7 +1278,6 @@ def _bridge_help() -> str:
             "- `/watchdog` — bot health + AI diagnosis\n"
             "- `/digest` — today's per-bot summaries\n"
             "- `/bots` — orchestrator state\n"
-            "- `/btc` — Bitcoin price + backtest summary\n"
             "- `/portfolio` — portfolio P&L from 5Paisa + Kite\n"
             "- `/help` — this message")
 
@@ -1316,7 +1286,6 @@ _BRIDGE = {
     "watchdog":   _bridge_watchdog,
     "digest":     _bridge_digest,
     "bots":       _bridge_bots,
-    "btc":        _bridge_btc,
     "portfolio":  _bridge_portfolio,
     "help":       _bridge_help,
 }
@@ -1390,6 +1359,143 @@ def _nomic_available() -> bool:
         return any(EMBED_MODEL in m["name"] for m in tags.get("models", []))
     except Exception:
         return False
+
+
+# ─── Obsidian vault RAG ───────────────────────────────────────────────
+# Answers grounded in the user's canonical Obsidian vault (see CLAUDE.md /
+# memory). Builds a small cached embedding index over the .md notes and
+# retrieves the most relevant chunks to ground a local-model answer.
+VAULT_DIR        = "/home/work/obsidian-vault"
+VAULT_INDEX_FILE = "/home/work/fraqtoos-chat/vault_index.json"
+_vault_lock      = asyncio.Lock()
+
+
+def _vault_files() -> list:
+    out = []
+    for root, dirs, files in os.walk(VAULT_DIR):
+        dirs[:] = [d for d in dirs if d not in (".git", ".obsidian", "Templates")]
+        for fn in files:
+            if fn.endswith(".md"):
+                out.append(os.path.join(root, fn))
+    return sorted(out)
+
+
+def _chunk_md(text: str, size: int = 1000, overlap: int = 150) -> list:
+    text = text.strip()
+    if not text:
+        return []
+    if len(text) <= size:
+        return [text]
+    chunks, i = [], 0
+    while i < len(text):
+        chunks.append(text[i:i + size])
+        i += size - overlap
+    return chunks
+
+
+def _build_vault_index(force: bool = False) -> dict:
+    """Return {'sig','chunks':[{path,text,emb}], 'built','files'}; rebuild only
+    when the set of files or their mtimes changed (or force=True)."""
+    files = _vault_files()
+    sig = json.dumps([[os.path.relpath(p, VAULT_DIR), int(os.path.getmtime(p))] for p in files])
+    if not force:
+        try:
+            with open(VAULT_INDEX_FILE) as f:
+                cached = json.load(f)
+            if cached.get("sig") == sig:
+                return cached
+        except Exception:
+            pass
+    chunks = []
+    for p in files:
+        try:
+            with open(p, encoding="utf-8", errors="ignore") as f:
+                txt = f.read()
+        except Exception:
+            continue
+        rel = os.path.relpath(p, VAULT_DIR)
+        for ch in _chunk_md(txt):
+            emb = _embed(ch)
+            if emb:
+                chunks.append({"path": rel, "text": ch, "emb": emb})
+    idx = {"sig": sig, "chunks": chunks, "built": time.time(), "files": len(files)}
+    try:
+        tmp = VAULT_INDEX_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(idx, f)
+        os.replace(tmp, VAULT_INDEX_FILE)
+    except Exception:
+        pass
+    return idx
+
+
+def _vault_retrieve(query: str, k: int = 6) -> list:
+    idx = _build_vault_index()
+    qe = _embed(query)
+    if not qe:
+        return []
+    scored = [(_cosine(qe, c["emb"]), c) for c in idx.get("chunks", [])]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [{"path": c["path"], "text": c["text"], "score": round(s, 3)}
+            for s, c in scored[:k] if s > 0.2]
+
+
+@app.get("/ask-vault/status")
+async def ask_vault_status(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    try:
+        with open(VAULT_INDEX_FILE) as f:
+            idx = json.load(f)
+        built, chunks = idx.get("built", 0), len(idx.get("chunks", []))
+    except Exception:
+        built, chunks = 0, 0
+    return {"nomic_ready": _nomic_available(), "vault_files": len(_vault_files()),
+            "indexed_chunks": chunks, "built": built}
+
+
+@app.post("/ask-vault/reindex")
+async def ask_vault_reindex(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "imagine"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    if not _nomic_available():
+        return JSONResponse({"error": f"{EMBED_MODEL} not installed"}, 503)
+    loop = asyncio.get_running_loop()
+    async with _vault_lock:
+        idx = await loop.run_in_executor(None, _build_vault_index, True)
+    return {"ok": True, "files": idx.get("files", 0), "chunks": len(idx.get("chunks", []))}
+
+
+@app.post("/ask-vault")
+async def ask_vault(req: Request):
+    """RAG over the Obsidian vault: retrieve top notes, answer with a local model."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "chat"):
+        return JSONResponse({"error": "rate limit: 20 req/min"}, 429)
+    data, err = await _safe_json(req)
+    if err:
+        return err
+    q = (data.get("text") or data.get("query") or "").strip()
+    if not q:
+        return JSONResponse({"error": "query required"}, 400)
+    if not _nomic_available():
+        return JSONResponse({"error": f"{EMBED_MODEL} not installed (ollama pull {EMBED_MODEL})"}, 503)
+    model = data.get("model") or ROUTING_TARGETS["general"]
+    loop = asyncio.get_running_loop()
+    async with _vault_lock:
+        hits = await loop.run_in_executor(None, _vault_retrieve, q, 6)
+    if not hits:
+        return JSONResponse({"error": "no relevant vault notes found"}, 404)
+    context = "\n\n".join(f"[{h['path']}]\n{h['text']}" for h in hits)
+    system = ("You are answering from the user's personal Obsidian vault. "
+              "Use ONLY the notes below. Cite the [path] of every note you draw on. "
+              "If the notes don't contain the answer, say so plainly.\n\n"
+              "=== VAULT NOTES ===\n" + context)
+    messages = [{"role": "user", "content": q}]
+    return StreamingResponse(ollama_stream(model, messages, system),
+                             media_type="text/plain")
 
 
 # ─── Conversation file cache (avoids re-reading unchanged files on every search) ──
@@ -1629,6 +1735,43 @@ async def conv_get(conv_id: str, req: Request):
             return json.load(f)
     except Exception:
         return JSONResponse({"error": "conversation corrupted"}, 500)
+
+
+@app.get("/conversations/{conv_id}/export")
+async def conv_export(conv_id: str, req: Request):
+    """Download a conversation as a Markdown file."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    try:
+        path = _conv_path(conv_id)
+    except ValueError:
+        return JSONResponse({"error": "invalid id"}, 400)
+    if not os.path.exists(path):
+        return JSONResponse({"error": "not found"}, 404)
+    try:
+        with open(path) as f:
+            c = json.load(f)
+    except Exception:
+        return JSONResponse({"error": "conversation corrupted"}, 500)
+
+    title = c.get("title", "Untitled")
+    lines = [f"# {title}", "",
+             f"- **Model:** {c.get('model', '')}",
+             f"- **Messages:** {len(c.get('history', []))}",
+             f"- **Exported:** {time.strftime('%Y-%m-%d %H:%M:%S')}", "", "---", ""]
+    for m in c.get("history", []):
+        role = (m.get("role") or "?").capitalize()
+        who = {"User": "🧑 You", "Assistant": "🤖 Assistant"}.get(role, role)
+        lines.append(f"### {who}")
+        lines.append("")
+        lines.append((m.get("content") or "").rstrip())
+        lines.append("")
+    md = "\n".join(lines)
+    safe = "".join(ch for ch in (title or "conversation") if ch.isalnum() or ch in " _-").strip()[:48] or "conversation"
+    return Response(
+        content=md, media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.md"'})
 
 
 @app.post("/conversations")
@@ -1943,7 +2086,7 @@ async def health():
     return {
         "status":        "ok",
         "ollama_models": models,
-        "claude_ready":  bool(ANTHROPIC_KEY),
+        "claude_ready":  bool(_claude_key()),
         "image_ready":   _comfyui_ready(),
         "search_ready":  _searx_up(),
     }
@@ -1982,7 +2125,7 @@ async def model_inventory(req: Request):
         "models": models,
         "count": len(models),
         "ollama_url": OLLAMA,
-        "claude_ready": bool(ANTHROPIC_KEY),
+        "claude_ready": bool(_claude_key()),
         "image_ready": _comfyui_ready(),
         "search_ready": _searx_up(),
     }
@@ -2125,7 +2268,7 @@ async def quick_status(req: Request):
 @app.get("/logs/{service}")
 async def tail_service_log(service: str, req: Request, lines: int = 60):
     lines = max(1, min(lines, 200))
-    """Tail log lines for a named service. service = orchestrator|crypto|chia|portfolio|btc|watcher|fixes|watchdog"""
+    """Tail log lines for a named service. service = orchestrator|chia|portfolio|watcher|fixes|watchdog"""
     ip = req.client.host if req.client else "unknown"
     if not _rate_ok(ip, "conv"):
         return JSONResponse({"error": "rate limit"}, 429)
@@ -2143,7 +2286,6 @@ async def tail_service_log(service: str, req: Request, lines: int = 60):
         "orchestrator": "/home/work/fraqtoos/logs/fraqtoos.log",
         "fraqtoos":     "/home/work/fraqtoos/logs/fraqtoos.log",
         "portfolio":    "/home/work/portfolio_bot/logs/portfolio.log",
-        "btc":          "/home/work/fraqtoos/logs/fraqtoos.log",
         "chia":         "/home/work/.chia/mainnet/log/debug.log",
         "watcher":      "/home/work/fraqtoos/logs/chia_ai_latest.json",
         "fixes":        "/home/work/fraqtoos/logs/chia_ai_fixes.log",
@@ -2328,12 +2470,17 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
 
 
 def claude_stream(model, messages, system="", temperature=0.7):
-    if not ANTHROPIC_KEY:
-        yield json.dumps({"error": "Add ANTHROPIC_API_KEY to /home/work/fraqtoos-chat/.env"}) + "\n"
+    key = _claude_key()
+    if not key:
+        hint = ("placeholder" if (ANTHROPIC_KEY or "").strip() and not _claude_key()
+                else "missing")
+        yield json.dumps({"error": f"Claude unavailable ({hint} key). Add a real "
+                          "ANTHROPIC_API_KEY (sk-ant-api…) to "
+                          "/home/work/fraqtoos-chat/.env"}) + "\n"
         return
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+        client = anthropic.Anthropic(api_key=key)
         kwargs = dict(model=model, max_tokens=4096, messages=messages, temperature=round(temperature,2))
         if system:
             kwargs["system"] = system
@@ -2346,6 +2493,6 @@ def claude_stream(model, messages, system="", temperature=0.7):
 
 if __name__ == "__main__":
     print("FraqtoOS Chat → http://192.168.2.108:8080")
-    print(f"Claude: {'✓ loaded' if ANTHROPIC_KEY else '✗ no key'}")
+    print(f"Claude: {'✓ loaded' if _claude_key() else '✗ no valid key'}")
     print(f"Images: ComfyUI on {COMFYUI}")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
