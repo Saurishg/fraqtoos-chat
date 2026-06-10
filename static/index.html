@@ -1023,6 +1023,9 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
 .think-body { padding: 4px 12px 10px; color: var(--text3); white-space: pre-wrap;
   max-height: 220px; overflow-y: auto; line-height: 1.55;
   border-top: 1px dashed var(--border); font-style: italic; }
+/* Cold-load hint (keep_alive=0 → model reloads into VRAM on every turn) */
+.load-hint { margin-top: 8px; font-size: 12px; color: var(--text3);
+  animation: welcomeFade .3s ease-out; }
 </style>
 </head>
 <body>
@@ -2273,6 +2276,10 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.key === 'f') {
     e.preventDefault(); toggleChatSearch(); return;
   }
+  // Ctrl+K → command palette (the topbar button always advertised this)
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'k') {
+    e.preventDefault(); openCommandPalette(); return;
+  }
 });
 
 var _undoSnapshot = null;
@@ -2617,8 +2624,21 @@ async function sendMsg() {
   currentAbort=new AbortController();
   var {textEl,statsEl}=addBotMsg(localModel);
   var full='';
+  // Waiting feedback: keep_alive=0 means every turn cold-loads the model into
+  // VRAM (can take 5–60s+) — show dots, then explain the wait.
+  var gotFirst=false;
+  var loadHintTimer=setTimeout(function(){
+    if(gotFirst) return;
+    textEl.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>'+
+      '<div class="load-hint">⏳ Loading '+escHtml(getModelName(localModel))+' into VRAM…</div>';
+  },3500);
+  function firstSignal(){
+    if(gotFirst) return;
+    gotFirst=true; clearTimeout(loadHintTimer); textEl.innerHTML='';
+  }
   var thinkTxt='', thinkEl=null, thinkStart=0;
   function appendThink(t){
+    firstSignal();
     if(!thinkEl){
       thinkStart=Date.now();
       thinkEl=document.createElement('details');
@@ -2627,10 +2647,13 @@ async function sendMsg() {
       textEl.parentNode.insertBefore(thinkEl,textEl);
     }
     thinkTxt+=t;
+    thinkEl.querySelector('summary').textContent=
+      '💭 Thinking… '+((Date.now()-thinkStart)/1000).toFixed(0)+'s';
     var body=thinkEl.querySelector('.think-body');
     body.textContent=thinkTxt; body.scrollTop=body.scrollHeight; scrollBottom();
   }
   function closeThink(){
+    clearTimeout(loadHintTimer);
     if(!thinkEl) return;
     thinkEl.open=false;
     thinkEl.querySelector('summary').textContent=
@@ -2661,6 +2684,7 @@ async function sendMsg() {
         }
       } catch(_) {}
       try{ if(res.body) await res.body.cancel(); }catch(_){}
+      firstSignal();
       showErrorWithRetry(textEl, errText);
       textEl._rawText = errText;
       history.push({role:'assistant', content:errText, model:localModel});
@@ -2668,7 +2692,7 @@ async function sendMsg() {
     }
     var reader=res.body.getReader(),decoder=new TextDecoder();
     var buf='';
-    textEl.innerHTML='';
+    if(!gotFirst) textEl.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';
     while(true){
       var r=await reader.read(); if(r.done)break;
       buf += decoder.decode(r.value, {stream:true});
@@ -2679,9 +2703,9 @@ async function sendMsg() {
         try{
           var d=JSON.parse(line);
           if(d.thinking){appendThink(d.thinking);}
-          if(d.token){if(!full)closeThink();full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
+          if(d.token){if(!full){firstSignal();closeThink();}full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
           if(d.stats){srvStats=d.stats;}
-          if(d.error){textEl.textContent='Error: '+d.error;}
+          if(d.error){firstSignal();textEl.textContent='Error: '+d.error;}
         }catch(e){}
       }
     }
@@ -2691,9 +2715,9 @@ async function sendMsg() {
       try {
         var d=JSON.parse(tail);
         if(d.thinking){appendThink(d.thinking);}
-        if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
+        if(d.token){if(!full){firstSignal();closeThink();}full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
         if(d.stats){srvStats=d.stats;}
-        if(d.error){textEl.textContent='Error: '+d.error;}
+        if(d.error){firstSignal();textEl.textContent='Error: '+d.error;}
       }catch(e){}
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
@@ -4660,7 +4684,7 @@ sendMsg = async function() {
         try {
           var d=JSON.parse(tail);
           if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
-          if(d.error){textEl.textContent='Error: '+d.error;}
+          if(d.error){firstSignal();textEl.textContent='Error: '+d.error;}
         }catch(e){}
       }
       var elapsed=((Date.now()-startTime)/1000).toFixed(1);
