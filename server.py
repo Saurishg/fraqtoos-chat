@@ -37,6 +37,17 @@ STATIC        = "/home/work/fraqtoos-chat/static"
 CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
 
+# ── Odysseus Deep Research integration ──────────────────────────────
+# fraqtoos-chat drives Odysseus's Deep Research API (login session cookie)
+# and streams the report back into chat. See /deep-research below.
+ODYSSEUS_URL   = os.getenv("ODYSSEUS_URL", "http://localhost:7000").rstrip("/")
+ODYSSEUS_USER  = os.getenv("ODYSSEUS_USER", "admin")
+ODYSSEUS_PASS  = os.getenv("ODYSSEUS_PASS", "")
+# Default research model. keep_alive=0 on the host means big models cold-load
+# and blow the research probe's short timeout — phi4 cold-loads in ~8s and is
+# reliable. Override via ODYSSEUS_RESEARCH_MODEL.
+ODYSSEUS_RESEARCH_MODEL = os.getenv("ODYSSEUS_RESEARCH_MODEL", "phi4:latest")
+
 os.makedirs(CONV_DIR, exist_ok=True)
 
 app = FastAPI()
@@ -85,39 +96,266 @@ def _rate_ok(ip: str, bucket: str) -> bool:
     return True
 
 
+# ── Odysseus Deep Research client ───────────────────────────────────
+_odysseus = {"session": None}  # cached requests.Session with auth cookie
+
+
+def _odysseus_login():
+    """Return an authenticated requests.Session against Odysseus, logging in
+    (and caching) on first use. Raises RuntimeError on failure."""
+    s = _odysseus["session"]
+    if s is not None:
+        return s
+    if not ODYSSEUS_PASS:
+        raise RuntimeError("ODYSSEUS_PASS not set in fraqtoos-chat/.env")
+    s = requests.Session()
+    r = s.post(f"{ODYSSEUS_URL}/api/auth/login",
+               json={"username": ODYSSEUS_USER, "password": ODYSSEUS_PASS, "remember": True},
+               timeout=15)
+    if r.status_code != 200 or not r.json().get("ok"):
+        raise RuntimeError(f"Odysseus login failed (HTTP {r.status_code})")
+    _odysseus["session"] = s
+    return s
+
+
+def _odysseus_request(method, path, **kw):
+    """Authenticated Odysseus call that re-logs in once on 401 (expired cookie)."""
+    s = _odysseus_login()
+    url = f"{ODYSSEUS_URL}{path}"
+    r = s.request(method, url, timeout=kw.pop("timeout", 30), **kw)
+    if r.status_code == 401:
+        _odysseus["session"] = None
+        s = _odysseus_login()
+        r = s.request(method, url, timeout=30, **kw)
+    return r
+
+
+def _odysseus_pick_endpoint(model):
+    """Find an enabled Odysseus model endpoint that serves `model` (falls back
+    to the first enabled endpoint). Returns (endpoint_id, model) or (None, model)."""
+    r = _odysseus_request("GET", "/api/model-endpoints")
+    if r.status_code != 200:
+        return None, model
+    eps = r.json() or []
+    enabled = [e for e in eps if e.get("is_enabled", True)]
+    for e in enabled:
+        if model in (e.get("models") or []):
+            return e.get("id"), model
+    if enabled:  # model not found anywhere — use first endpoint's first model
+        e = enabled[0]
+        ms = e.get("models") or []
+        return e.get("id"), (model if model in ms else (ms[0] if ms else model))
+    return None, model
+
+
+def _deep_research_stream(query, model, max_rounds, max_time):
+    """Generator yielding NDJSON lines: {progress}, then {report,sources}, or {error}."""
+    def emit(obj):
+        return json.dumps(obj) + "\n"
+    try:
+        ep_id, model = _odysseus_pick_endpoint(model)
+        body = {"query": query, "max_rounds": max_rounds, "max_time": max_time, "model": model}
+        if ep_id:
+            body["endpoint_id"] = ep_id
+        r = _odysseus_request("POST", "/api/research/start", json=body)
+        if r.status_code != 200:
+            detail = ""
+            try: detail = r.json().get("detail", "")
+            except Exception: detail = r.text[:160]
+            yield emit({"error": f"Could not start research: {detail or ('HTTP '+str(r.status_code))}"})
+            return
+        sid = r.json().get("session_id")
+        if not sid:
+            yield emit({"error": "Odysseus did not return a research session id"})
+            return
+        yield emit({"progress": "🧭 Planning research…"})
+
+        # Poll status until terminal (research can run several minutes).
+        last = None
+        deadline = time.time() + max_time + 120
+        while time.time() < deadline:
+            sr = _odysseus_request("GET", f"/api/research/status/{sid}")
+            if sr.status_code != 200:
+                time.sleep(2); continue
+            st = sr.json() or {}
+            status = st.get("status", "")
+            prog = st.get("progress") or {}
+            phase = prog.get("phase", "")
+            rnd = prog.get("round", "")
+            label = {
+                "planning": "🧭 Planning research…",
+                "searching": f"🔎 Searching the web (round {rnd})…",
+                "reading":   "📖 Reading sources…",
+                "analyzing": f"🧠 Analyzing findings (round {rnd})…",
+                "writing":   "✍️ Writing the report…",
+            }.get(phase, f"⏳ {phase or 'working'}…")
+            if label != last:
+                last = label
+                yield emit({"progress": label})
+            if status and status.lower() in ("done", "complete", "completed", "error"):
+                if status.lower() == "error":
+                    yield emit({"error": "Research failed on the Odysseus side. Try again or a different model."})
+                    return
+                break
+            time.sleep(3)
+        else:
+            yield emit({"error": "Research timed out."})
+            return
+
+        # Fetch the final report.
+        pr = _odysseus_request("POST", f"/api/research/result-peek/{sid}")
+        if pr.status_code != 200:
+            yield emit({"error": "Research finished but the report could not be retrieved."})
+            return
+        d = pr.json() or {}
+        report = (d.get("result") or "").strip()
+        sources = d.get("sources") or []
+        if not report:
+            yield emit({"error": "Research produced an empty report."})
+            return
+        yield emit({"report": report, "sources": len(sources),
+                    "report_url": f"{ODYSSEUS_URL}/api/research/report/{sid}"})
+    except Exception as e:
+        yield emit({"error": f"Deep research error: {e}"})
+
+
+@app.post("/deep-research")
+async def deep_research(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "search"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    data, err = await _safe_json(req)
+    if err:
+        return err
+    query = (data.get("query") or "").strip()
+    if not query:
+        return JSONResponse({"error": "query required"}, 400)
+    model = data.get("model") or ODYSSEUS_RESEARCH_MODEL
+    try:
+        max_rounds = max(0, min(20, int(data.get("max_rounds", 3))))
+    except (TypeError, ValueError):
+        max_rounds = 3
+    try:
+        max_time = max(60, min(1800, int(data.get("max_time", 600))))
+    except (TypeError, ValueError):
+        max_time = 600
+    return StreamingResponse(
+        _deep_research_stream(query, model, max_rounds, max_time),
+        media_type="text/plain",
+    )
+
+
+# ── Odysseus memory + documents (shared via login session) ──────────
+def _odysseus_memory_add(text, category="fact"):
+    """Mirror a fact into Odysseus's vector memory. Best-effort; returns bool."""
+    try:
+        r = _odysseus_request("POST", "/api/memory/add",
+                              json={"text": text[:500], "category": category, "source": "fraqtoos-chat"})
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def _odysseus_memory_search(query):
+    """Semantic search Odysseus memory. Returns list of {text/category} dicts."""
+    r = _odysseus_request("POST", "/api/memory/search", data={"query": query})
+    if r.status_code != 200:
+        return []
+    return (r.json() or {}).get("memories", []) or []
+
+
+def _odysseus_doc_create(title, content, language="markdown"):
+    """Create an Odysseus library document. Returns (doc_id, error)."""
+    r = _odysseus_request("POST", "/api/document",
+                          json={"title": title[:200], "content": content, "language": language})
+    if r.status_code != 200:
+        detail = ""
+        try: detail = r.json().get("detail", "")
+        except Exception: detail = r.text[:160]
+        return None, (detail or f"HTTP {r.status_code}")
+    return (r.json() or {}).get("id"), None
+
+
+@app.post("/odysseus-memory/search")
+async def odysseus_memory_search(req: Request):
+    data, err = await _safe_json(req)
+    if err:
+        return err
+    query = (data.get("query") or "").strip()
+    if not query:
+        return JSONResponse({"error": "query required"}, 400)
+    loop = asyncio.get_running_loop()
+    try:
+        mems = await loop.run_in_executor(None, _odysseus_memory_search, query)
+    except Exception as e:
+        return JSONResponse({"error": f"Odysseus memory error: {e}"}, 502)
+    out = []
+    for m in mems[:20]:
+        out.append({"text": m.get("text") or m.get("content") or "",
+                    "category": (m.get("categories") or [m.get("category", "")])[0] if isinstance(m.get("categories"), list) else m.get("category", "")})
+    return {"memories": out, "total": len(out)}
+
+
+@app.post("/save-document")
+async def save_document(req: Request):
+    data, err = await _safe_json(req)
+    if err:
+        return err
+    content = (data.get("content") or "").strip()
+    if not content:
+        return JSONResponse({"error": "content required"}, 400)
+    title = (data.get("title") or "").strip() or ("Note " + time.strftime("%Y-%m-%d %H:%M"))
+    language = data.get("language") or "markdown"
+    loop = asyncio.get_running_loop()
+    try:
+        doc_id, derr = await loop.run_in_executor(None, _odysseus_doc_create, title, content, language)
+    except Exception as e:
+        return JSONResponse({"error": f"Odysseus document error: {e}"}, 502)
+    if not doc_id:
+        return JSONResponse({"error": derr or "could not create document"}, 502)
+    return {"id": doc_id, "title": title, "url": f"{ODYSSEUS_URL}/?doc={doc_id}"}
+
+
 @app.get("/")
 async def index():
     return FileResponse(f"{STATIC}/index.html")
 
 
-# Substrings that identify a vision-capable model regardless of tag/version.
-_VISION_KEYWORDS = ("llava", "vision", "-vl", "vl-", "bakllava", "moondream",
-                    "minicpm-v", "gemma3", "qwen2-vl", "qwen2.5-vl")
 # Preferred order when several vision models are installed.
 _VISION_PREFERENCE = ("llava", "llama3.2-vision", "qwen2.5-vl", "qwen2-vl",
-                      "minicpm-v", "bakllava", "moondream")
+                      "gemma4", "minicpm-v", "bakllava", "moondream")
+# capabilities per model name, so image uploads don't re-hit /api/show
+_caps_cache: dict[str, list] = {}
+
+
+def _model_caps(name: str) -> list:
+    """Ollama capabilities for a model (cached): completion/tools/vision/thinking."""
+    if name not in _caps_cache:
+        try:
+            r = requests.post(f"{OLLAMA}/api/show", json={"model": name}, timeout=5)
+            _caps_cache[name] = r.json().get("capabilities", []) if r.ok else []
+        except Exception:
+            return []  # transient — don't cache the failure
+    return _caps_cache[name]
 
 
 def _has_vision_model() -> str:
     """Return the name of an installed vision-capable model, or empty string.
-    Detects any model whose name contains a known vision keyword, so new tags
-    (qwen2.5-vl, minicpm-v, …) are picked up without a code change."""
+    Uses Ollama's real capability flags instead of name guessing, so models
+    like gemma4 (vision-capable, no 'vl' in the name) are picked up."""
     try:
         r = requests.get(f"{OLLAMA}/api/tags", timeout=3)
         installed = [m["name"] for m in r.json().get("models", [])]
-        vision = [n for n in installed
-                  if any(k in n.lower() for k in _VISION_KEYWORDS)]
-        if not vision:
-            return ""
-        # Prefer well-known families, else just take the first match.
-        for pref in _VISION_PREFERENCE:
-            for n in vision:
-                if pref in n.lower():
-                    return n
-        return vision[0]
     except Exception:
-        pass
-    return ""
+        return ""
+    vision = [n for n in installed if "vision" in _model_caps(n)]
+    if not vision:
+        return ""
+    for pref in _VISION_PREFERENCE:
+        for n in vision:
+            if pref in n.lower():
+                return n
+    return vision[0]
 
 
 def _trim_history(messages: list, system: str, keep_first: int = 2, keep_last: int = 10) -> tuple[list, str]:
@@ -192,13 +430,13 @@ async def chat(req: Request):
 
 # ─── Smart auto-routing ──────────────────────────────────────────────
 ROUTING_TARGETS = {
-    "code":      "deepseek-r1:14b",  # reasoning model, thinking ON
-    "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON
-    "finance":   "qwen3:30b-a3b",    # MoE, fast on finance with think=False
-    "copy":      "qwen3:30b-a3b",    # replaces gemma4 (broken thinking model)
-    "long":      "qwen3:30b-a3b",    # replaces llama4 (times out)
-    "general":   "qwen3:30b-a3b",    # beats phi4 on quality, ~57 tok/s
-    "quick":     "phi4",             # phi4 still fastest for 1-liners
+    "code":      "deepseek-r1:14b",  # reasoning model, thinking ON (streamed to UI)
+    "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON (streamed to UI)
+    "finance":   "qwen3:30b-a3b",    # MoE depth, thinking ON (worth the wait here)
+    "copy":      "gemma4:latest",    # back on gemma4 since the Ollama 0.30.7 fix
+    "long":      "qwen3:30b-a3b",    # replaces llama4 (removed)
+    "general":   "gemma4:latest",    # fast + clean (qwen3 thinks ~90s even for hello)
+    "quick":     "phi4:latest",      # phi4 still fastest for 1-liners
 }
 
 CLASSIFY_PROMPT = """Classify the user's request into ONE category. Reply with only the category word.
@@ -209,6 +447,7 @@ Categories:
 - finance: stocks, crypto, trading, accounting, market analytics
 - copy: marketing copy, descriptions, emails, polish
 - long: needs >500 word output (reports, full essays, deep research)
+- quick: one-liners — greetings, yes/no, single facts, conversions
 - general: general Q&A, simple chat, summaries, quick lookups
 
 Request: {q}
@@ -246,7 +485,7 @@ async def classify(req: Request):
             installed = {m["name"] for m in tags.get("models", [])}
             target = ROUTING_TARGETS[cat]
             if target not in installed:
-                for fb in ("qwen3:30b-a3b", "qwen3:14b", "phi4:latest", "phi4"):
+                for fb in ("qwen3:30b-a3b", "gemma4:latest", "phi4:latest"):
                     if fb in installed:
                         target = fb; break
         except Exception:
@@ -1853,6 +2092,14 @@ async def memory_add(req: Request):
         new_id = f"m_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}"
         items.append({"id": new_id, "fact": fact, "ts": int(time.time())})
         _save_memory(items)
+    # Shared memory: best-effort mirror into Odysseus's vector store so both
+    # apps recall the same facts. Non-blocking — never fails the local save.
+    if ODYSSEUS_PASS:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.run_in_executor(None, _odysseus_memory_add, fact, "fact")
+        except Exception:
+            pass
     return {"id": new_id, "fact": fact, "count": len(items)}
 
 
@@ -2408,6 +2655,13 @@ def _edit_image(image_bytes: bytes, image_filename: str, prompt: str, steps: int
     raise TimeoutError("Image edit timed out")
 
 
+# Models whose thinking we suppress for snappy chat (they support think=false).
+# qwen3 is NOT here: with think=false it leaks reasoning prose into content —
+# with thinking ON its content stays clean and the thinking tokens stream to
+# the UI as {"thinking": ...} lines (same as deepseek-r1 / gpt-oss).
+_NO_THINK_MODELS = ("gemma4",)
+
+
 def ollama_stream(model, messages, system="", images=None, temperature=0.7):
     chat_msgs = [m for m in messages if m["role"] in ("user", "assistant")]
     if images and chat_msgs:
@@ -2417,20 +2671,24 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
                 break
     if system:
         chat_msgs = [{"role": "system", "content": system}] + chat_msgs
-    options = {"temperature": temperature, "num_predict": 2000}
-    # Disable thinking for qwen3 — 5x faster with no quality loss for chat
-    if any(model.startswith(m) for m in ("qwen3", "qwen3:")):
-        options["think"] = False
     payload = {
         "model": model, "messages": chat_msgs, "stream": True,
-        "options": options,
+        "options": {"temperature": temperature, "num_predict": 2000},
     }
+    # "think" is a top-level chat param, NOT an option — inside options it is
+    # silently ignored (the old bug: qwen3 was never actually skipping thinking).
+    if any(model.startswith(m) for m in _NO_THINK_MODELS):
+        payload["think"] = False
     try:
         r = requests.post(f"{OLLAMA}/api/chat", json=payload, stream=True, timeout=300)
         for line in r.iter_lines():
             if line:
                 d = json.loads(line)
-                token = d.get("message", {}).get("content", "")
+                msg = d.get("message", {})
+                thinking = msg.get("thinking", "")
+                if thinking:
+                    yield json.dumps({"thinking": thinking}) + "\n"
+                token = msg.get("content", "")
                 if token:
                     yield json.dumps({"token": token}) + "\n"
                 if d.get("done"):

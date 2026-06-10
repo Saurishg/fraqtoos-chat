@@ -1012,6 +1012,17 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
 .web-source { display: block; color: var(--text2); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 0; }
 .web-source:hover { color: var(--text); text-decoration: underline; }
 @media (max-width: 768px) { .compare-container { grid-template-columns: 1fr; } }
+/* Live model thinking (deepseek-r1 / gpt-oss) — collapsible above the answer */
+.think-block { margin: 0 0 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); font-size: 12.5px; overflow: hidden; }
+.think-block summary { cursor: pointer; padding: 7px 12px; color: var(--text3);
+  user-select: none; list-style: none; }
+.think-block summary::-webkit-details-marker { display: none; }
+.think-block summary::before { content: '▸ '; }
+.think-block[open] summary::before { content: '▾ '; }
+.think-body { padding: 4px 12px 10px; color: var(--text3); white-space: pre-wrap;
+  max-height: 220px; overflow-y: auto; line-height: 1.55;
+  border-top: 1px dashed var(--border); font-style: italic; }
 </style>
 </head>
 <body>
@@ -1032,7 +1043,7 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
     <div class="sb-label">Auto Mode</div>
     <button class="model-btn auto-model active" data-model="auto" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → qwen3/DeepSeek/phi4</span></div>
+      <div class="model-info"><span class="model-name">Auto ✨</span><span class="model-size">phi4 classifies → gemma4/qwen3/DeepSeek/phi4</span></div>
     </button>
   </div>
 
@@ -1056,7 +1067,7 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
     </button>
     <button class="model-btn" data-model="gemma4:latest" onclick="selectModel(this)">
       <span class="model-dot"></span>
-      <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Thinking only</span></div>
+      <div class="model-info"><span class="model-name">gemma4</span><span class="model-size">Google · 9.6 GB · Vision + copy</span></div>
     </button>
     <button class="model-btn" data-model="llama3.3:latest" onclick="selectModel(this)">
       <span class="model-dot"></span>
@@ -1894,27 +1905,44 @@ async function execShortcut(name) {
 
   if (name === 'gpu') {
     _startBubble();
-    eb.textEl.innerHTML = '<em style="color:var(--text3)">🖥 Reading GPU…</em>';
+    eb.textEl.innerHTML = '<em style="color:var(--text3)">🖥 Reading GPUs…</em>';
+    // Fetch BOTH GPUs in parallel: NVIDIA (/gpu) + AMD ROCm (/gpu-amd).
+    var nv = fetch('/gpu').then(function(r){return r.json();}).catch(function(e){return {error:e.message};});
+    var amd = fetch('/gpu-amd').then(function(r){return r.json();}).catch(function(e){return {error:e.message};});
     try {
-      var res = await fetch('/gpu'); var d = await res.json();
-      if (d.error) {
-        eb.textEl.textContent = 'GPU error: ' + d.error;
-        history.push({role:'assistant', content: 'GPU error: ' + d.error});
-      } else {
-        var pct = Math.round(d.vram_used / d.vram_total * 100);
-        var lines = ['**GPU Status** (' + d.gpu_count + ' GPU' + (d.gpu_count>1?'s':'') + ')'];
-        lines.push('- VRAM: **' + d.vram_used + ' / ' + d.vram_total + ' MiB** (' + pct + '%)');
-        lines.push('- Utilization: **' + d.gpu_util + '%**');
-        lines.push('- Temp: **' + d.temp + '°C**');
-        if (d.gpus && d.gpus.length > 1) {
-          d.gpus.forEach(function(g, i) {
-            lines.push('- GPU' + i + ': ' + g.vram_used + '/' + g.vram_total + ' MiB, ' + g.gpu_util + '%, ' + g.temp + '°C');
-          });
+      var results = await Promise.all([nv, amd]);
+      var dNv = results[0], dAmd = results[1];
+      var lines = ['**GPU Status**', ''];
+
+      // NVIDIA
+      lines.push('**🟩 NVIDIA 3080 Ti** _(shared with Chia)_');
+      if (dNv && !dNv.error && dNv.vram_total) {
+        var nvPct = Math.round(dNv.vram_used / dNv.vram_total * 100);
+        lines.push('- VRAM: **' + dNv.vram_used + ' / ' + dNv.vram_total + ' MiB** (' + nvPct + '%)');
+        lines.push('- Utilization: **' + dNv.gpu_util + '%** · Temp: **' + dNv.temp + '°C**');
+        if (dNv.gpus && dNv.gpus.length > 1) {
+          dNv.gpus.forEach(function(g, i){ lines.push('  - GPU' + i + ': ' + g.vram_used + '/' + g.vram_total + ' MiB, ' + g.gpu_util + '%, ' + g.temp + '°C'); });
         }
-        eb.textEl.innerHTML = renderMarkdown(lines.join('\n'));
-        eb.textEl._rawText = lines.join('\n');
-        history.push({role:'assistant', content: lines.join('\n')});
+      } else {
+        lines.push('- _unavailable' + (dNv && dNv.error ? ': ' + dNv.error : '') + '_');
       }
+      lines.push('');
+
+      // AMD
+      lines.push('**🟥 AMD RX 6800 XT** _(Ollama / ROCm)_');
+      if (dAmd && !dAmd.error && dAmd.vram_total_gb) {
+        lines.push('- VRAM: **' + dAmd.vram_used_gb + ' / ' + dAmd.vram_total_gb + ' GB** (' + dAmd.vram_pct + '%)');
+        var amdUtil = (dAmd.gpu_util != null ? dAmd.gpu_util + '%' : 'n/a');
+        var amdTemp = (dAmd.temp != null ? dAmd.temp + '°C' : 'n/a');
+        lines.push('- Utilization: **' + amdUtil + '** · Temp: **' + amdTemp + '**');
+      } else {
+        lines.push('- _unavailable' + (dAmd && dAmd.error ? ': ' + dAmd.error : '') + '_');
+      }
+
+      var out = lines.join('\n');
+      eb.textEl.innerHTML = renderMarkdown(out);
+      eb.textEl._rawText = out;
+      history.push({role:'assistant', content: out});
     } catch(e) {
       eb.textEl.textContent = 'GPU error: ' + e.message;
       history.push({role:'assistant', content: 'GPU error: ' + e.message});
@@ -2589,6 +2617,25 @@ async function sendMsg() {
   currentAbort=new AbortController();
   var {textEl,statsEl}=addBotMsg(localModel);
   var full='';
+  var thinkTxt='', thinkEl=null, thinkStart=0;
+  function appendThink(t){
+    if(!thinkEl){
+      thinkStart=Date.now();
+      thinkEl=document.createElement('details');
+      thinkEl.className='think-block'; thinkEl.open=true;
+      thinkEl.innerHTML='<summary>💭 Thinking…</summary><div class="think-body"></div>';
+      textEl.parentNode.insertBefore(thinkEl,textEl);
+    }
+    thinkTxt+=t;
+    var body=thinkEl.querySelector('.think-body');
+    body.textContent=thinkTxt; body.scrollTop=body.scrollHeight; scrollBottom();
+  }
+  function closeThink(){
+    if(!thinkEl) return;
+    thinkEl.open=false;
+    thinkEl.querySelector('summary').textContent=
+      '💭 Thought for '+((Date.now()-thinkStart)/1000).toFixed(0)+'s';
+  }
 
   var msgs=history.slice();
   if(systemPrompt) msgs=[{role:'system',content:systemPrompt}].concat(msgs);
@@ -2631,7 +2678,8 @@ async function sendMsg() {
         var line=lines[i].trim(); if(!line)continue;
         try{
           var d=JSON.parse(line);
-          if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
+          if(d.thinking){appendThink(d.thinking);}
+          if(d.token){if(!full)closeThink();full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
           if(d.stats){srvStats=d.stats;}
           if(d.error){textEl.textContent='Error: '+d.error;}
         }catch(e){}
@@ -2642,6 +2690,7 @@ async function sendMsg() {
     if (tail) {
       try {
         var d=JSON.parse(tail);
+        if(d.thinking){appendThink(d.thinking);}
         if(d.token){full+=d.token;tokenCount++;streamRender(textEl,full);textEl._rawText=full;scrollBottom();}
         if(d.stats){srvStats=d.stats;}
         if(d.error){textEl.textContent='Error: '+d.error;}
@@ -2649,6 +2698,7 @@ async function sendMsg() {
     }
     var elapsed=((Date.now()-startTime)/1000).toFixed(1);
     var words=full.trim().split(/\s+/).filter(Boolean).length;
+    closeThink();
     streamRenderFlush(textEl, full);
     if(srvStats){
       // Real numbers reported by Ollama (eval_count / eval_duration)
@@ -2662,6 +2712,7 @@ async function sendMsg() {
     history.push({role:'assistant', content:full, model:localModel});
   } catch(e) {
     removeTyping();
+    closeThink();
     if(e.name!=='AbortError') showErrorWithRetry(textEl, 'Network error: '+e.message);
     else{
       if(textEl._raf){cancelAnimationFrame(textEl._raf);textEl._raf=0;}
@@ -2701,6 +2752,9 @@ const SLASH_COMMANDS = [
   { cmd: '/logs',      args: '<service>',    desc: 'Tail service logs (crypto|chia|orchestrator|portfolio|btc|fixes)' },
   { cmd: '/compare',   args: '<prompt>',     desc: 'Compare two models side-by-side on same prompt' },
   { cmd: '/web',       args: '<query>',      desc: 'Search the web and answer with sources' },
+  { cmd: '/research',  args: '<question>',   desc: 'Odysseus Deep Research — multi-round web investigation' },
+  { cmd: '/recall',    args: '<query>',      desc: 'Semantic search of shared Odysseus memory' },
+  { cmd: '/savedoc',   args: '[title]',      desc: 'Save the last reply as an Odysseus document' },
   { cmd: '/vault',     args: '<question>',   desc: 'Answer from your Obsidian vault (RAG)' },
 ];
 let _slashIdx = 0;
@@ -4014,6 +4068,138 @@ sendMsg = async function() {
   if (text.toLowerCase().startsWith('/compare ')) {
     var cPrompt = text.slice(9).trim();
     if (cPrompt) { input.value=''; input.style.height='auto'; handleCompare(cPrompt); return; }
+  }
+
+  // /research <question> — Odysseus Deep Research (multi-round web investigation)
+  if (text.toLowerCase().startsWith('/research ') || text.toLowerCase() === '/research') {
+    var rQuery = text.slice(9).trim();
+    if (!rQuery) { showToast('Usage: /research <question>', 'warn'); return; }
+    addUserMsg(text);
+    history.push({role:'user', content: text});
+    lastUserMsg = text;
+    input.value = ''; input.style.height = '52px';
+    isStreaming = true;
+    document.title = '● Researching… — FraqtoOS Chat';
+    sendBtn.innerHTML = '&#9632;'; sendBtn.className = 'stop-mode';
+    if (currentAbort) { try { currentAbort.abort(); } catch(_) {} }
+    currentAbort = new AbortController();
+    var rOut = addBotMsg('deep-research');
+    var rStart = Date.now();
+    rOut.textEl.innerHTML = '<em style="color:var(--text3)">🧭 Starting deep research…</em>';
+    try {
+      var rRes = await fetch('/deep-research', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({query: rQuery}),
+        signal: currentAbort.signal
+      });
+      if (!rRes.ok) {
+        var rb = await rRes.text().catch(function(){return '';});
+        var rmsg = 'HTTP ' + rRes.status;
+        try { var rp = JSON.parse(rb); rmsg = rp.error || rp.detail || rmsg; } catch(_) {}
+        showErrorWithRetry(rOut.textEl, rmsg);
+        history.push({role:'assistant', content: rmsg, model:'deep-research'});
+        finishStream(); autoPersist(); updateTokenCounter(); return;
+      }
+      var rReader = rRes.body.getReader(), rDec = new TextDecoder(), rBuf = '';
+      var rReport = '', rSources = 0, rUrl = '';
+      while (true) {
+        var rr = await rReader.read(); if (rr.done) break;
+        rBuf += rDec.decode(rr.value, {stream:true});
+        var rLines = rBuf.split('\n'); rBuf = rLines.pop();
+        for (var i = 0; i < rLines.length; i++) {
+          var ln = rLines[i].trim(); if (!ln) continue;
+          var dj; try { dj = JSON.parse(ln); } catch(e) { continue; }
+          if (dj.progress) {
+            var secs = ((Date.now()-rStart)/1000).toFixed(0);
+            rOut.textEl.innerHTML = '<em style="color:var(--text3)">'+escHtml(dj.progress)+' <span style="opacity:.6">('+secs+'s)</span></em>';
+            scrollBottom();
+          }
+          if (dj.report) { rReport = dj.report; rSources = dj.sources||0; rUrl = dj.report_url||''; }
+          if (dj.error) { rReport = ''; rOut.textEl.innerHTML = ''; showErrorWithRetry(rOut.textEl, dj.error); rOut._err = dj.error; }
+        }
+      }
+      var rTail = (rBuf + rDec.decode()).trim();
+      if (rTail) { try { var dj2 = JSON.parse(rTail); if (dj2.report){rReport=dj2.report;rSources=dj2.sources||0;rUrl=dj2.report_url||'';} if(dj2.error){rOut.textEl.innerHTML='';showErrorWithRetry(rOut.textEl,dj2.error);rOut._err=dj2.error;} } catch(_){} }
+      if (rReport) {
+        var rElapsed = ((Date.now()-rStart)/1000).toFixed(0);
+        var footer = '\n\n---\n*🔬 Deep Research · '+rSources+' sources · '+rElapsed+'s*';
+        if (rUrl) footer += ' · [open full report]('+rUrl+')';
+        var rFull = rReport + footer;
+        streamRenderFlush(rOut.textEl, rFull);
+        rOut.textEl._rawText = rFull;
+        if (rOut.statsEl) rOut.statsEl.textContent = rSources+' sources · '+rElapsed+'s';
+        history.push({role:'assistant', content: rFull, model:'deep-research'});
+      } else if (!rOut._err) {
+        showErrorWithRetry(rOut.textEl, 'No report returned.');
+      } else {
+        history.push({role:'assistant', content: rOut._err, model:'deep-research'});
+      }
+    } catch(e) {
+      if (e.name === 'AbortError') { rOut.textEl.innerHTML = '<em style="color:var(--text3)">Stopped.</em>'; }
+      else { showErrorWithRetry(rOut.textEl, 'Network error: '+e.message); }
+    }
+    finishStream(); autoPersist(); updateTokenCounter();
+    return;
+  }
+
+  // /recall <query> — semantic search of shared Odysseus memory
+  if (text.toLowerCase().startsWith('/recall ') || text.toLowerCase() === '/recall') {
+    var mQuery = text.slice(7).trim();
+    if (!mQuery) { showToast('Usage: /recall <query>', 'warn'); return; }
+    addUserMsg(text); history.push({role:'user', content: text}); lastUserMsg = text;
+    input.value = ''; input.style.height = '52px';
+    addTyping();
+    var mOut = null;
+    try {
+      var mRes = await fetch('/odysseus-memory/search', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({query: mQuery})
+      });
+      removeTyping();
+      var md = await mRes.json().catch(function(){return {};});
+      mOut = addBotMsg('memory');
+      if (!mRes.ok) { showErrorWithRetry(mOut.textEl, md.error || ('HTTP '+mRes.status)); }
+      else {
+        var mems = md.memories || [];
+        var body;
+        if (!mems.length) { body = '*No matching memories in Odysseus.*'; }
+        else {
+          body = '**🧠 Shared memory — '+mems.length+' match'+(mems.length===1?'':'es')+':**\n\n' +
+            mems.map(function(x){ var c = x.category ? ' _('+x.category+')_' : ''; return '- '+x.text+c; }).join('\n');
+        }
+        streamRenderFlush(mOut.textEl, body); mOut.textEl._rawText = body;
+        history.push({role:'assistant', content: body, model:'memory'});
+      }
+    } catch(e) { removeTyping(); if(!mOut) mOut = addBotMsg('memory'); showErrorWithRetry(mOut.textEl, 'Error: '+e.message); }
+    finishStream(); autoPersist(); updateTokenCounter(); return;
+  }
+
+  // /savedoc [title] — save the last assistant reply as an Odysseus document
+  if (text.toLowerCase().startsWith('/savedoc') ) {
+    var sdTitle = text.slice(8).trim();
+    var lastAssistant = '';
+    for (var i = history.length - 1; i >= 0; i--) { if (history[i].role === 'assistant') { lastAssistant = history[i].content; break; } }
+    if (!lastAssistant) { showToast('Nothing to save — no assistant reply yet.', 'warn'); input.value=''; return; }
+    if (!sdTitle) { sdTitle = (lastUserMsg || 'Note').replace(/^\/\w+\s*/, '').slice(0, 60) || 'Note'; }
+    addUserMsg(text); input.value = ''; input.style.height = '52px';
+    addTyping();
+    var sdOut = null;
+    try {
+      var sdRes = await fetch('/save-document', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({title: sdTitle, content: lastAssistant, language: 'markdown'})
+      });
+      removeTyping();
+      var sd = await sdRes.json().catch(function(){return {};});
+      sdOut = addBotMsg('documents');
+      if (!sdRes.ok) { showErrorWithRetry(sdOut.textEl, sd.error || ('HTTP '+sdRes.status)); }
+      else {
+        var dbody = '📄 Saved to Odysseus as **'+escHtml(sd.title)+'** — [open document]('+sd.url+')';
+        streamRenderFlush(sdOut.textEl, dbody); sdOut.textEl._rawText = dbody;
+        history.push({role:'assistant', content: dbody, model:'documents'});
+      }
+    } catch(e) { removeTyping(); if(!sdOut) sdOut = addBotMsg('documents'); showErrorWithRetry(sdOut.textEl, 'Error: '+e.message); }
+    finishStream(); autoPersist(); updateTokenCounter(); return;
   }
 
   // /web <query> — explicit web search answer with visible sources
