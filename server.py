@@ -523,7 +523,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v23';
+    sw = """const CACHE = 'fraqtoos-v24';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -540,7 +540,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
-    '/status','/logs/','/ask-vault',
+    '/status','/logs/','/ask-vault','/feedback',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
@@ -2184,6 +2184,65 @@ async def conv_delete(conv_id: str, req: Request):
                 _save_embed_cache(cache)
         return {"ok": True}
     return JSONResponse({"error": "not found"}, 404)
+
+
+# ─── Message feedback (👍/👎) — cross-conversation model quality log ─
+FEEDBACK_FILE = "/home/work/fraqtoos-chat/feedback.json"
+
+
+def _load_feedback() -> list:
+    if not os.path.exists(FEEDBACK_FILE):
+        return []
+    try:
+        with open(FEEDBACK_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _norm_model(name: str) -> str:
+    return (name or "unknown").removesuffix(":latest")
+
+
+@app.post("/feedback")
+async def feedback_add(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    data, err = await _safe_json(req)
+    if err:
+        return err
+    score = data.get("score")
+    if score not in (1, -1):
+        return JSONResponse({"error": "score must be 1 or -1"}, 400)
+    items = _load_feedback()
+    items.append({
+        "model":   _norm_model(data.get("model", "")),
+        "score":   score,
+        "snippet": str(data.get("snippet", ""))[:200],
+        "conv_id": str(data.get("conv_id") or "")[:64],
+        "ts":      int(time.time()),
+    })
+    items = items[-2000:]
+    tmp = FEEDBACK_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(items, f, indent=2)
+    os.replace(tmp, FEEDBACK_FILE)
+    return {"ok": True, "total": len(items)}
+
+
+@app.get("/feedback/stats")
+async def feedback_stats():
+    """Aggregate 👍/👎 counts per model across all conversations."""
+    stats: dict = {}
+    for it in _load_feedback():
+        m = it.get("model", "unknown")
+        s = stats.setdefault(m, {"up": 0, "down": 0})
+        if it.get("score", 0) > 0:
+            s["up"] += 1
+        else:
+            s["down"] += 1
+    return {"stats": stats}
 
 
 @app.get("/chia-harvester")

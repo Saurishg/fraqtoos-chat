@@ -680,7 +680,7 @@ code { font-family: 'JetBrains Mono','Fira Code','Courier New',monospace; font-s
 .mm-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; min-width: 0; }
 .mm-stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
 .mm-stat-value { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mm-row { display: grid; grid-template-columns: minmax(150px, 1.6fr) 70px 90px 86px 122px; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin-bottom: 6px; font-size: 12px; }
+.mm-row { display: grid; grid-template-columns: minmax(150px, 1.6fr) 70px 90px 86px 70px 122px; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin-bottom: 6px; font-size: 12px; }
 .mm-row:hover { background: var(--surface2); border-color: var(--accent); }
 .mm-name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mm-muted { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -981,9 +981,21 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
 .pinned-bar .pin-x { color: var(--text3); cursor: pointer; font-size: 14px; padding: 0 4px; }
 .pinned-bar .pin-x:hover { color: var(--text); }
 .compare-container { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0; }
-.compare-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow: hidden; }
+.compare-container.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.compare-container.cols-4 { grid-template-columns: repeat(2, 1fr); }
+.compare-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow: hidden; display: flex; flex-direction: column; }
 .compare-col .compare-model { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-.compare-col .bot-text { font-size: 13.5px; }
+.compare-col .bot-text { font-size: 13.5px; flex: 1; }
+.compare-col .compare-stats { font-size: 10.5px; color: var(--accent); margin-top: 8px; }
+.compare-col .img-actions { margin-top: 6px; }
+@media (max-width: 768px) {
+  .compare-container.cols-3, .compare-container.cols-4 { grid-template-columns: 1fr; }
+}
+/* Regenerate-with-model picker (reuses react-picker positioning) */
+.regen-picker { flex-direction: column; left: auto; right: 0; min-width: 210px; max-height: 260px; overflow-y: auto; }
+.regen-item { display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text2); font-size: 12.5px; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.regen-item:hover { background: var(--surface); color: var(--text); }
+.regen-item.same { color: var(--accent); font-weight: 600; }
 .translate-result { margin-top: 6px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text2); }
 .translate-result .tr-lang { font-size: 10px; color: var(--text3); text-transform: uppercase; margin-bottom: 4px; }
 .web-sources {
@@ -1440,7 +1452,10 @@ body.light-theme .msg-group.bot:hover { background: var(--surface); }
           <div class="fm-card-item"><div class="fm-icon">↺</div><div class="fm-info"><div class="fm-name">Regenerate</div><div class="fm-desc">Click ↺ on any bot reply to regenerate the response with the same input.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">🔊</div><div class="fm-info"><div class="fm-name">Read Aloud (TTS)</div><div class="fm-desc">Click 🔊 on any bot message to have it read aloud. Click again to stop.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⧉</div><div class="fm-info"><div class="fm-name">Copy Message</div><div class="fm-desc">Click ⧉ to copy any bot reply's raw text to clipboard.</div></div></div>
-          <div class="fm-card-item"><div class="fm-icon">👍</div><div class="fm-info"><div class="fm-name">Message Feedback</div><div class="fm-desc">Rate any AI response with 👍/👎 to track quality over time.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">👍</div><div class="fm-info"><div class="fm-name">Message Feedback (persistent)</div><div class="fm-desc">Rate any AI response with 👍/👎 — saved with the conversation and aggregated per model in the ▦ Models panel.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⇄</div><div class="fm-info"><div class="fm-name">Regenerate with Any Model</div><div class="fm-desc">Click ⇄ under a reply to re-answer the last prompt with a different model — one-off, doesn't change your selected model.</div></div></div>
+          <div class="fm-card-item"><div class="fm-icon">⚖</div><div class="fm-info"><div class="fm-name">/compare — Any Models</div><div class="fm-desc">Race up to 4 models side-by-side with live streaming, speed stats, and per-column copy. Results are saved into the conversation.</div><span class="fm-badge">/compare phi4,qwen3 &lt;prompt&gt;</span></div></div>
+          <div class="fm-card-item"><div class="fm-icon">😀</div><div class="fm-info"><div class="fm-name">Reactions (persistent)</div><div class="fm-desc">React to any reply with emoji — reactions are stored with the conversation and reappear on reload.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">📌</div><div class="fm-info"><div class="fm-name">Pin Conversations</div><div class="fm-desc">Hover a conversation in the sidebar and click 📌 to pin it to the top. Persists across sessions.</div></div></div>
           <div class="fm-card-item"><div class="fm-icon">⌨️</div><div class="fm-info"><div class="fm-name">Keyboard Shortcuts</div><div class="fm-desc">Press Ctrl+/ to see all shortcuts. Ctrl+K command palette, Ctrl+N new chat, Esc stop, and more.</div><span class="fm-badge">Ctrl+/</span></div></div>
           <div class="fm-card-item"><div class="fm-icon">💡</div><div class="fm-info"><div class="fm-name">Follow-up Chips</div><div class="fm-desc">After each reply, phi4 suggests 3 follow-up questions as clickable chips.</div></div></div>
@@ -2127,6 +2142,7 @@ function addBotMsg(model) {
         '<button class="act-btn feedback-btn" title="Good response" onclick="feedbackMsg(this,1)">👍</button>'+
         '<button class="act-btn feedback-btn" title="Bad response" onclick="feedbackMsg(this,-1)">👎</button>'+
         '<button class="act-btn" title="Regenerate" onclick="regenerate()">↺</button>'+
+        '<button class="act-btn" title="Regenerate with another model…" onclick="toggleRegenPicker(this)">⇄</button>'+
         '<button class="act-btn" title="Delete message" onclick="deleteMsg(event, this)">&#128465;</button>'+
         '<div class="react-picker" id="rp-'+_msgId+'">'+
           ['👍','👎','❤️','😂','🤔','🎉','🔥','👀'].map(function(e){return '<span onclick="addReaction(this,\''+e+'\')">'+e+'</span>';}).join('')+
@@ -2195,12 +2211,37 @@ function copyBotMsg(btn) {
   navigator.clipboard.writeText(text).then(function(){btn.textContent='✓';setTimeout(()=>btn.textContent='⧉',1500);});
 }
 
+// Map a .msg-group DOM node to its index in `history` (they are index-aligned;
+// the typing indicator is the only group excluded).
+function _histIndexOf(group) {
+  var groups = Array.from(chatEl.querySelectorAll('.msg-group')).filter(function(g){ return g.id !== 'typing-indicator'; });
+  return groups.indexOf(group);
+}
+
+function applyFeedbackStyle(group, score) {
+  group.querySelectorAll('.feedback-btn').forEach(function(b){
+    var isUp = b.textContent === '👍';
+    var active = (score === 1 && isUp) || (score === -1 && !isUp);
+    b.style.opacity = score ? (active ? '1' : '0.3') : '';
+    b.style.color = active ? (score > 0 ? '#10b981' : '#ef4444') : '';
+  });
+}
+
 function feedbackMsg(btn, score) {
-  var actions = btn.closest('.msg-actions');
-  actions.querySelectorAll('.feedback-btn').forEach(function(b){ b.style.opacity='0.3'; });
-  btn.style.opacity='1';
-  btn.style.color = score > 0 ? '#10b981' : '#ef4444';
-  showToast(score > 0 ? '👍 Thanks for the feedback!' : '👎 Noted — will improve');
+  var group = btn.closest('.msg-group');
+  var idx = _histIndexOf(group);
+  var entry = (idx >= 0 && idx < history.length && history[idx].role === 'assistant') ? history[idx] : null;
+  var toggledOff = !!(entry && entry.feedback === score);
+  if (entry) { entry.feedback = toggledOff ? 0 : score; autoPersist(); }
+  applyFeedbackStyle(group, toggledOff ? 0 : score);
+  if (toggledOff) return;
+  // Cross-conversation analytics — aggregated per model in the ▦ Models panel
+  var model = (entry && entry.model) || currentModel;
+  var snippet = ((entry && entry.content) || '').slice(0, 160);
+  fetch('/feedback', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({model: model, score: score, snippet: snippet, conv_id: currentConvId})
+  }).catch(function(){});
+  showToast(score > 0 ? '👍 Saved — counted in model stats' : '👎 Saved — counted in model stats');
 }
 
 // ── Read Aloud (TTS) ──────────────────────────────────────────────
@@ -2295,6 +2336,9 @@ function restoreChatSnapshot(snapshot) {
         var b = addBotMsg(m.model || currentModel);
         b.textEl.innerHTML = renderMarkdown(m.content);
         b.textEl._rawText = m.content;
+        var grp = b.textEl.closest('.msg-group');
+        if (m.reactions && m.reactions.length) renderReactions(grp.querySelector('.bot-body'), m.reactions);
+        if (m.feedback) applyFeedbackStyle(grp, m.feedback);
       }
     });
     highlightAll();
@@ -2576,10 +2620,46 @@ async function readImageStream(res, progressEl) {
   if (!lastData) throw new Error('No image data received');
   return lastData;
 }
-function regenerate(){
-  if(!lastUserMsg||isStreaming)return;
-  if(history.length&&history[history.length-1].role==='assistant') history.pop();
-  input.value=lastUserMsg; sendMsg();
+function regenerate(){ regenerateWith(null); }
+
+// Regenerate the last turn, optionally with a one-off model override.
+async function regenerateWith(model) {
+  if (!lastUserMsg || isStreaming) return;
+  if (history.length && history[history.length-1].role === 'assistant') history.pop();
+  var saved = currentModel;
+  if (model) currentModel = model;
+  input.value = lastUserMsg;
+  try { await sendMsg(); }
+  finally { currentModel = saved; }
+}
+
+function toggleRegenPicker(btn) {
+  var actions = btn.closest('.msg-actions');
+  var existing = actions.querySelector('.regen-picker');
+  if (existing) { existing.remove(); return; }
+  if (isStreaming) return;
+  if (!lastUserMsg) { showToast('Nothing to regenerate yet', 'warn'); return; }
+  var pick = document.createElement('div');
+  pick.className = 'react-picker regen-picker open';
+  var opts = [{model: null, label: '↺ Same model (' + getModelName(currentModel) + ')', same: true}];
+  document.querySelectorAll('.model-btn[data-model]').forEach(function(b){
+    var m = b.dataset.model;
+    if (m === 'auto' || b.classList.contains('unavailable')) return;
+    opts.push({model: m, label: getModelName(m)});
+  });
+  opts.forEach(function(o){
+    var it = document.createElement('button');
+    it.className = 'regen-item' + (o.same ? ' same' : '');
+    it.textContent = o.label;
+    it.onclick = function(e){ e.stopPropagation(); pick.remove(); regenerateWith(o.model); };
+    pick.appendChild(it);
+  });
+  actions.appendChild(pick);
+  setTimeout(function(){
+    document.addEventListener('click', function close(e){
+      if (!pick.contains(e.target) && e.target !== btn) { pick.remove(); document.removeEventListener('click', close); }
+    });
+  }, 0);
 }
 
 async function sendMsg() {
@@ -2751,7 +2831,7 @@ const SLASH_COMMANDS = [
   { cmd: '/exec',      args: '<task>',       desc: 'Run AI agent on server (bash, files, services)' },
   { cmd: '/status',    args: '',             desc: 'Instant bot status — no AI, live process check' },
   { cmd: '/logs',      args: '<service>',    desc: 'Tail service logs (crypto|chia|orchestrator|portfolio|btc|fixes)' },
-  { cmd: '/compare',   args: '<prompt>',     desc: 'Compare two models side-by-side on same prompt' },
+  { cmd: '/compare',   args: '[m1,m2] <prompt>', desc: 'Compare models side-by-side (e.g. /compare phi4,qwen3 …; up to 4)' },
   { cmd: '/web',       args: '<query>',      desc: 'Search the web and answer with sources' },
   { cmd: '/research',  args: '<question>',   desc: 'Odysseus Deep Research — multi-round web investigation' },
   { cmd: '/recall',    args: '<query>',      desc: 'Semantic search of shared Odysseus memory' },
@@ -3431,6 +3511,9 @@ async function loadConversation(id) {
         var b = addBotMsg(m.model || c.model || currentModel);
         b.textEl.innerHTML = renderMarkdown(m.content);
         b.textEl._rawText = m.content;
+        var grp = b.textEl.closest('.msg-group');
+        if (m.reactions && m.reactions.length) renderReactions(grp.querySelector('.bot-body'), m.reactions);
+        if (m.feedback) applyFeedbackStyle(grp, m.feedback);
       }
     });
     highlightAll();
@@ -4067,10 +4150,19 @@ sendMsg = async function() {
   if (text.toLowerCase().startsWith('/video'))   { generateWanVideo();  return; }
   if (text.toLowerCase().startsWith('/animate')) { animateWanImage();   return; }
 
-  // /compare — side-by-side model comparison
-  if (text.toLowerCase().startsWith('/compare ')) {
-    var cPrompt = text.slice(9).trim();
-    if (cPrompt) { input.value=''; input.style.height='auto'; handleCompare(cPrompt); return; }
+  // /compare [m1,m2[,m3,m4]] <prompt> — side-by-side model comparison
+  if (text.toLowerCase().startsWith('/compare')) {
+    var cRest = text.slice(8).trim();
+    var cModels = null;
+    var cFirst = cRest.split(/\s+/)[0] || '';
+    if (cFirst.includes(',')) {
+      cModels = cFirst.split(',').map(_resolveModelName).filter(Boolean);
+      cRest = cRest.slice(cFirst.length).trim();
+    }
+    if (!cRest) { showToast('Usage: /compare [model1,model2] <prompt>', 'warn'); return; }
+    input.value = ''; input.style.height = 'auto';
+    handleCompare(cRest, cModels);
+    return;
   }
 
   // /research <question> — Odysseus Deep Research (multi-round web investigation)
@@ -4981,9 +5073,11 @@ async function openModelModal() {
   modal.classList.add('open');
   body.innerHTML = '<div class="mm-empty">Loading models…</div>';
   try {
+    var statsReq = fetch('/feedback/stats', {cache:'no-store'}).then(function(x){ return x.json(); }).catch(function(){ return {}; });
     var r = await fetch('/models', {cache:'no-store'});
     var d = await safeJson(r);
     if (d.error) throw new Error(d.error);
+    var fbStats = ((await statsReq) || {}).stats || {};
     updateModelAvailability((d.models || []).map(function(m){ return m.name; }));
     var totalGb = (d.models || []).reduce(function(sum, m){ return sum + (m.size_gb || 0); }, 0);
     var serviceCount = [(d.count || 0) > 0, d.image_ready, d.search_ready].filter(Boolean).length;
@@ -4999,11 +5093,14 @@ async function openModelModal() {
     }
     html += d.models.map(function(m) {
       var meta = [m.parameter_size, m.quantization].filter(Boolean).join(' · ') || (m.family || 'local');
+      var fb = fbStats[m.name.replace(/:latest$/,'')] || fbStats[m.name];
+      var fbTxt = fb ? '👍'+fb.up+' 👎'+fb.down : '—';
       return '<div class="mm-row">'
         + '<div class="mm-name" title="'+escAttr(m.name)+'">'+escHtml(m.name)+'</div>'
         + '<div class="mm-muted">'+(m.size_gb || 0).toFixed(1)+' GB</div>'
         + '<div class="mm-muted" title="'+escAttr(meta)+'">'+escHtml(meta)+'</div>'
         + '<div class="mm-muted">'+escHtml(formatModelDate(m.modified_at))+'</div>'
+        + '<div class="mm-muted" title="Your 👍/👎 feedback for this model">'+fbTxt+'</div>'
         + '<button class="mm-use" data-model="'+escAttr(m.name)+'">Use model</button>'
         + '</div>';
     }).join('');
@@ -5210,20 +5307,38 @@ function toggleReactPicker(btn) {
     setTimeout(function(){ document.addEventListener('click', function close(e){ if(!picker.contains(e.target)&&e.target!==btn){picker.classList.remove('open');document.removeEventListener('click',close);} }); },0);
   }
 }
+// Reactions are stored on the history entry (entry.reactions = ['🔥', …]) so
+// they persist with the conversation and survive reloads.
+function renderReactions(bodyEl, reactions) {
+  var row = bodyEl.querySelector('.react-row');
+  if (row) row.remove();
+  if (!reactions || !reactions.length) return;
+  row = document.createElement('div'); row.className = 'react-row';
+  reactions.forEach(function(emoji){
+    var chip = document.createElement('span');
+    chip.className = 'react-chip mine'; chip.dataset.emoji = emoji;
+    chip.textContent = emoji;
+    chip.title = 'Click to remove';
+    chip.onclick = function(){ _toggleReaction(bodyEl, emoji); };
+    row.appendChild(chip);
+  });
+  bodyEl.appendChild(row);
+}
+function _toggleReaction(bodyEl, emoji) {
+  var group = bodyEl.closest('.msg-group');
+  var idx = _histIndexOf(group);
+  if (idx < 0 || idx >= history.length) return;
+  var entry = history[idx];
+  entry.reactions = entry.reactions || [];
+  var at = entry.reactions.indexOf(emoji);
+  if (at >= 0) entry.reactions.splice(at, 1); else entry.reactions.push(emoji);
+  autoPersist();
+  renderReactions(bodyEl, entry.reactions);
+}
 function addReaction(span, emoji) {
   var actions = span.closest('.msg-actions');
   actions.querySelector('.react-picker').classList.remove('open');
-  var body = actions.closest('.bot-body');
-  var row = body.querySelector('.react-row');
-  if (!row) { row = document.createElement('div'); row.className='react-row'; body.appendChild(row); }
-  // Toggle: if already reacted with same emoji, remove it
-  var existing = row.querySelector('[data-emoji="'+emoji+'"]');
-  if (existing) { existing.remove(); if(!row.children.length) row.remove(); return; }
-  var chip = document.createElement('span');
-  chip.className = 'react-chip mine'; chip.dataset.emoji = emoji;
-  chip.textContent = emoji + ' 1';
-  chip.onclick = function(){ chip.remove(); if(!row.children.length) row.remove(); };
-  row.appendChild(chip);
+  _toggleReaction(actions.closest('.bot-body'), emoji);
 }
 
 // ── Translate ──────────────────────────────────────────────────────
@@ -5319,27 +5434,82 @@ if (_origFinish) {
 }
 
 // ── /compare Command ───────────────────────────────────────────────
-function handleCompare(prompt) {
-  var models = ['qwen3:30b-a3b', 'phi4'];
+// Resolve a user-typed model shorthand ("phi4", "deepseek") against installed models.
+function _resolveModelName(tok) {
+  tok = (tok || '').trim().toLowerCase();
+  if (!tok) return null;
+  var all = Array.from(availableModels);
+  var exact = all.find(function(m){ return m.toLowerCase() === tok || m.toLowerCase() === tok + ':latest'; });
+  if (exact) return exact;
+  var pre = all.find(function(m){ return m.toLowerCase().startsWith(tok); });
+  return pre || tok;
+}
+
+async function handleCompare(prompt, models) {
+  models = (models && models.length) ? models.slice(0, 4) : ['qwen3:30b-a3b', 'phi4'];
   removeWelcome();
   addUserMsg('/compare ' + prompt);
   history.push({role:'user', content:'/compare ' + prompt});
+  lastUserMsg = '/compare ' + prompt;
   var inner = getOrCreateInner();
   var container = document.createElement('div');
-  container.className = 'compare-container';
-  container.innerHTML = models.map(function(m){ return '<div class="compare-col"><div class="compare-model">'+m+'</div><div class="bot-text">Loading…</div></div>'; }).join('');
+  // 'msg-group' keeps DOM↔history index alignment for the combined entry below
+  container.className = 'msg-group compare-container cols-' + models.length;
+  container.innerHTML = models.map(function(m){
+    return '<div class="compare-col"><div class="compare-model">'+escHtml(getModelName(m))+'</div>'
+      + '<div class="bot-text"><div class="typing-dots"><span></span><span></span><span></span></div></div>'
+      + '<div class="compare-stats"></div>'
+      + '<div class="img-actions"><button class="icon-btn compare-copy">⧉ Copy</button></div></div>';
+  }).join('');
   inner.appendChild(container);
   scrollBottom();
-  models.forEach(function(m, i) {
-    fetch('/chat', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model: m, messages:[{role:'user',content:prompt}], stream:false })
-    }).then(function(r){ return r.text(); }).then(function(text) {
-      var result = ''; text.split('\n').forEach(function(line){ if(!line.trim()) return; try{ var j=JSON.parse(line); if(j.token) result+=j.token; }catch(e){} });
-      var col = container.querySelectorAll('.compare-col')[i];
-      col.querySelector('.bot-text').innerHTML = renderMarkdown(result);
-      highlightCode(col);
-    }).catch(function(e){ container.querySelectorAll('.compare-col')[i].querySelector('.bot-text').textContent = 'Error: '+e.message; });
-  });
+  var results = await Promise.all(models.map(function(m, i){ return _compareOne(container, m, i, prompt); }));
+  // Persist a combined transcript so reloading the conversation keeps the comparison
+  var combined = models.map(function(m, i){
+    return '## ' + getModelName(m) + '\n\n' + (results[i] != null ? results[i] : '_error_');
+  }).join('\n\n---\n\n');
+  history.push({role:'assistant', content: combined, model: 'compare'});
+  autoPersist(); maybeAutoTitle(); updateTokenCounter();
+}
+
+async function _compareOne(container, model, i, prompt) {
+  var col = container.querySelectorAll('.compare-col')[i];
+  var textEl = col.querySelector('.bot-text');
+  var statsEl = col.querySelector('.compare-stats');
+  var copyBtn = col.querySelector('.compare-copy');
+  var t0 = Date.now(), full = '', tok = 0, first = true;
+  try {
+    var res = await fetch('/chat', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model: model, messages: [{role:'user', content: prompt}], temperature: currentTemp }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
+    while (true) {
+      var rd = await reader.read(); if (rd.done) break;
+      buf += dec.decode(rd.value, {stream: true});
+      var lines = buf.split('\n'); buf = lines.pop();
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li].trim(); if (!line) continue;
+        var d; try { d = JSON.parse(line); } catch(e) { continue; }
+        if (d.error) throw new Error(d.error);
+        if (d.token) { if (first) { textEl.innerHTML = ''; first = false; } full += d.token; tok++; streamRender(textEl, full); }
+      }
+    }
+    streamRenderFlush(textEl, full);
+    textEl._rawText = full;
+    var secs = (Date.now() - t0) / 1000;
+    statsEl.textContent = secs.toFixed(1) + 's · ' + (tok && secs ? (tok/secs).toFixed(0) : 0) + ' tok/s';
+    highlightCode(col);
+    copyBtn.onclick = function(){
+      navigator.clipboard.writeText(full).then(function(){
+        copyBtn.textContent = '✓ Copied'; setTimeout(function(){ copyBtn.textContent = '⧉ Copy'; }, 1500);
+      });
+    };
+    return full;
+  } catch(e) {
+    textEl.innerHTML = '<span style="color:#fca5a5">Error: ' + escHtml(e.message) + '</span>';
+    statsEl.textContent = '';
+    return null;
+  }
 }
 
 // ── Scroll to top ──────────────────────────────────────────────────
