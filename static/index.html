@@ -800,7 +800,9 @@ body.compact #inputwrap { padding: 6px 14px 10px; }
   #chat { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
   #sidebar, .conv-list { -webkit-overflow-scrolling: touch; }
   #current-model-label { flex: 1; min-width: 0; overflow: hidden; }
-  #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #model-display { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 56px; }
+  /* The status dot already signals health — the text chip just crushes the model name */
+  #health-summary { display: none !important; }
   .badge,.token-badge { display: none; }
   #topbar-actions { display: none; }
   #chat { padding: 14px 0 8px; }
@@ -1603,6 +1605,7 @@ let availableModels = new Set();
 (function initRipple(){
   const sel = '#send-btn,.tool-btn,.icon-btn,.sidebar-action,.model-btn,.conv-item,.suggestion,.qa-btn,.followup-chip,.exec-chip,.code-copy,.fs-btn,#cmd-btn,#img-btn';
   document.addEventListener('pointerdown', e => {
+    if (!(e.target instanceof Element)) return;
     const el = e.target.closest(sel);
     if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     el.classList.add('ripple-host');
@@ -1647,6 +1650,7 @@ let availableModels = new Set();
   }
   function hideTip() { if (tipEl) { tipEl.remove(); tipEl = null; } }
   document.addEventListener('pointerenter', e => {
+    if (!(e.target instanceof Element)) return;
     const el = e.target.closest('[title],[data-tip]');
     if (!el) return;
     tipTimer = setTimeout(() => showTip(el), 400);
@@ -1832,6 +1836,7 @@ function closeSidebar() {
 // Auto-close drawer when picking model/conv on mobile
 document.addEventListener('click', function(e) {
   if (window.innerWidth > 768) return;
+  if (!(e.target instanceof Element)) return;
   var t = e.target.closest('.model-btn, .conv-item, .sidebar-action');
   if (t) closeSidebar();
 });
@@ -2655,6 +2660,7 @@ function toggleRegenPicker(btn) {
     pick.appendChild(it);
   });
   actions.appendChild(pick);
+  _placePicker(pick, btn);
   setTimeout(function(){
     document.addEventListener('click', function close(e){
       if (!pick.contains(e.target) && e.target !== btn) { pick.remove(); document.removeEventListener('click', close); }
@@ -5298,14 +5304,30 @@ document.addEventListener('keydown', function(e) {
    ═══════════════════════════════════════════════════════════════════ */
 
 // ── Reactions ──────────────────────────────────────────────────────
+// Position a picker with fixed coords above its trigger button. Needed because
+// .msg-actions is a horizontal scroll container on mobile (overflow-x:auto),
+// which would clip an absolutely-positioned child.
+function _placePicker(picker, btn) {
+  picker.style.position = 'fixed';
+  picker.style.bottom = 'auto'; picker.style.right = 'auto';
+  picker.style.visibility = 'hidden';
+  picker.classList.add('open');
+  var r = btn.getBoundingClientRect();
+  var pw = picker.offsetWidth, ph = picker.offsetHeight;
+  var left = Math.min(Math.max(8, r.left), window.innerWidth - pw - 8);
+  var top = r.top - ph - 6;
+  if (top < 8) top = Math.min(r.bottom + 6, window.innerHeight - ph - 8);
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
+  picker.style.visibility = '';
+}
+
 function toggleReactPicker(btn) {
   var actions = btn.closest('.msg-actions');
   var picker = actions.querySelector('.react-picker');
-  picker.classList.toggle('open');
-  // Close on outside click
-  if (picker.classList.contains('open')) {
-    setTimeout(function(){ document.addEventListener('click', function close(e){ if(!picker.contains(e.target)&&e.target!==btn){picker.classList.remove('open');document.removeEventListener('click',close);} }); },0);
-  }
+  if (picker.classList.contains('open')) { picker.classList.remove('open'); return; }
+  _placePicker(picker, btn);
+  setTimeout(function(){ document.addEventListener('click', function close(e){ if(!picker.contains(e.target)&&e.target!==btn){picker.classList.remove('open');document.removeEventListener('click',close);} }); },0);
 }
 // Reactions are stored on the history entry (entry.reactions = ['🔥', …]) so
 // they persist with the conversation and survive reloads.
