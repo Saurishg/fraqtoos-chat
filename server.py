@@ -32,7 +32,13 @@ except Exception:
 
 load_dotenv("/home/work/fraqtoos-chat/.env")
 OLLAMA        = "http://localhost:11434"
-COMFYUI       = "http://localhost:8188"
+# Image generation runs on the ROCm instance (6800 XT, comfyui-rocm.service)
+# so FLUX jobs never grab the 3080 Ti — that card is the Chia harvester's only
+# CUDA decompression GPU and an OOM there means missed block rewards.
+COMFYUI       = "http://localhost:8189"
+# PuLID avatar workflow stays on the CUDA instance: ApplyPulidFlux and its
+# deps are only installed in the 8188 venv. Rare, user-triggered use only.
+COMFYUI_CUDA  = "http://localhost:8188"
 STATIC        = "/home/work/fraqtoos-chat/static"
 CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
@@ -517,7 +523,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v22';
+    sw = """const CACHE = 'fraqtoos-v23';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -703,25 +709,25 @@ def _build_avatar_workflow(face_image_name: str, prompt: str, steps: int, width:
 
 def _avatar_image(face_bytes: bytes, face_filename: str, prompt: str, steps: int = 25, width: int = 1024, height: int = 1024, weight: float = 1.0) -> str:
     files = {"image": (face_filename, face_bytes, "application/octet-stream")}
-    up = requests.post(f"{COMFYUI}/upload/image", files=files, data={"overwrite": "true"}, timeout=30)
+    up = requests.post(f"{COMFYUI_CUDA}/upload/image", files=files, data={"overwrite": "true"}, timeout=30)
     up.raise_for_status()
     uploaded_name = up.json().get("name") or face_filename
 
     wf = _build_avatar_workflow(uploaded_name, prompt, steps, width, height, weight)
     client_id = str(uuid.uuid4())
-    r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
+    r = requests.post(f"{COMFYUI_CUDA}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
     resp = r.json()
     if "error" in resp:
         err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
     prompt_id = resp["prompt_id"]
     for _ in range(360):
         time.sleep(1)
-        hist = requests.get(f"{COMFYUI}/history/{prompt_id}", timeout=5).json()
+        hist = requests.get(f"{COMFYUI_CUDA}/history/{prompt_id}", timeout=5).json()
         if prompt_id in hist and hist[prompt_id].get("outputs"):
             for node_out in hist[prompt_id]["outputs"].values():
                 if "images" in node_out:
                     img = node_out["images"][0]
-                    img_r = requests.get(f"{COMFYUI}/view",
+                    img_r = requests.get(f"{COMFYUI_CUDA}/view",
                         params={"filename": img["filename"], "subfolder": img["subfolder"], "type": img["type"]},
                         timeout=15)
                     return base64.b64encode(img_r.content).decode()
@@ -2290,7 +2296,7 @@ async def gpu_amd():
 @app.post("/comfy-interrupt")
 async def comfy_interrupt(req: Request):
     """Cancel the running image/video generation by interrupting both ComfyUI
-    instances (8188 image / 8189 ROCm video) — frees the GPU immediately."""
+    instances (8189 ROCm image+video / 8188 CUDA avatar) — frees the GPU immediately."""
     loop = asyncio.get_running_loop()
     def _hit(url):
         try:
