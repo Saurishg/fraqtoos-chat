@@ -2749,6 +2749,22 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
         for line in r.iter_lines():
             if line:
                 d = json.loads(line)
+                # Ollama signals failures (bad image, OOM, missing model, …) as an
+                # {"error": ...} line. Without this the loop only looked for
+                # "message"/"done", so errors were silently dropped and the UI got a
+                # blank reply. Surface it instead. error may be a str or nested dict.
+                err = d.get("error")
+                if err:
+                    # Normalize: error can be a plain string, a JSON-encoded string,
+                    # or a nested {"error":{"message":...}} dict — pull the message out.
+                    if isinstance(err, str):
+                        try: err = json.loads(err)
+                        except Exception: pass
+                    while isinstance(err, dict):
+                        nxt = err.get("message") or err.get("error")
+                        err = nxt if nxt is not None else json.dumps(err)
+                    yield json.dumps({"error": str(err)}) + "\n"
+                    break
                 msg = d.get("message", {})
                 thinking = msg.get("thinking", "")
                 if thinking:
