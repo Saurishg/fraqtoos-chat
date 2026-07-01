@@ -692,6 +692,13 @@ let AUTO = localStorage.getItem('fraqtoos_autoroute') !== '0';
 let MODEL = localStorage.getItem('fraqtoos_model') || 'phi4:latest';
 let ATTACH = [];              // base64 images pending
 let DOCS = [];                // {name,text} document attachments pending
+const TEMP_PRESETS = [        // used by temp chip; declared early (init() reads it)
+  {label:'Precise', value:0.2, cls:'precise'},
+  {label:'Balanced', value:0.7, cls:''},
+  {label:'Creative', value:1.2, cls:'creative'},
+  {label:'Wild', value:1.5, cls:'wild'},
+];
+let _tempIdx = parseInt(localStorage.getItem('fraqtoos_temp_idx')||'1');
 let streaming = false, abort = null;
 
 const ROUTE_LABELS = {code:'code',reasoning:'reasoning',finance:'finance',copy:'copy',long:'long-form',quick:'quick',general:'general'};
@@ -1651,13 +1658,6 @@ function updateTokens(){
 function slashHint(){ const v=$('#input').value; $('#send').title = /^\/(image|flux|video)\b/i.test(v)?'Generate ('+v.split(/\s/)[0]+')':'Send'; }
 
 /* ---- temperature cycle (syncs with settings slider) ---- */
-const TEMP_PRESETS = [
-  {label:'Precise', value:0.2, cls:'precise'},
-  {label:'Balanced', value:0.7, cls:''},
-  {label:'Creative', value:1.2, cls:'creative'},
-  {label:'Wild', value:1.5, cls:'wild'},
-];
-let _tempIdx = parseInt(localStorage.getItem('fraqtoos_temp_idx')||'1');
 function applyTempChip(){
   const p = TEMP_PRESETS[_tempIdx]||TEMP_PRESETS[1];
   const chip = $('#tempChip'); if(chip){ chip.textContent='🌡 '+p.label; chip.className=p.cls; }
