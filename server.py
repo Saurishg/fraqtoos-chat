@@ -523,7 +523,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v34';
+    sw = """const CACHE = 'fraqtoos-v35';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
