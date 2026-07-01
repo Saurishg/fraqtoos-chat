@@ -500,7 +500,10 @@ body.light .bubble pre{background:#1a1d28}
   background:rgba(255,255,255,.04);font-size:11px;color:var(--ink-2);cursor:default;white-space:nowrap}
 .top-status .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
 .top-status .dot.ok{background:var(--ok)}.top-status .dot.bad{background:var(--err)}
-.top-status .gpu{font-family:'JetBrains Mono',monospace;color:var(--ink-3)}
+.top-status .gpu{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;color:var(--ink-3)}
+.top-status .gp{white-space:nowrap;cursor:help}
+.top-status .gp b{color:var(--ink-2);font-weight:600}
+.top-status .gsep{color:var(--line-2)}
 .top-menu-wrap{position:relative}
 .top-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:230px;z-index:35;
   background:var(--base-3);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
@@ -2112,8 +2115,14 @@ async function pollStatus(){
   try{ const h=await (await fetch('/health')).json(); const ok=h.status==='ok';
     $('#stDot').className='dot '+(ok?'ok':'bad'); $('#stTxt').textContent=ok?'services up':'degraded'; }
   catch(e){ $('#stDot').className='dot bad'; $('#stTxt').textContent='offline'; }
-  try{ let g=await (await fetch('/gpu-amd')).json(); if(g&&!g.error){ $('#stGpu').textContent=`GPU ${g.vram_pct}% · ${g.temp}°`; return; } }catch(e){}
-  try{ let g=await (await fetch('/gpu')).json(); if(g&&!g.error&&g.vram_total){ $('#stGpu').textContent=`GPU ${Math.round(g.vram_used/g.vram_total*100)}% · ${g.temp}°`; } }catch(e){}
+  const [amd,nv]=await Promise.all([
+    fetch('/gpu-amd').then(r=>r.json()).catch(()=>null),
+    fetch('/gpu').then(r=>r.json()).catch(()=>null),
+  ]);
+  const parts=[];
+  if(amd&&!amd.error) parts.push(`<span class="gp" title="RX 6800 XT — VRAM ${amd.vram_used_gb}/${amd.vram_total_gb} GB · util ${amd.gpu_util}%"><b>AMD</b> ${amd.vram_pct}%·${amd.temp}°</span>`);
+  if(nv&&!nv.error&&nv.vram_total) parts.push(`<span class="gp" title="RTX 3080 Ti — VRAM ${(nv.vram_used/1024).toFixed(1)}/${(nv.vram_total/1024).toFixed(1)} GB · util ${nv.gpu_util}%"><b>NV</b> ${Math.round(nv.vram_used/nv.vram_total*100)}%·${nv.temp}°</span>`);
+  $('#stGpu').innerHTML=parts.join('<span class="gsep">·</span>');
 }
 
 /* ---- Chia harvester ---- */
