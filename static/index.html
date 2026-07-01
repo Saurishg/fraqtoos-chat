@@ -491,7 +491,88 @@ body.light .bubble pre{background:#1a1d28}
   .composer{flex-wrap:wrap}
   #input{min-width:60%}
   .comp-meta{flex-wrap:wrap}
+  .top-status .sp-txt{display:none}
 }
+
+/* ── group 2: chat controls, panels, admin widgets ─────────── */
+/* topbar cluster */
+.top-status{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+  background:rgba(255,255,255,.04);font-size:11px;color:var(--ink-2);cursor:default;white-space:nowrap}
+.top-status .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.top-status .dot.ok{background:var(--ok)}.top-status .dot.bad{background:var(--err)}
+.top-status .gpu{font-family:'JetBrains Mono',monospace;color:var(--ink-3)}
+.top-menu-wrap{position:relative}
+.top-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:230px;z-index:35;
+  background:var(--base-3);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--shadow);padding:6px;display:none}
+.top-menu.open{display:block}
+.top-menu .mi{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;cursor:pointer;font-size:13.5px;color:var(--ink-2)}
+.top-menu .mi:hover{background:var(--glass-2);color:var(--ink)}
+.top-menu .mi svg{width:16px;height:16px;flex-shrink:0;color:var(--cyan)}
+.top-menu .mi .k{margin-left:auto;font-size:10.5px;color:var(--ink-3);font-family:'JetBrains Mono',monospace}
+.top-menu .sep{height:1px;background:var(--line);margin:5px 8px}
+.top-menu .fs{display:flex;align-items:center;gap:8px;padding:7px 11px;font-size:13.5px;color:var(--ink-2)}
+.top-menu .fs button{width:26px;height:26px;border-radius:7px;border:1px solid var(--line);background:rgba(255,255,255,.04);
+  color:var(--ink-2);cursor:pointer;font-weight:700}.top-menu .fs button:hover{color:var(--ink);border-color:var(--line-2)}
+/* font-size + compact hooks */
+.bubble{font-size:var(--chat-fs,15px)}
+body.compact .msg{margin-bottom:10px}
+body.compact .bubble{padding:9px 13px;line-height:1.5}
+body.compact .who{margin-bottom:3px}
+body.compact .msg-foot{margin-top:5px}
+/* user message inline actions */
+.user-acts{display:flex;gap:5px;justify-content:flex-end;margin-top:5px;opacity:0;transition:opacity .14s}
+.msg.user:hover .user-acts{opacity:1}
+.user-acts button{display:flex;align-items:center;gap:4px;padding:4px 8px;border-radius:7px;border:1px solid transparent;
+  background:transparent;color:var(--ink-3);cursor:pointer;font-size:11.5px}
+.user-acts button:hover{color:var(--ink);background:var(--glass-2);border-color:var(--line)}
+.user-acts svg{width:12px;height:12px}
+.edit-ta{width:100%;min-height:60px;background:rgba(255,255,255,.05);border:1px solid var(--violet);border-radius:10px;
+  color:var(--ink);font:inherit;font-size:14px;padding:9px 11px;outline:none;resize:vertical}
+.edit-row{display:flex;gap:7px;justify-content:flex-end;margin-top:6px}
+.edit-row button{padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--ink-2);cursor:pointer;font-size:12px}
+.edit-row button.save{background:linear-gradient(135deg,var(--cyan),var(--violet));color:#07080D;border:none}
+/* sidebar dock */
+.side-dock{padding:8px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line)}
+.dock-link{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(255,255,255,.03);color:var(--ink-2);cursor:pointer;font-size:12.5px;text-decoration:none;transition:all .14s}
+.dock-link:hover{color:var(--ink);border-color:var(--line-2);background:var(--glass-2)}
+.dock-link svg{width:15px;height:15px;flex-shrink:0;color:var(--cyan)}
+.dock-link .st{margin-left:auto;font-size:10.5px;color:var(--ink-3)}
+.dock-link.on .st{color:var(--ok)}
+/* exec shortcuts (drawer) */
+.exec-grid{display:flex;flex-wrap:wrap;gap:6px}
+.exec-chip{padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--glass);color:var(--ink-2);
+  cursor:pointer;font-size:11.5px;transition:all .14s}
+.exec-chip:hover{color:var(--ink);border-color:var(--cyan)}
+.exec-chip.danger{border-color:rgba(255,122,138,.3);color:var(--rose)}
+.exec-chip.danger:hover{border-color:var(--rose)}
+/* generic modal */
+.modal{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.modal-card{width:560px;max-width:100%;max-height:84vh;display:flex;flex-direction:column;
+  background:var(--base-3);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--shadow)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--line)}
+.modal-head h3{font-family:'Outfit',sans-serif;font-weight:600;font-size:16px}
+.modal-body{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:8px}
+.modal-foot input{flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--ink);font-size:13px;outline:none}
+.modal-foot input:focus{border-color:var(--violet)}
+.modal-foot button{padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#07080D;font-weight:600;cursor:pointer}
+.mem-item,.md-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--glass);font-size:13px}
+.mem-item .fact{flex:1}
+.mem-item .rm{border:none;background:none;color:var(--ink-3);cursor:pointer;font-size:14px}.mem-item .rm:hover{color:var(--rose)}
+.md-item{flex-direction:column;align-items:stretch;gap:4px}
+.md-item .nm{font-weight:600;color:var(--ink);display:flex;justify-content:space-between}
+.md-item .meta{font-size:11px;color:var(--ink-3);font-family:'JetBrains Mono',monospace}
+.feat-item{padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:var(--glass);font-size:13px;color:var(--ink-2)}
+.feat-item b{color:var(--ink)}
+.empty-note{color:var(--ink-3);font-size:13px;text-align:center;padding:20px}
+/* lightbox */
+#lightbox{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;cursor:zoom-out}
+#lightbox.open{display:flex}
+#lightbox img{max-width:94vw;max-height:94vh;border-radius:8px}
 </style>
 </head>
 <body>
@@ -517,6 +598,16 @@ body.light .bubble pre{background:#1a1d28}
       </div>
     </div>
     <div class="conv-scroll" id="convList"></div>
+    <div class="side-dock">
+      <a class="dock-link" href="https://qlink.to/HOME4TB" target="_blank" rel="noopener" title="Open HOME4TB NAS File Station (3.3 TB)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="8" rx="2"/><rect x="2" y="12" width="20" height="8" rx="2"/><path d="M6 8h.01M6 16h.01"/></svg>
+        HOME4TB NAS
+      </a>
+      <div class="dock-link" id="chiaDock" onclick="toggleChia()" title="Chia harvester — click to start/stop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zM12 7v10M7 12h10"/></svg>
+        Chia harvester<span class="st" id="chiaState">…</span>
+      </div>
+    </div>
     <div class="side-foot">
       <button class="foot-btn" onclick="toggleTheme()">
         <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -537,6 +628,26 @@ body.light .bubble pre{background:#1a1d28}
       </button>
       <div class="top-title" id="topTitle">New conversation</div>
       <div class="route-chip" id="routeChip"><span class="route-dot"></span><span id="routeLabel">auto-route</span></div>
+      <div class="top-status" id="topStatus" title="Local services + GPU">
+        <span class="dot" id="stDot"></span><span class="sp-txt" id="stTxt">checking</span>
+        <span class="gpu" id="stGpu"></span>
+      </div>
+      <div class="top-menu-wrap">
+        <button class="icon-btn" onclick="toggleTopMenu(event)" title="Actions">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="top-menu" id="topMenu">
+          <div class="mi" onclick="clearContext();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg>Clear context<span class="k">fresh</span></div>
+          <div class="mi" onclick="clearChat();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/></svg>Clear chat</div>
+          <div class="mi" onclick="copyConversation();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy conversation</div>
+          <div class="mi" onclick="toggleCompact()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Compact view<span class="k" id="compactState">off</span></div>
+          <div class="fs">Text size <button onclick="adjustFontSize(-1)">A−</button><button onclick="adjustFontSize(1)">A+</button></div>
+          <div class="sep"></div>
+          <div class="mi" onclick="openMemoryModal();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5v1a4 4 0 0 0 0 8 4 4 0 0 0 8 0 4 4 0 0 0 0-8V7a5 5 0 0 0-3-5z"/></svg>Memory / facts</div>
+          <div class="mi" onclick="openModelDiag();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Model diagnostics</div>
+          <div class="mi" onclick="openFeatures();closeTopMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Features / help</div>
+        </div>
+      </div>
     </div>
 
     <div id="pinBar"></div>
@@ -645,18 +756,64 @@ body.light .bubble pre{background:#1a1d28}
       <div class="fb-stats" id="fbStats"><div class="dr-note">Rate replies with 👍/👎 to build this.</div></div>
     </div>
     <div class="field">
+      <label>Server shortcuts</label>
+      <div class="exec-grid">
+        <button class="exec-chip" onclick="execShortcut('status')">📊 Status</button>
+        <button class="exec-chip" onclick="execShortcut('gpu')">🖥 GPU</button>
+        <button class="exec-chip" onclick="execShortcut('disk')">💾 Disk</button>
+        <button class="exec-chip" onclick="execShortcut('chia')">🌿 Chia log</button>
+        <button class="exec-chip" onclick="execShortcut('crypto')">💰 Crypto log</button>
+        <button class="exec-chip" onclick="execShortcut('orchestrator')">⚙️ Orch log</button>
+        <button class="exec-chip" onclick="execShortcut('watchdog')">🔍 Watchdog</button>
+        <button class="exec-chip danger" onclick="execShortcut('restart-orchestrator')">🔄 Restart Orch</button>
+        <button class="exec-chip danger" onclick="execShortcut('restart-crypto')">🔄 Restart Crypto</button>
+      </div>
+      <div class="dr-note" style="margin-top:8px">Output posts as a message in the current chat.</div>
+    </div>
+    <div class="field">
       <label>Classic studio</label>
       <a href="/static/index.legacy.html" class="src-pill" style="margin-top:0">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3h7v7M21 3l-9 9M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>
         Open classic UI
       </a>
-      <div class="dr-note" style="margin-top:8px">Aurora now has full feature parity — chat, routing, vision, media studio, deep research, web search, ask-vault, exec agent, compare, reactions, pins &amp; folders. The classic UI is kept only as a fallback for a few legacy extras (saved-prompt library, translate, compact mode).</div>
+      <div class="dr-note" style="margin-top:8px">Aurora now covers chat, routing, vision, media studio, deep research, web search, ask-vault, exec agent, compare, reactions, pins, folders, voice, translate, read-aloud, star/pin, edit, compact view, text size, memory, model diagnostics, live status &amp; server shortcuts. The classic UI is kept only for a few extras (command palette, in-chat search, saved-prompt library, MD/PDF export).</div>
     </div>
   </div>
 </aside>
 
 <div id="toast"></div>
 <div class="mini-menu" id="miniMenu"></div>
+
+<!-- Memory / facts modal -->
+<div class="modal" id="memModal" onclick="if(event.target.id==='memModal')closeModal('memModal')">
+  <div class="modal-card">
+    <div class="modal-head"><h3>🧠 Memory · facts</h3><button class="icon-btn" onclick="closeModal('memModal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body" id="memBody"></div>
+    <div class="modal-foot">
+      <input id="memInput" placeholder="Add a fact… (e.g. 'I prefer Python over JS')" onkeydown="if(event.key==='Enter')addMemoryFromInput()">
+      <button onclick="addMemoryFromInput()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Model diagnostics modal -->
+<div class="modal" id="modelModal" onclick="if(event.target.id==='modelModal')closeModal('modelModal')">
+  <div class="modal-card">
+    <div class="modal-head"><h3>▦ Local model diagnostics</h3><button class="icon-btn" onclick="closeModal('modelModal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body" id="modelBody"></div>
+  </div>
+</div>
+
+<!-- Features / help modal -->
+<div class="modal" id="featModal" onclick="if(event.target.id==='featModal')closeModal('featModal')">
+  <div class="modal-card">
+    <div class="modal-head"><h3>✨ Features &amp; help</h3><button class="icon-btn" onclick="closeModal('featModal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-body" id="featBody"></div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()"><img id="lightboxImg" src="" alt=""></div>
 
 <!-- Media Studio -->
 <div id="studio">
@@ -699,6 +856,7 @@ const TEMP_PRESETS = [        // used by temp chip; declared early (init() reads
   {label:'Wild', value:1.5, cls:'wild'},
 ];
 let _tempIdx = parseInt(localStorage.getItem('fraqtoos_temp_idx')||'1');
+let CTX_MARK = 0;             // clearContext: only send history from this index onward
 let streaming = false, abort = null;
 
 const ROUTE_LABELS = {code:'code',reasoning:'reasoning',finance:'finance',copy:'copy',long:'long-form',quick:'quick',general:'general'};
@@ -815,6 +973,7 @@ async function openConv(id){
   try{
     const r = await fetch('/conversations/'+id); const d = await r.json();
     if(d.error){ toast(d.error); return; }
+    CTX_MARK = 0;
     CONV = { id:d.id, title:d.title, model:d.model||'', history:d.history||[] };
     localStorage.setItem('fraqtoos_last_conv', id);
     $('#topTitle').textContent = d.title || 'Conversation';
@@ -830,6 +989,7 @@ async function delConv(id){
 }
 function newChat(){
   if(streaming) return;
+  CTX_MARK = 0;
   CONV = { id:null, title:null, model:'', history:[] };
   $('#topTitle').textContent = 'New conversation';
   renderEmpty(); renderConvs(); clearSuggest();
@@ -897,6 +1057,13 @@ function addMsg(role, content, meta, animate=true){
   div.innerHTML = `${who}<div class="bubble">${imgs}${dchips}<div class="md">${role==='user'?esc(content).replace(/\n/g,'<br>'):renderMD(content)}</div></div>`;
   w.appendChild(div);
   if(role==='assistant') addFoot(div, meta||{});
+  if(role==='user'){
+    const acts=document.createElement('div'); acts.className='user-acts';
+    acts.innerHTML=`<button onclick="editMsg(this)" title="Edit & resend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Edit</button>
+      <button onclick="copyMsg(this)" title="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy</button>
+      <button onclick="deleteMsg(this)" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/></svg></button>`;
+    div.appendChild(acts);
+  }
   if(role!=='user') hl(div);
   return div;
 }
@@ -987,7 +1154,7 @@ async function onSend(forceModel){
   abort = new AbortController();
   try{
     const payload = {
-      model, messages: CONV.history.map(m=>({role:m.role,content:m.send||m.content})),
+      model, messages: CONV.history.slice(CTX_MARK).map(m=>({role:m.role,content:m.send||m.content})),
       system: (localStorage.getItem('fraqtoos_sysprompt')||'') + webContext,
       temperature: parseFloat($('#temp').value||'0.7'),
       images: images
@@ -1824,6 +1991,200 @@ function deleteMsg(btn){
 
 /* ---- init ports ---- */
 syncTempChip(($('#temp')&&$('#temp').value)||'0.7'); renderPins(); updateTokens();
+
+/* ============================================================
+   GROUP 2/3 — chat controls, panels, admin widgets
+   ============================================================ */
+
+/* ---- font size ---- */
+const FS_STEPS=[13,14,15,16,17,18,19];
+let _fsIdx=parseInt(localStorage.getItem('fraqtoos_fs_idx')||'2');
+function applyFs(){ document.documentElement.style.setProperty('--chat-fs', FS_STEPS[_fsIdx]+'px'); }
+function adjustFontSize(dir){ _fsIdx=Math.max(0,Math.min(FS_STEPS.length-1,_fsIdx+dir)); localStorage.setItem('fraqtoos_fs_idx',_fsIdx); applyFs(); }
+
+/* ---- compact view ---- */
+let _compact=localStorage.getItem('fraqtoos_compact')==='1';
+function applyCompact(){ document.body.classList.toggle('compact',_compact); const s=$('#compactState'); if(s) s.textContent=_compact?'on':'off'; }
+function toggleCompact(){ _compact=!_compact; localStorage.setItem('fraqtoos_compact',_compact?'1':'0'); applyCompact(); }
+
+/* ---- clear context / clear chat / copy conversation ---- */
+function clearContext(){
+  if(!CONV.history.length){ toast('Nothing to clear'); return; }
+  CTX_MARK=CONV.history.length;
+  const w=$('#wrap');
+  if(w){ const sep=document.createElement('div'); sep.style.cssText='text-align:center;font-size:11px;color:var(--ink-3);padding:8px 0;border-top:1px dashed var(--line);margin:10px auto;max-width:824px';
+    sep.textContent='— context cleared · AI starts fresh below —'; w.appendChild(sep); scrollBottom(); }
+  toast('Context cleared — replies start fresh');
+}
+function clearChat(){
+  if(streaming) return;
+  if(!CONV.history.length){ newChat(); return; }
+  if(!confirm('Clear this chat? This starts a new conversation.')) return;
+  newChat();
+}
+function copyConversation(){
+  if(!CONV.history.length){ toast('Nothing to copy'); return; }
+  const text=CONV.history.map(m=>(m.role==='user'?'You':(shortModel(m.model)||'Assistant'))+':\n'+(m.content||'')).join('\n\n———\n\n');
+  navigator.clipboard.writeText(text).then(()=>toast('Conversation copied ('+CONV.history.length+' msgs)')).catch(()=>toast('Copy failed'));
+}
+
+/* ---- edit user message ---- */
+function editMsg(btn){
+  if(streaming) return;
+  const i=msgIndex(btn); if(i<0||!CONV.history[i]) return;
+  const entry=CONV.history[i]; const bubble=btn.closest('.msg').querySelector('.bubble');
+  const cur=entry.content||'';
+  bubble.dataset.orig=bubble.innerHTML;
+  bubble.innerHTML=`<textarea class="edit-ta">${esc(cur)}</textarea>
+    <div class="edit-row"><button onclick="cancelEditMsg(this)">Cancel</button><button class="save" onclick="saveEditMsg(this)">Save &amp; resend</button></div>`;
+  const ta=bubble.querySelector('.edit-ta'); ta.focus(); ta.setSelectionRange(cur.length,cur.length);
+}
+function cancelEditMsg(btn){ const bubble=btn.closest('.bubble'); if(bubble.dataset.orig!=null) bubble.innerHTML=bubble.dataset.orig; }
+function saveEditMsg(btn){
+  const bubble=btn.closest('.bubble'); const msg=btn.closest('.msg');
+  const newText=(bubble.querySelector('.edit-ta').value||'').trim(); if(!newText) return;
+  const i=msgIndex(msg.querySelector('.user-acts button')||msg); if(i<0) return;
+  const entry=CONV.history[i]||{};
+  CONV.history=CONV.history.slice(0,i); if(CTX_MARK>i) CTX_MARK=i;
+  renderAll();
+  $('#input').value=newText; ATTACH=(entry.images||[]).slice(); DOCS=(entry.docs||[]).slice(); renderAttach(); autosize($('#input'));
+  onSend();
+}
+
+/* ---- topbar actions menu ---- */
+function toggleTopMenu(e){ e.stopPropagation(); const m=$('#topMenu'); const open=m.classList.contains('open'); closeTopMenu(); if(!open){ m.classList.add('open'); applyCompact(); } }
+function closeTopMenu(){ const m=$('#topMenu'); if(m) m.classList.remove('open'); }
+document.addEventListener('click',closeTopMenu);
+
+/* ---- generic modal ---- */
+function closeModal(id){ const m=$('#'+id); if(m) m.classList.remove('open'); }
+
+/* ---- memory / facts modal ---- */
+let memoryItems=[];
+async function openMemoryModal(){ await fetchMemory(); renderMemory(); $('#memModal').classList.add('open'); setTimeout(()=>$('#memInput').focus(),80); }
+async function fetchMemory(){ try{ const d=await (await fetch('/memory')).json(); memoryItems=d.memory||[]; }catch(e){ memoryItems=[]; } }
+function renderMemory(){
+  const b=$('#memBody');
+  if(!memoryItems.length){ b.innerHTML='<div class="empty-note">No facts yet. Add one below — the assistant recalls these across chats.</div>'; return; }
+  b.innerHTML=memoryItems.map(m=>`<div class="mem-item"><span class="fact">${esc(m.fact)}</span><button class="rm" title="Forget" onclick="deleteMemory('${esc(String(m.id))}')">✕</button></div>`).join('');
+}
+async function addMemoryFromInput(){
+  const inp=$('#memInput'); const fact=inp.value.trim(); if(!fact) return;
+  try{ await fetch('/memory',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fact})}); inp.value=''; await fetchMemory(); renderMemory(); toast('Fact saved'); }
+  catch(e){ toast('Save failed'); }
+}
+async function deleteMemory(id){ try{ await fetch('/memory/'+encodeURIComponent(id),{method:'DELETE'}); await fetchMemory(); renderMemory(); }catch(e){} }
+
+/* ---- model diagnostics modal ---- */
+async function openModelDiag(){
+  const b=$('#modelBody'); b.innerHTML='<div class="empty-note">Loading…</div>'; $('#modelModal').classList.add('open');
+  try{
+    const d=await (await fetch('/models')).json();
+    const ms=d.models||[];
+    if(!ms.length){ b.innerHTML='<div class="empty-note">No models reported by Ollama.</div>'; return; }
+    b.innerHTML=`<div class="dr-note">${ms.length} models · ${esc(d.ollama_url||'')}</div>`+ms.map(m=>{
+      const meta=[m.parameter_size,m.quantization,m.family].filter(Boolean).join(' · ');
+      return `<div class="md-item"><div class="nm"><span>${esc(shortModel(m.name))}</span><span class="meta">${m.size_gb?m.size_gb+' GB':''}</span></div>${meta?`<div class="meta">${esc(meta)}</div>`:''}</div>`;
+    }).join('');
+  }catch(e){ b.innerHTML='<div class="empty-note">Could not reach Ollama.</div>'; }
+}
+
+/* ---- features / help modal ---- */
+function openFeatures(){
+  $('#featBody').innerHTML=`
+    <div class="feat-item"><b>Composer</b> — voice input 🎤, prompt polish ✨, quick actions ⚡, image/doc attach 📎, slash commands (/image /flux /video), temperature chip 🌡, token counter.</div>
+    <div class="feat-item"><b>Message actions</b> — copy, regenerate (± other model), read aloud 🔊, translate 🌐, star ⭐, pin 📌, react, delete. Edit &amp; resend your own messages on hover.</div>
+    <div class="feat-item"><b>Tools menu (+)</b> — generate image (FLUX), deep research (Odysseus), media studio (video), ask vault, exec agent, compare models.</div>
+    <div class="feat-item"><b>Chat controls</b> — clear context (keep messages, fresh AI), clear chat, copy conversation, compact view, text size A−/A+.</div>
+    <div class="feat-item"><b>Panels</b> — memory/facts 🧠, model diagnostics ▦, this help.</div>
+    <div class="feat-item"><b>Server</b> — live health + GPU pill, Chia harvester toggle, exec shortcuts (Settings), HOME4TB NAS link.</div>
+    <div class="feat-item"><b>Shortcuts</b> — Enter send · Shift+Enter newline · ↑/↓ (at edges) prompt history.</div>`;
+  $('#featModal').classList.add('open');
+}
+
+/* ---- image lightbox ---- */
+function openLightbox(src){ $('#lightboxImg').src=src; $('#lightbox').classList.add('open'); }
+function closeLightbox(){ $('#lightbox').classList.remove('open'); $('#lightboxImg').src=''; }
+document.addEventListener('click',e=>{ const img=e.target.closest&&e.target.closest('#stream img.gen-img, #stream img.up-img'); if(img){ e.stopPropagation(); openLightbox(img.src); } });
+
+/* ---- live status pill ---- */
+async function pollStatus(){
+  try{ const h=await (await fetch('/health')).json(); const ok=h.status==='ok';
+    $('#stDot').className='dot '+(ok?'ok':'bad'); $('#stTxt').textContent=ok?'services up':'degraded'; }
+  catch(e){ $('#stDot').className='dot bad'; $('#stTxt').textContent='offline'; }
+  try{ let g=await (await fetch('/gpu-amd')).json(); if(g&&!g.error){ $('#stGpu').textContent=`GPU ${g.vram_pct}% · ${g.temp}°`; return; } }catch(e){}
+  try{ let g=await (await fetch('/gpu')).json(); if(g&&!g.error&&g.vram_total){ $('#stGpu').textContent=`GPU ${Math.round(g.vram_used/g.vram_total*100)}% · ${g.temp}°`; } }catch(e){}
+}
+
+/* ---- Chia harvester ---- */
+let CHIA_RUNNING=false;
+function refreshChia(){ const el=$('#chiaDock'); if(!el) return; el.classList.toggle('on',CHIA_RUNNING); $('#chiaState').textContent=CHIA_RUNNING?'running':'stopped'; }
+async function pollChia(){ try{ const d=await (await fetch('/chia-harvester')).json(); CHIA_RUNNING=!!d.running; refreshChia(); }catch(e){} }
+async function toggleChia(){
+  const action=CHIA_RUNNING?'stop':'start'; $('#chiaState').textContent='…';
+  try{ const r=await fetch('/chia-harvester',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});
+    if(r.ok){ const d=await r.json(); CHIA_RUNNING=!!d.running; refreshChia(); toast('Chia harvester '+(CHIA_RUNNING?'started':'stopped')); } else toast('Chia toggle failed'); }
+  catch(e){ toast('Chia toggle failed'); refreshChia(); }
+}
+
+/* ---- exec / server shortcuts (output posts to chat) ---- */
+const LOG_SVC={chia:'chia',crypto:'crypto',orchestrator:'orchestrator',watchdog:'watchdog'};
+async function execShortcut(name){
+  if(streaming){ toast('Wait for the current reply'); return; }
+  closeDrawer&&closeDrawer();
+  const um={role:'user',content:'⌘ /'+name}; CONV.history.push(um);
+  if($('#wrap')) addMsg('user',um.content,um); else renderAll();
+  scrollBottom();
+  const botDiv=addMsg('assistant','',{model:'server'}); const mdEl=botDiv.querySelector('.md');
+  mdEl.innerHTML='<span style="color:var(--ink-3)">running…</span>';
+  let out='';
+  try{
+    if(name==='status'||name==='disk'){
+      const d=await (await fetch('/status')).json();
+      if(d.error) throw new Error(d.error);
+      const L=['**Server status** — '+(d.timestamp||'')];
+      if(name==='status') (d.bots||[]).forEach(b=>L.push((b.running?'🟢':(b.critical?'🔴':'🟡'))+' **'+b.name+'**'+(b.scheduled?' *(scheduled)*':'')));
+      L.push('','💾 Disk: `'+(d.disk||'?')+'`'+(d.disk_pct>=85?' ⚠️ '+d.disk_pct+'%':''),'🧠 RAM: `'+(d.ram||'?')+'`');
+      if(d.searxng_up===false) L.push('🔍 SearXNG: ⚠️ down');
+      out=L.join('\n');
+    } else if(name==='gpu'){
+      const [nv,amd]=await Promise.all([fetch('/gpu').then(r=>r.json()).catch(()=>({})),fetch('/gpu-amd').then(r=>r.json()).catch(()=>({}))]);
+      const L=['**GPU status**',''];
+      if(amd&&!amd.error) L.push('🔴 **'+(amd.name||'AMD')+'** — VRAM '+amd.vram_used_gb+'/'+amd.vram_total_gb+' GB ('+amd.vram_pct+'%) · util '+amd.gpu_util+'% · '+amd.temp+'°C');
+      if(nv&&!nv.error&&nv.vram_total) L.push('🟢 **NVIDIA** — VRAM '+(nv.vram_used/1024).toFixed(1)+'/'+(nv.vram_total/1024).toFixed(1)+' GB · util '+nv.gpu_util+'% · '+nv.temp+'°C');
+      out=L.join('\n')||'No GPU data';
+    } else if(LOG_SVC[name]){
+      const d=await (await fetch('/logs/'+LOG_SVC[name]+'?lines=60')).json();
+      if(d.error) throw new Error(d.error);
+      out='**'+name+' log** — `'+(d.source||'')+'`\n```\n'+(d.lines||'(empty)').slice(-3000)+'\n```';
+    } else if(name.startsWith('restart-')){
+      const svc=name.replace('restart-',''); out=await execAgentTask('restart the '+svc+' service', mdEl);
+    } else { out='Unknown shortcut'; }
+  }catch(e){ out='⚠ '+(e.message||'failed'); }
+  mdEl.innerHTML=renderMD(out); hl(botDiv);
+  const am={role:'assistant',content:out,model:'server'}; CONV.history.push(am); saveConv();
+  scrollBottom();
+}
+async function execAgentTask(task, mdEl){
+  const res=await fetch('/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task,model:'auto'})});
+  if(!res.ok||!res.body) throw new Error('HTTP '+res.status);
+  const reader=res.body.getReader(),dec=new TextDecoder(); let buf='',result=null;
+  while(true){ const {value,done}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true}); const lines=buf.split('\n'); buf=lines.pop();
+    for(const line of lines){ if(!line.trim()) continue; let d; try{d=JSON.parse(line);}catch(e){continue;}
+      if(d.error) throw new Error(d.error);
+      if(d.progress!=null&&mdEl) mdEl.innerHTML='<span style="color:var(--ink-3)">running… '+d.progress+'s</span>';
+      if(d.result!=null) result=d;
+    }
+  }
+  if(!result) return 'Agent returned no output.';
+  return (result.result||'(done)')+(result.tool_calls?'\n\n*'+result.tool_calls+' tool call(s) · '+shortModel(result.model||'')+'*':'');
+}
+
+/* ---- init group 2/3 ---- */
+applyFs(); applyCompact();
+pollStatus(); setInterval(pollStatus,20000);
+pollChia();  setInterval(pollChia,30000);
 </script>
 </body>
 </html>
