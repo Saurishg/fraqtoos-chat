@@ -1344,7 +1344,7 @@ function renderMD(src){
   if(!src) return '';
   const blocks=[];
   src = src.replace(/```(\w*)\n?([\s\S]*?)```/g,(m,lang,code)=>{
-    const i=blocks.length; blocks.push({lang,code}); return ` CB${i} `;
+    const i=blocks.length; blocks.push({lang,code}); return `\u0000CB${i}\u0000`;
   });
   let h = esc(src);
   h = h.replace(/`([^`]+)`/g,'<code>$1</code>');
@@ -1369,10 +1369,10 @@ function renderMD(src){
   // paragraphs
   h = h.split(/\n{2,}/).map(p=>{
     p=p.trim(); if(!p) return '';
-    if(/^<(h\d|ul|ol|blockquote|pre|table)/.test(p)) return p;
+    if(/^<(h\d|ul|ol|blockquote|pre|table)/.test(p) || /^\u0000CB\d+\u0000$/.test(p)) return p;
     return '<p>'+p.replace(/\n/g,'<br>')+'</p>';
   }).join('\n');
-  h = h.replace(/ CB(\d+) /g,(m,i)=>{
+  h = h.replace(/\u0000CB(\d+)\u0000/g,(m,i)=>{
     const b=blocks[i]; const lang=b.lang||'';
     return `<pre><div class="pre-head"><span>${lang||'code'}</span><button class="pre-copy" onclick="copyCode(this)"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>copy</button></div><code class="language-${lang}">${esc(b.code.replace(/\n$/,''))}</code></pre>`;
   });

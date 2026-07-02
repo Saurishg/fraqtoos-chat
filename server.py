@@ -523,7 +523,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v35';
+    sw = """const CACHE = 'fraqtoos-v36';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -540,7 +540,7 @@ self.addEventListener('fetch', e => {
   // Never cache API calls — always go to network
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
-    '/status','/logs/','/ask-vault','/feedback',
+    '/status','/logs/','/ask-vault','/feedback','/chia-harvester','/deep-research',
     '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
