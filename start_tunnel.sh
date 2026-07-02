@@ -33,7 +33,7 @@ start_tunnel() {
     tee -a "$logfile" | \
     grep --line-buffered "trycloudflare.com" | \
     while IFS= read -r line; do
-      URL=$(echo "$line" | grep -oP 'https://[a-z0-9\-]+\.trycloudflare\.com')
+      URL=$(echo "$line" | grep -oP 'https://(?!api\.)[a-z0-9\-]+\.trycloudflare\.com')
       [ -n "$URL" ] && echo "$URL" > "$urlfile"
     done &
 }
@@ -45,7 +45,7 @@ start_tunnel_url() {
     tee -a "$logfile" | \
     grep --line-buffered "trycloudflare.com" | \
     while IFS= read -r line; do
-      URL=$(echo "$line" | grep -oP 'https://[a-z0-9\-]+\.trycloudflare\.com')
+      URL=$(echo "$line" | grep -oP 'https://(?!api\.)[a-z0-9\-]+\.trycloudflare\.com')
       [ -n "$URL" ] && echo "$URL" > "$urlfile"
     done &
 }
@@ -56,7 +56,7 @@ watch_service_tunnel() {
   journalctl -u "$service" -f --no-pager 2>/dev/null | \
     grep --line-buffered "trycloudflare.com" | \
     while IFS= read -r line; do
-      URL=$(echo "$line" | grep -oP 'https://[a-z0-9\-]+\.trycloudflare\.com')
+      URL=$(echo "$line" | grep -oP 'https://(?!api\.)[a-z0-9\-]+\.trycloudflare\.com')
       [ -n "$URL" ] && echo "$URL" > "$urlfile"
     done &
 }
