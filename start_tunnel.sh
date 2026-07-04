@@ -11,7 +11,9 @@ CF="/usr/local/bin/cloudflared"
 > "$LOGDIR/tunnel_dashboard.log"
 > "$LOGDIR/tunnel_atinus.log"
 > "$LOGDIR/tunnel_comfyui_rocm.log"
-rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus /tmp/cf_url_comfyui_rocm
+> "$LOGDIR/tunnel_ipmi.log"
+> "$LOGDIR/tunnel_mpt.log"
+rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus /tmp/cf_url_comfyui_rocm /tmp/cf_url_ipmi /tmp/cf_url_mpt
 
 # ── Start the AtInUs static server (port 8765) ─────────────────────────────
 ATINUS_DIR="/home/work/atinus-website"
@@ -53,6 +55,12 @@ start_tunnel_url() {
 # Watch journalctl for a systemd-managed tunnel URL
 watch_service_tunnel() {
   local service="$1" urlfile="$2"
+  # Seed from journal history first — the running service registered its URL long ago,
+  # and `journalctl -f` alone only replays the last 10 lines
+  local seed
+  seed=$(journalctl -u "$service" --no-pager -n 5000 2>/dev/null | \
+    grep -oP 'https://(?!api\.)[a-z0-9\-]+\.trycloudflare\.com' | tail -1)
+  [ -n "$seed" ] && echo "$seed" > "$urlfile"
   journalctl -u "$service" -f --no-pager 2>/dev/null | \
     grep --line-buffered "trycloudflare.com" | \
     while IFS= read -r line; do
@@ -66,7 +74,8 @@ start_tunnel 8188 /tmp/cf_url_comfyui   "$LOGDIR/tunnel_comfyui.log"
 start_tunnel 3000 /tmp/cf_url_dashboard "$LOGDIR/tunnel_dashboard.log"
 start_tunnel $ATINUS_PORT /tmp/cf_url_atinus "$LOGDIR/tunnel_atinus.log"
 start_tunnel 8189 /tmp/cf_url_comfyui_rocm "$LOGDIR/tunnel_comfyui_rocm.log"
-start_tunnel_url "http://192.168.2.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"
+start_tunnel 8501 /tmp/cf_url_mpt "$LOGDIR/tunnel_mpt.log"
+start_tunnel_url "http://192.168.0.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"
 watch_service_tunnel cloudflared-grafana  /tmp/cf_url_grafana
 watch_service_tunnel cloudflared-obsidian /tmp/cf_url_obsidian
 
