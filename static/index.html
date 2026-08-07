@@ -1552,9 +1552,6 @@ const STUDIO_TOOLS = [
   {id:'avatar', name:'Avatar', icon:'M12 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM3 22a9 9 0 0 1 18 0', endpoint:'/avatar', out:'image', filekey:'face',
     desc:'Put a face into any scene (PuLID-FLUX).',
     fields:[{k:'face',type:'image',label:'Face photo',req:1},{k:'prompt',type:'area',label:'Scene prompt',req:1,ph:'as an astronaut on mars, cinematic'},{k:'steps',type:'num',label:'Steps',def:25},{k:'weight',type:'num',label:'Face weight',def:1,step:0.1}]},
-  {id:'swap', name:'Face swap', icon:'M16 3h5v5M21 3l-7 7M8 21H3v-5M3 21l7-7', endpoint:'/face-swap', out:'image', stream:false,
-    desc:'Swap the face from source onto target (inswapper).',
-    fields:[{k:'source',type:'image',label:'Source face',req:1},{k:'target',type:'image',label:'Target image',req:1}]},
   {id:'animate', name:'Animate image', icon:'M3 3h18v18H3zM3 9h18M9 21V9', endpoint:'animate', out:'video',
     desc:'Drive a still image with a motion video.',
     fields:[{k:'engine',type:'select',label:'Engine',opts:['mimic-motion','animate-anyone','wan2.2-animate','champ']},
@@ -1648,7 +1645,7 @@ async function runStudio(){
       res=await fetch(endpoint,{method:'POST',body:fd,signal:st_abort.signal});
     }
     let result=null;
-    if(t.stream===false){ // face-swap: plain JSON
+    if(t.stream===false){ // tools that answer with plain JSON instead of an NDJSON stream
       const d=await res.json(); if(d.error) throw new Error(d.error); result=d;
     } else {
       const reader=res.body.getReader(),dec=new TextDecoder(); let buf='';

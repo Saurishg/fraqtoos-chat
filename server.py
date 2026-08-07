@@ -523,7 +523,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v36';
+    sw = """const CACHE = 'fraqtoos-v38';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -541,7 +541,7 @@ self.addEventListener('fetch', e => {
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
     '/status','/logs/','/ask-vault','/feedback','/chia-harvester','/deep-research',
-    '/edit-image','/face-swap','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
+    '/edit-image','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
   if (e.request.method !== 'GET') return;
@@ -665,26 +665,6 @@ async def suggest(req: Request):
         return {"suggestions": lines}
     except Exception as e:
         return {"suggestions": [], "error": str(e)}
-
-
-@app.post("/face-swap")
-async def face_swap(req: Request, source: UploadFile = File(...), target: UploadFile = File(...)):
-    """Swap face from `source` onto `target`. Returns base64 PNG."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    try:
-        from face_swap import swap as _swap
-        src_b = await source.read()
-        tgt_b = await target.read()
-        if max(len(src_b), len(tgt_b)) > 12 * 1024 * 1024:
-            return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
-        out = _swap(src_b, tgt_b)
-        return JSONResponse({"image": base64.b64encode(out).decode(), "model": "inswapper_128"})
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, 400)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 500)
 
 
 def _build_avatar_workflow(face_image_name: str, prompt: str, steps: int, width: int, height: int, weight: float = 1.0) -> dict:

@@ -52,7 +52,7 @@ to push the URLs out (WhatsApp). Tailscale is the always-on LAN path.
 | 175–243        | Smart auto-routing (`ROUTING_TARGETS`, `/classify`)                  |
 | 245–299        | PWA: `/manifest.json`, `/service-worker.js`                          |
 | 302–401        | Image gen: `_stream_image_job`, `/imagine`, models, status, `/suggest` |
-| 403–512        | Face swap, avatar (PuLID-FLUX): `/face-swap`, `/avatar`              |
+| 403–512        | Avatar (PuLID-FLUX): `/avatar`                                       |
 | 513–771        | Video: mimic-motion, animate-anyone, Champ                           |
 | 770–924        | WAN text→video and image→video (`/wan-video`, `/wan-i2v`)            |
 | 925–953        | `/edit-image` (FLUX Kontext)                                         |
@@ -176,7 +176,7 @@ fragment in `buf`, `JSON.parse` each line. After loop: flush
 - LAN: `http://192.168.2.108:8080`. Public: Cloudflare quick-tunnel via
   `start_tunnel.sh` (logs in `tunnel_chat.log`, `tunnel_comfyui.log`).
 - ComfyUI must be up on :8188 for `/imagine`, `/edit-image`, `/wan-*`,
-  `/avatar`, `/face-swap`, `/champ`, mimic / animate routes.
+  `/avatar`, `/champ`, mimic / animate routes.
 
 ## Known gotchas
 
