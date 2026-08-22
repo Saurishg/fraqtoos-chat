@@ -2,7 +2,7 @@
 """
 FraqtoOS Chat — Tailscale chatbot.
 Access: http://192.168.2.108:8080
-Supports: Ollama models + FLUX.1-schnell image generation
+Supports: Ollama models (local) — image/video generation removed 2026-08-07
 """
 import asyncio
 import json
@@ -14,6 +14,8 @@ import time
 import sys
 import io
 import subprocess
+import ipaddress
+import secrets
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
@@ -34,12 +36,6 @@ load_dotenv("/home/work/fraqtoos-chat/.env")
 OLLAMA        = "http://localhost:11434"
 
 # Image generation runs on the ROCm instance (6800 XT, comfyui-rocm.service)
-# so FLUX jobs never grab the 3080 Ti — that card is the Chia harvester's only
-# CUDA decompression GPU and an OOM there means missed block rewards.
-COMFYUI       = "http://localhost:8189"
-# PuLID avatar workflow stays on the CUDA instance: ApplyPulidFlux and its
-# deps are only installed in the 8188 venv. Rare, user-triggered use only.
-COMFYUI_CUDA  = "http://localhost:8188"
 STATIC        = "/home/work/fraqtoos-chat/static"
 CONV_DIR      = "/home/work/fraqtoos-chat/conversations"
 MEMORY_FILE   = "/home/work/fraqtoos-chat/memory.json"
@@ -595,56 +591,6 @@ async def _stream_image_job(fn):
             except Exception: pass
 
 
-@app.post("/imagine")
-async def imagine(req: Request):
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    data, err = await _safe_json(req)
-    if err: return err
-    prompt      = data.get("prompt", "")
-    steps       = data.get("steps", None)
-    width       = data.get("width", 1024)
-    height      = data.get("height", 1024)
-    image_model = data.get("image_model", "flux-schnell")
-    negative    = data.get("negative", "")
-
-    if not prompt:
-        return JSONResponse({"error": "prompt required"}, 400)
-    if not _comfyui_ready():
-        return JSONResponse({"error": "Image generator not ready."}, 503)
-
-    def fn():
-        return {"image": _generate(prompt, image_model, steps, width, height, negative),
-                      "prompt": prompt, "model": image_model}
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-@app.get("/imagine/models")
-async def imagine_models():
-    """Return which image models are available (file exists on disk)."""
-    base = "/home/work/ComfyUI/models"
-    available = []
-    checks = {
-        "flux-schnell": f"{base}/unet/flux1-schnell-Q8_0.gguf",
-        "flux-dev":     f"{base}/unet/flux1-dev-Q4_0.gguf",
-        "sdxl":         f"{base}/checkpoints/sd_xl_base_1.0.safetensors",
-        "sd15":         f"{base}/checkpoints/v1-5-pruned-emaonly.safetensors",
-        "juggernaut":   f"{base}/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors",
-        "juggernaut-xi": f"{base}/checkpoints/Juggernaut-XI-v11.safetensors",
-    }
-    for name, path in checks.items():
-        if os.path.exists(path) and os.path.getsize(path) > 1024*1024:
-            available.append(name)
-    return {"models": available}
-
-
-@app.get("/imagine/status")
-async def imagine_status():
-    ready = _comfyui_ready()
-    return {"ready": ready, "url": COMFYUI}
-
-
 @app.post("/suggest")
 async def suggest(req: Request):
     """Given recent chat, return 3 short follow-up prompts the user might want to ask."""
@@ -674,695 +620,17 @@ async def suggest(req: Request):
         return {"suggestions": [], "error": str(e)}
 
 
-def _build_avatar_workflow(face_image_name: str, prompt: str, steps: int, width: int, height: int, weight: float = 1.0) -> dict:
-    """PuLID-FLUX workflow: face image + prompt → image of that person in scene."""
-    return {
-        "1":  {"class_type": "UnetLoaderGGUF",  "inputs": {"unet_name": "flux1-dev-Q4_0.gguf"}},
-        "2":  {"class_type": "DualCLIPLoaderGGUF", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
-        "3":  {"class_type": "VAELoader",       "inputs": {"vae_name": "ae.safetensors"}},
-        "4":  {"class_type": "LoadImage",       "inputs": {"image": face_image_name}},
-        "5":  {"class_type": "PulidFluxModelLoader",      "inputs": {"pulid_file": "pulid_flux_v0.9.1.safetensors"}},
-        "6":  {"class_type": "PulidFluxInsightFaceLoader","inputs": {"provider": "CUDA"}},
-        "7":  {"class_type": "PulidFluxEvaClipLoader",    "inputs": {}},
-        "8":  {"class_type": "ApplyPulidFlux",  "inputs": {"model": ["1", 0], "pulid_flux": ["5", 0], "eva_clip": ["7", 0], "face_analysis": ["6", 0], "image": ["4", 0], "weight": weight, "start_at": 0.0, "end_at": 1.0}},
-        "9":  {"class_type": "CLIPTextEncode",  "inputs": {"text": prompt, "clip": ["2", 0]}},
-        "10": {"class_type": "CLIPTextEncode",  "inputs": {"text": "", "clip": ["2", 0]}},
-        "11": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-        "12": {"class_type": "KSampler",        "inputs": {"model": ["8", 0], "positive": ["9", 0], "negative": ["10", 0], "latent_image": ["11", 0], "seed": int(time.time()), "steps": steps, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
-        "13": {"class_type": "VAEDecode",       "inputs": {"samples": ["12", 0], "vae": ["3", 0]}},
-        "14": {"class_type": "SaveImage",       "inputs": {"images": ["13", 0], "filename_prefix": "avatar"}},
-    }
-
-
-def _avatar_image(face_bytes: bytes, face_filename: str, prompt: str, steps: int = 25, width: int = 1024, height: int = 1024, weight: float = 1.0) -> str:
-    files = {"image": (face_filename, face_bytes, "application/octet-stream")}
-    up = requests.post(f"{COMFYUI_CUDA}/upload/image", files=files, data={"overwrite": "true"}, timeout=30)
-    up.raise_for_status()
-    uploaded_name = up.json().get("name") or face_filename
-
-    wf = _build_avatar_workflow(uploaded_name, prompt, steps, width, height, weight)
-    client_id = str(uuid.uuid4())
-    r = requests.post(f"{COMFYUI_CUDA}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
-    resp = r.json()
-    if "error" in resp:
-        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
-    prompt_id = resp["prompt_id"]
-    for _ in range(360):
-        time.sleep(1)
-        hist = requests.get(f"{COMFYUI_CUDA}/history/{prompt_id}", timeout=5).json()
-        if prompt_id in hist and hist[prompt_id].get("outputs"):
-            for node_out in hist[prompt_id]["outputs"].values():
-                if "images" in node_out:
-                    img = node_out["images"][0]
-                    img_r = requests.get(f"{COMFYUI_CUDA}/view",
-                        params={"filename": img["filename"], "subfolder": img["subfolder"], "type": img["type"]},
-                        timeout=15)
-                    return base64.b64encode(img_r.content).decode()
-    raise TimeoutError("Avatar generation timed out")
-
-
-@app.post("/avatar")
-async def avatar(req: Request, face: UploadFile = File(...), prompt: str = "", steps: int = 25, width: int = 1024, height: int = 1024, weight: float = 1.0):
-    """Generate an image of `face` in a scene described by `prompt` via PuLID-FLUX."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not prompt:
-        form = await req.form()
-        prompt = (form.get("prompt") or "").strip()
-        try:    steps = int(form.get("steps") or steps)
-        except (ValueError, TypeError): pass
-        try:    weight = float(form.get("weight") or weight)
-        except (ValueError, TypeError): pass
-    if not prompt:
-        return JSONResponse({"error": "prompt required"}, 400)
-    if not _comfyui_ready():
-        return JSONResponse({"error": "Image generator not ready."}, 503)
-    if not os.path.exists("/home/work/ComfyUI/models/pulid/pulid_flux_v0.9.1.safetensors"):
-        return JSONResponse({"error": "PuLID-FLUX model missing."}, 503)
-    try:
-        face_b = await face.read()
-        if len(face_b) > 12 * 1024 * 1024:
-            return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
-        fname  = face.filename or f"face_{int(time.time())}.png"
-        def fn():
-            return {"image": _avatar_image(face_b, fname, prompt, max(8, min(int(steps), 40)),
-                                                      int(width), int(height), float(weight)),
-                              "prompt": prompt, "model": "pulid-flux"}
-        return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 500)
-
-
 MIMIC_VENV_PYTHON = "/home/work/MimicMotion/venv/bin/python"
 MIMIC_SCRIPT      = "/home/work/MimicMotion/run_api.py"
 AA_VENV_PYTHON    = "/home/work/AnimateAnyone/venv/bin/python"
 AA_SCRIPT         = "/home/work/AnimateAnyone/run_api.py"
 CHAMP_VENV_PYTHON = "/home/work/champ/venv/bin/python"
 CHAMP_SCRIPT      = "/home/work/champ/run_api.py"
-WAN_VENV_PYTHON   = "/home/work/Wan2.1/venv/bin/python"
-WAN_SCRIPT        = "/home/work/Wan2.1/run_wan.py"
-WAN_I2V_SCRIPT    = "/home/work/Wan2.1/run_wan_i2v.py"
 # Wan2.2-Animate: ROCm venv + runner (preprocess + ComfyUI GGUF on 6800 XT / port 8189)
 WANANIM_VENV_PYTHON = "/home/work/ComfyUI/venv-rocm/bin/python"
 WANANIM_SCRIPT      = "/home/work/fraqtoos-chat/scripts/wan_animate_run.py"
 # Wan2.1-VACE-14B: motion/structure control (control video + optional reference image)
 VACE_SCRIPT         = "/home/work/fraqtoos-chat/scripts/vace_run.py"
-
-
-def _run_mimic_motion(avatar_bytes: bytes, avatar_name: str,
-                       driving_bytes: bytes, driving_name: str,
-                       num_frames: int = 16, resolution: int = 576,
-                       fps: int = 15, steps: int = 25,
-                       guidance: float = 2.0, stride: int = 4) -> str:
-    """Run MimicMotion in its own venv; return base64-encoded mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="mimic_")
-    try:
-        avatar_path  = os.path.join(tmp, avatar_name)
-        driving_path = os.path.join(tmp, driving_name)
-        output_path  = os.path.join(tmp, "output.mp4")
-        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
-        with open(driving_path, "wb") as f: f.write(driving_bytes)
-        cmd = [
-            MIMIC_VENV_PYTHON, MIMIC_SCRIPT,
-            "--image",      avatar_path,
-            "--video",      driving_path,
-            "--output",     output_path,
-            "--num_frames", str(num_frames),
-            "--resolution", str(resolution),
-            "--fps",        str(fps),
-            "--steps",      str(steps),
-            "--guidance",   str(guidance),
-            "--stride",     str(stride),
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "MimicMotion failed")[-1000:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("MimicMotion produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/mimic-motion")
-async def mimic_motion_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
-    """Animate `avatar` image with `driving` video via MimicMotion. Returns NDJSON → {video: base64_mp4}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(MIMIC_VENV_PYTHON):
-        return JSONResponse({"error": "MimicMotion venv not found — check /home/work/MimicMotion/venv/"}, 503)
-
-    form = await req.form()
-    try:    num_frames = max(8, min(int(form.get("num_frames") or 16), 72))
-    except (ValueError, TypeError): num_frames = 16
-    try:    resolution = int(form.get("resolution") or 576)
-    except (ValueError, TypeError): resolution = 576
-    try:    fps = max(8, min(int(form.get("fps") or 15), 30))
-    except (ValueError, TypeError): fps = 15
-    try:    steps = max(8, min(int(form.get("steps") or 25), 50))
-    except (ValueError, TypeError): steps = 25
-    try:    guidance = float(form.get("guidance") or 2.0)
-    except (ValueError, TypeError): guidance = 2.0
-    try:    stride = max(1, min(int(form.get("stride") or 4), 8))
-    except (ValueError, TypeError): stride = 4
-
-    avatar_bytes  = await avatar.read()
-    driving_bytes = await driving.read()
-
-    if len(avatar_bytes) > 12 * 1024 * 1024:
-        return JSONResponse({"error": "avatar image too large (max 12 MB)"}, 413)
-    if len(driving_bytes) > 200 * 1024 * 1024:
-        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
-
-    avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
-    driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
-
-    def fn():
-        return {
-            "video": _run_mimic_motion(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                        num_frames=num_frames, resolution=resolution, fps=fps,
-                                        steps=steps, guidance=guidance, stride=stride),
-            "model": "mimic-motion"
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_animate_anyone(avatar_bytes: bytes, avatar_name: str,
-                         driving_bytes: bytes, driving_name: str,
-                         width: int = 512, height: int = 784,
-                         chunk: int = 16, steps: int = 20,
-                         cfg: float = 3.5, fps: int = 30) -> str:
-    """Run AnimateAnyone in its own venv; return base64-encoded mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="aa_")
-    try:
-        avatar_path  = os.path.join(tmp, avatar_name)
-        driving_path = os.path.join(tmp, driving_name)
-        output_path  = os.path.join(tmp, "output.mp4")
-        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
-        with open(driving_path, "wb") as f: f.write(driving_bytes)
-        cmd = [
-            AA_VENV_PYTHON, AA_SCRIPT,
-            "--image",  avatar_path,
-            "--video",  driving_path,
-            "--output", output_path,
-            "--width",  str(width),
-            "--height", str(height),
-            "--chunk",  str(chunk),
-            "--steps",  str(steps),
-            "--cfg",    str(cfg),
-            "--fps",    str(fps),
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "AnimateAnyone failed")[-1000:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("AnimateAnyone produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/animate-anyone")
-async def animate_anyone_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
-    """Animate `avatar` image with `driving` video via AnimateAnyone. Returns NDJSON → {video: base64_mp4}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(AA_VENV_PYTHON):
-        return JSONResponse({"error": "AnimateAnyone venv not found — check /home/work/AnimateAnyone/venv/"}, 503)
-
-    form = await req.form()
-    try:    width  = int(form.get("width")  or 512)
-    except (ValueError, TypeError): width  = 512
-    try:    height = int(form.get("height") or 784)
-    except (ValueError, TypeError): height = 784
-    try:    chunk  = max(8, min(int(form.get("chunk") or 16), 32))
-    except (ValueError, TypeError): chunk  = 16
-    try:    steps  = max(10, min(int(form.get("steps") or 20), 40))
-    except (ValueError, TypeError): steps  = 20
-    try:    cfg    = float(form.get("cfg") or 3.5)
-    except (ValueError, TypeError): cfg    = 3.5
-    try:    fps    = max(8, min(int(form.get("fps") or 30), 60))
-    except (ValueError, TypeError): fps    = 30
-
-    avatar_bytes  = await avatar.read()
-    driving_bytes = await driving.read()
-
-    if len(avatar_bytes) > 12 * 1024 * 1024:
-        return JSONResponse({"error": "avatar image too large (max 12 MB)"}, 413)
-    if len(driving_bytes) > 200 * 1024 * 1024:
-        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
-
-    avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
-    driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
-
-    def fn():
-        return {
-            "video": _run_animate_anyone(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                          width=width, height=height, chunk=chunk,
-                                          steps=steps, cfg=cfg, fps=fps),
-            "model": "animate-anyone"
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_wan_animate(avatar_bytes: bytes, avatar_name: str,
-                     driving_bytes: bytes, driving_name: str,
-                     prompt: str = "a person performing the motion, high quality",
-                     frames: int = 49, steps: int = 15,
-                     width: int = 832, height: int = 480) -> str:
-    """Wan2.2-Animate-14B (Q8 GGUF) on the 6800 XT: image + driving video -> base64 mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="wananim_")
-    try:
-        avatar_path  = os.path.join(tmp, avatar_name)
-        driving_path = os.path.join(tmp, driving_name)
-        output_path  = os.path.join(tmp, "output.mp4")
-        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
-        with open(driving_path, "wb") as f: f.write(driving_bytes)
-        cmd = [WANANIM_VENV_PYTHON, WANANIM_SCRIPT,
-               "--image", avatar_path, "--video", driving_path, "--output", output_path,
-               "--prompt", prompt, "--frames", str(frames), "--steps", str(steps),
-               "--width", str(width), "--height", str(height)]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "Wan2.2-Animate failed")[-1000:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("Wan2.2-Animate produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/wan-animate")
-async def wan_animate_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
-    """Wan2.2-Animate-14B: animate `avatar` image with `driving` video. NDJSON -> {video: base64_mp4}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(WANANIM_SCRIPT):
-        return JSONResponse({"error": "Wan2.2-Animate runner not found"}, 503)
-    # ComfyUI-ROCm (6800 XT) must be up on :8189
-    try:
-        requests.get("http://127.0.0.1:8189/system_stats", timeout=3).raise_for_status()
-    except Exception:
-        return JSONResponse({"error": "ComfyUI-ROCm (port 8189) is not running — start comfyui-rocm.service"}, 503)
-
-    form = await req.form()
-    prompt = (form.get("prompt") or "a person performing the motion, high quality").strip()
-    try:    frames = max(5, min(int(form.get("frames") or 33), 121))
-    except (ValueError, TypeError): frames = 49
-    try:    steps  = max(6, min(int(form.get("steps") or 15), 30))
-    except (ValueError, TypeError): steps  = 15
-
-    avatar_bytes  = await avatar.read()
-    driving_bytes = await driving.read()
-    if len(avatar_bytes) > 12 * 1024 * 1024:
-        return JSONResponse({"error": "character image too large (max 12 MB)"}, 413)
-    if len(driving_bytes) > 200 * 1024 * 1024:
-        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
-
-    avatar_name  = avatar.filename  or f"char_{int(time.time())}.jpg"
-    driving_name = driving.filename or f"drive_{int(time.time())}.mp4"
-
-    def fn():
-        return {
-            "video": _run_wan_animate(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                      prompt=prompt, frames=frames, steps=steps),
-            "model": "wan2.2-animate"
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_vace(driving_bytes: bytes, driving_name: str,
-              ref_bytes: bytes = b"", ref_name: str = "",
-              prompt: str = "high quality, detailed, smooth motion",
-              frames: int = 49, steps: int = 20, strength: float = 1.0) -> str:
-    """Wan2.1-VACE-14B (Q8 GGUF) on the 6800 XT: control video (+ optional ref image) -> base64 mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="vace_")
-    try:
-        driving_path = os.path.join(tmp, driving_name)
-        output_path  = os.path.join(tmp, "output.mp4")
-        with open(driving_path, "wb") as f: f.write(driving_bytes)
-        cmd = [WANANIM_VENV_PYTHON, VACE_SCRIPT,
-               "--video", driving_path, "--output", output_path, "--prompt", prompt,
-               "--frames", str(frames), "--steps", str(steps), "--strength", str(strength)]
-        if ref_bytes:
-            ref_path = os.path.join(tmp, ref_name or "ref.png")
-            with open(ref_path, "wb") as f: f.write(ref_bytes)
-            cmd += ["--image", ref_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "VACE failed")[-1000:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("VACE produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/vace")
-async def vace_endpoint(req: Request, driving: UploadFile = File(...), avatar: UploadFile = File(None)):
-    """Wan2.1-VACE-14B motion/structure control: control video (+ optional reference image). NDJSON -> {video}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(VACE_SCRIPT):
-        return JSONResponse({"error": "VACE runner not found"}, 503)
-    try:
-        requests.get("http://127.0.0.1:8189/system_stats", timeout=3).raise_for_status()
-    except Exception:
-        return JSONResponse({"error": "ComfyUI-ROCm (port 8189) is not running — start comfyui-rocm.service"}, 503)
-
-    form = await req.form()
-    prompt = (form.get("prompt") or "high quality, detailed, smooth motion").strip()
-    try:    frames   = max(5, min(int(form.get("frames") or 33), 121))
-    except (ValueError, TypeError): frames = 49
-    try:    steps    = max(6, min(int(form.get("steps") or 20), 40))
-    except (ValueError, TypeError): steps = 20
-    try:    strength = max(0.0, min(float(form.get("strength") or 1.0), 2.0))
-    except (ValueError, TypeError): strength = 1.0
-
-    driving_bytes = await driving.read()
-    if len(driving_bytes) > 200 * 1024 * 1024:
-        return JSONResponse({"error": "control video too large (max 200 MB)"}, 413)
-    driving_name = driving.filename or f"ctrl_{int(time.time())}.mp4"
-
-    ref_bytes, ref_name = b"", ""
-    if avatar is not None:
-        ref_bytes = await avatar.read()
-        if len(ref_bytes) > 12 * 1024 * 1024:
-            return JSONResponse({"error": "reference image too large (max 12 MB)"}, 413)
-        ref_name = avatar.filename or f"ref_{int(time.time())}.jpg"
-
-    def fn():
-        return {
-            "video": _run_vace(driving_bytes, driving_name, ref_bytes, ref_name,
-                               prompt=prompt, frames=frames, steps=steps, strength=strength),
-            "model": "wan-vace"
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_champ(avatar_bytes: bytes, avatar_name: str,
-               driving_bytes: bytes, driving_name: str,
-               width: int = 512, height: int = 512, frames: int = 9999,
-               steps: int = 20, guidance: float = 3.5, fps: int = 30) -> str:
-    """Run CHAMP across both GPUs; return base64-encoded mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="champ_")
-    try:
-        avatar_path  = os.path.join(tmp, avatar_name)
-        driving_path = os.path.join(tmp, driving_name)
-        output_path  = os.path.join(tmp, "output.mp4")
-        with open(avatar_path,  "wb") as f: f.write(avatar_bytes)
-        with open(driving_path, "wb") as f: f.write(driving_bytes)
-        cmd = [
-            CHAMP_VENV_PYTHON, CHAMP_SCRIPT,
-            "--image",    avatar_path,
-            "--video",    driving_path,
-            "--output",   output_path,
-            "--width",    str(width),
-            "--height",   str(height),
-            "--frames",   str(frames),
-            "--steps",    str(steps),
-            "--guidance", str(guidance),
-            "--fps",      str(fps),
-            "--gpu",      "-1",    # auto dual-GPU split
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "CHAMP failed")[-1000:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("CHAMP produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.get("/champ-status")
-async def champ_status():
-    """Return CHAMP guidance mode: full (4-guidance) or pose (DWPose-only)."""
-    smpl_pkl    = "/home/work/.cache/4DHumans/data/smpl/SMPL_NEUTRAL.pkl"
-    hmr2_ckpt   = "/home/work/.cache/4DHumans/logs/train/multiruns/hmr2/0/checkpoints/epoch=35-step=1000000.ckpt"
-    d2_model    = "/home/work/champ/pretrained_models/detectron2/model_final_f05665.pkl"
-    full_ready  = all(os.path.exists(p) for p in [smpl_pkl, hmr2_ckpt, d2_model])
-    return JSONResponse({
-        "mode":        "full" if full_ready else "pose",
-        "description": "depth+normal+semantic+dwpose" if full_ready else "DWPose-only",
-        "smpl_ready":  os.path.exists(smpl_pkl),
-        "hmr2_ready":  os.path.exists(hmr2_ckpt),
-        "d2_ready":    os.path.exists(d2_model),
-        "smpl_path":   smpl_pkl if not full_ready else None,
-    })
-
-
-@app.post("/champ")
-async def champ_endpoint(req: Request, avatar: UploadFile = File(...), driving: UploadFile = File(...)):
-    """Animate `avatar` image with `driving` video via CHAMP (dual-GPU). Returns NDJSON → {video: base64_mp4}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(CHAMP_VENV_PYTHON):
-        return JSONResponse({"error": "CHAMP venv not found — check /home/work/champ/venv/"}, 503)
-
-    form = await req.form()
-    try:    width   = int(form.get("width")   or 512)
-    except (ValueError, TypeError): width   = 512
-    try:    height  = int(form.get("height")  or 512)
-    except (ValueError, TypeError): height  = 512
-    try:    frames  = max(16, min(int(form.get("frames") or 9999), 9999))
-    except (ValueError, TypeError): frames  = 9999
-    try:    steps   = max(10, min(int(form.get("steps")  or 20), 40))
-    except (ValueError, TypeError): steps   = 20
-    try:    guidance = float(form.get("guidance") or 3.5)
-    except (ValueError, TypeError): guidance = 3.5
-    try:    fps     = max(8, min(int(form.get("fps")    or 30), 60))
-    except (ValueError, TypeError): fps     = 30
-
-    avatar_bytes  = await avatar.read()
-    driving_bytes = await driving.read()
-
-    if len(avatar_bytes) > 12 * 1024 * 1024:
-        return JSONResponse({"error": "avatar image too large (max 12 MB)"}, 413)
-    if len(driving_bytes) > 200 * 1024 * 1024:
-        return JSONResponse({"error": "driving video too large (max 200 MB)"}, 413)
-
-    avatar_name  = avatar.filename  or f"avatar_{int(time.time())}.jpg"
-    driving_name = driving.filename or f"driving_{int(time.time())}.mp4"
-
-    def fn():
-        return {
-            "video": _run_champ(avatar_bytes, avatar_name, driving_bytes, driving_name,
-                                 width=width, height=height, frames=frames,
-                                 steps=steps, guidance=guidance, fps=fps),
-            "model": "champ"
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_wan(prompt: str, negative: str = "", frames: int = 81,
-             width: int = 832, height: int = 480,
-             steps: int = 50, guidance: float = 5.0,
-             fps: int = 16, seed: int = 42) -> str:
-    """Run Wan2.1 T2V in its own venv; return base64-encoded mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="wan_")
-    try:
-        output_path = os.path.join(tmp, "output.mp4")
-        cmd = [
-            WAN_VENV_PYTHON, WAN_SCRIPT,
-            "--prompt",   prompt,
-            "--output",   output_path,
-            "--frames",   str(frames),
-            "--width",    str(width),
-            "--height",   str(height),
-            "--steps",    str(steps),
-            "--guidance", str(guidance),
-            "--fps",      str(fps),
-            "--seed",     str(seed),
-        ]
-        if negative:
-            cmd += ["--negative", negative]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "Wan2.1 failed")[-1200:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("Wan2.1 produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/wan-video")
-async def wan_video_endpoint(req: Request):
-    """Generate a short video from a text prompt using Wan2.1 T2V-1.3B."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(WAN_VENV_PYTHON):
-        return JSONResponse({"error": "Wan2.1 venv not found — check /home/work/Wan2.1/venv/"}, 503)
-
-    data, err = await _safe_json(req)
-    if err: return err
-    prompt   = (data.get("prompt") or "").strip()
-    negative = (data.get("negative") or "").strip()
-    if not prompt:
-        return JSONResponse({"error": "prompt required"}, 400)
-
-    try:    frames   = max(17, min(int(data.get("frames",  81)),  161))
-    except (ValueError, TypeError): frames   = 81
-    try:    width    = int(data.get("width",    832))
-    except (ValueError, TypeError): width    = 832
-    try:    height   = int(data.get("height",   480))
-    except (ValueError, TypeError): height   = 480
-    try:    steps    = max(10, min(int(data.get("steps",   50)),  80))
-    except (ValueError, TypeError): steps    = 50
-    try:    guidance = float(data.get("guidance", 5.0))
-    except (ValueError, TypeError): guidance = 5.0
-    try:    fps      = max(8,  min(int(data.get("fps",     16)),  30))
-    except (ValueError, TypeError): fps      = 16
-    try:    seed     = int(data.get("seed", 42))
-    except (ValueError, TypeError): seed     = 42
-
-    def fn():
-        return {
-            "video":  _run_wan(prompt, negative, frames, width, height, steps, guidance, fps, seed),
-            "prompt": prompt,
-            "model":  "wan2.1-t2v-1.3b",
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-def _run_wan_i2v(image_bytes: bytes, image_name: str,
-                 prompt: str = "", negative: str = "",
-                 frames: int = 81, width: int = 832, height: int = 480,
-                 steps: int = 50, guidance: float = 5.0,
-                 fps: int = 16, seed: int = 42) -> str:
-    """Run Wan2.1 I2V in its own venv; return base64-encoded mp4."""
-    import tempfile
-    import shutil
-    tmp = tempfile.mkdtemp(prefix="wan_i2v_")
-    try:
-        image_path  = os.path.join(tmp, image_name)
-        output_path = os.path.join(tmp, "output.mp4")
-        with open(image_path, "wb") as f:
-            f.write(image_bytes)
-        cmd = [
-            WAN_VENV_PYTHON, WAN_I2V_SCRIPT,
-            "--image",    image_path,
-            "--output",   output_path,
-            "--frames",   str(frames),
-            "--width",    str(width),
-            "--height",   str(height),
-            "--steps",    str(steps),
-            "--guidance", str(guidance),
-            "--fps",      str(fps),
-            "--seed",     str(seed),
-        ]
-        if prompt:   cmd += ["--prompt",   prompt]
-        if negative: cmd += ["--negative", negative]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=2400)
-        if result.returncode != 0:
-            raise RuntimeError((result.stderr or "Wan2.1 I2V failed")[-1200:])
-        if not os.path.exists(output_path):
-            raise RuntimeError("Wan2.1 I2V produced no output file")
-        with open(output_path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-@app.post("/wan-i2v")
-async def wan_i2v_endpoint(req: Request, image: UploadFile = File(...),
-                            prompt: str = "", steps: int = 50,
-                            frames: int = 81, fps: int = 16):
-    """Animate an image using Wan2.1 I2V-14B. Returns NDJSON → {video: base64_mp4}."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not os.path.exists(WAN_VENV_PYTHON):
-        return JSONResponse({"error": "Wan2.1 venv not found — check /home/work/Wan2.1/venv/"}, 503)
-
-    form = await req.form()
-    prompt   = (form.get("prompt")   or "").strip()
-    negative = (form.get("negative") or "").strip()
-    try:    steps   = max(10, min(int(form.get("steps",  50)),  80))
-    except (ValueError, TypeError): steps   = 50
-    try:    frames  = max(17, min(int(form.get("frames", 81)),  161))
-    except (ValueError, TypeError): frames  = 81
-    try:    fps     = max(8,  min(int(form.get("fps",    16)),  30))
-    except (ValueError, TypeError): fps     = 16
-    try:    seed    = int(form.get("seed", 42))
-    except (ValueError, TypeError): seed    = 42
-
-    image_bytes = await image.read()
-    if len(image_bytes) > 20 * 1024 * 1024:
-        return JSONResponse({"error": "image too large (max 20 MB)"}, 413)
-    image_name = image.filename or f"input_{int(time.time())}.jpg"
-
-    def fn():
-        return {
-            "video":  _run_wan_i2v(image_bytes, image_name, prompt, negative,
-                                   frames, 832, 480, steps, 5.0, fps, seed),
-            "prompt": prompt,
-            "model":  "wan2.1-i2v-14b",
-        }
-    return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-
-
-@app.get("/wan-video/status")
-async def wan_video_status():
-    """Check whether Wan2.1 venv is installed."""
-    ready = os.path.exists(WAN_VENV_PYTHON)
-    return {"ready": ready, "model": "Wan2.1-T2V-1.3B"}
-
-
-@app.post("/edit-image")
-async def edit_image(req: Request, image: UploadFile = File(...), prompt: str = "", steps: int = 20):
-    """Edit `image` per text `prompt` using FLUX.1 Kontext. Multipart form."""
-    ip = req.client.host if req.client else "unknown"
-    if not _rate_ok(ip, "imagine"):
-        return JSONResponse({"error": "rate limit: 5 req/min"}, 429)
-    if not prompt:
-        form = await req.form()
-        prompt = (form.get("prompt") or "").strip()
-        try:    steps = int(form.get("steps") or steps)
-        except (ValueError, TypeError): pass
-    if not prompt:
-        return JSONResponse({"error": "prompt required"}, 400)
-    if not _comfyui_ready():
-        return JSONResponse({"error": "Image generator not ready."}, 503)
-    if not os.path.exists("/home/work/ComfyUI/models/unet/flux1-kontext-dev-Q4_0.gguf"):
-        return JSONResponse({"error": "Kontext model not yet downloaded."}, 503)
-    try:
-        img_bytes = await image.read()
-        if len(img_bytes) > 12 * 1024 * 1024:
-            return JSONResponse({"error": "image too large (max 12 MB)"}, 413)
-        fname = image.filename or f"upload_{int(time.time())}.png"
-        def fn():
-            return {"image": _edit_image(img_bytes, fname, prompt, max(4, min(steps, 40))),
-                              "prompt": prompt, "model": "flux-kontext"}
-        return StreamingResponse(_stream_image_job(fn), media_type="application/x-ndjson")
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 500)
 
 
 @app.post("/search")
@@ -2291,72 +1559,6 @@ async def gpu_stats():
         return JSONResponse({"error": str(e)}, 500)
 
 
-def _read_int(path):
-    try:
-        with open(path) as f:
-            return int(f.read().strip())
-    except Exception:
-        return None
-
-
-def _amd_card_path():
-    """Find the amdgpu card's sysfs device dir (the 6800 XT Ollama runs on)."""
-    import glob
-    for c in sorted(glob.glob("/sys/class/drm/card*/device")):
-        try:
-            drv = os.path.basename(os.path.realpath(os.path.join(c, "driver")))
-        except Exception:
-            drv = ""
-        if drv == "amdgpu" and os.path.exists(os.path.join(c, "mem_info_vram_total")):
-            return c
-    return None
-
-
-@app.get("/gpu-amd")
-async def gpu_amd():
-    """Live AMD GPU (RX 6800 XT) VRAM/util/temp straight from sysfs — fast, no sudo."""
-    import glob
-    c = _amd_card_path()
-    if not c:
-        return JSONResponse({"error": "no amdgpu card found"}, 404)
-    total = _read_int(f"{c}/mem_info_vram_total")
-    used  = _read_int(f"{c}/mem_info_vram_used")
-    if total is None or used is None or total == 0:
-        return JSONResponse({"error": "vram info unavailable"}, 500)
-    busy = _read_int(f"{c}/gpu_busy_percent")
-    temp = None
-    hw = sorted(glob.glob(f"{c}/hwmon/hwmon*"))
-    if hw:
-        t = _read_int(f"{hw[0]}/temp1_input")
-        temp = round(t / 1000) if t is not None else None
-    return {
-        "name": "RX 6800 XT",
-        "vram_used_gb":  round(used / 1073741824, 1),
-        "vram_total_gb": round(total / 1073741824, 1),
-        "vram_pct":      round(used / total * 100),
-        "gpu_util":      busy,
-        "temp":          temp,
-    }
-
-
-@app.post("/comfy-interrupt")
-async def comfy_interrupt(req: Request):
-    """Cancel the running image/video generation by interrupting both ComfyUI
-    instances (8189 ROCm image+video / 8188 CUDA avatar) — frees the GPU immediately."""
-    loop = asyncio.get_running_loop()
-    def _hit(url):
-        try:
-            requests.post(f"{url}/interrupt", timeout=4)
-            return "interrupted"
-        except Exception:
-            return "unreachable"
-    results = {}
-    for name, url in (("image_8188", "http://127.0.0.1:8188"),
-                      ("rocm_8189",  "http://127.0.0.1:8189")):
-        results[name] = await loop.run_in_executor(None, _hit, url)
-    return {"ok": True, "interrupted": results}
-
-
 @app.get("/health")
 async def health():
     try:
@@ -2367,7 +1569,6 @@ async def health():
     return {
         "status":        "ok",
         "ollama_models": models,
-        "image_ready":   _comfyui_ready(),
         "search_ready":  _searx_up(),
     }
 
@@ -2405,17 +1606,8 @@ async def model_inventory(req: Request):
         "models": models,
         "count": len(models),
         "ollama_url": OLLAMA,
-        "image_ready": _comfyui_ready(),
         "search_ready": _searx_up(),
     }
-
-
-def _comfyui_ready() -> bool:
-    try:
-        r = requests.get(f"{COMFYUI}/system_stats", timeout=2)
-        return r.status_code == 200
-    except Exception:
-        return False
 
 
 # ─── Agent exec ───────────────────────────────────────────────────────
@@ -2582,131 +1774,6 @@ async def tail_service_log(service: str, req: Request, lines: int = 60):
         return JSONResponse({"error": str(e)}, 500)
 
 
-def _build_flux_workflow(unet_file: str, prompt: str, steps: int, width: int, height: int) -> dict:
-    return {
-        "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": unet_file}},
-        "2": {"class_type": "DualCLIPLoaderGGUF", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
-        "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
-        "4": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
-        "5": {"class_type": "EmptySD3LatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-        "6": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["4", 0], "negative": ["7", 0], "latent_image": ["5", 0], "seed": int(time.time()), "steps": steps, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": "", "clip": ["2", 0]}},
-        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["6", 0], "vae": ["3", 0]}},
-        "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "fraqtoos"}},
-    }
-
-
-def _build_sdxl_workflow(ckpt_file: str, prompt: str, negative: str, steps: int, width: int, height: int) -> dict:
-    return {
-        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt_file}},
-        "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
-        "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative or "ugly, blurry, watermark, text, low quality", "clip": ["1", 1]}},
-        "4": {"class_type": "EmptyLatentImage", "inputs": {"width": width, "height": height, "batch_size": 1}},
-        "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": int(time.time()), "steps": steps, "cfg": 7.0, "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0}},
-        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
-        "7": {"class_type": "SaveImage", "inputs": {"images": ["6", 0], "filename_prefix": "fraqtoos"}},
-    }
-
-
-def _build_sd15_workflow(ckpt_file: str, prompt: str, negative: str, steps: int, width: int, height: int) -> dict:
-    return {
-        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": ckpt_file}},
-        "2": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["1", 1]}},
-        "3": {"class_type": "CLIPTextEncode", "inputs": {"text": negative or "ugly, blurry, watermark, low quality", "clip": ["1", 1]}},
-        "4": {"class_type": "EmptyLatentImage", "inputs": {"width": min(width, 768), "height": min(height, 768), "batch_size": 1}},
-        "5": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["2", 0], "negative": ["3", 0], "latent_image": ["4", 0], "seed": int(time.time()), "steps": steps, "cfg": 7.5, "sampler_name": "euler_ancestral", "scheduler": "normal", "denoise": 1.0}},
-        "6": {"class_type": "VAEDecode", "inputs": {"samples": ["5", 0], "vae": ["1", 2]}},
-        "7": {"class_type": "SaveImage", "inputs": {"images": ["6", 0], "filename_prefix": "fraqtoos"}},
-    }
-
-
-def _generate(prompt: str, model: str, steps, width: int, height: int, negative: str = "") -> str:
-    """Route to correct workflow based on model name, return base64 PNG."""
-    if model == "flux-schnell":
-        wf = _build_flux_workflow("flux1-schnell-Q8_0.gguf", prompt, steps or 4, width, height)
-    elif model == "flux-dev":
-        wf = _build_flux_workflow("flux1-dev-Q4_0.gguf", prompt, steps or 20, width, height)
-    elif model == "sdxl":
-        wf = _build_sdxl_workflow("sd_xl_base_1.0.safetensors", prompt, negative, steps or 25, width, height)
-    elif model == "juggernaut":
-        wf = _build_sdxl_workflow("Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors", prompt, negative, steps or 25, width, height)
-    elif model == "juggernaut-xi":
-        wf = _build_sdxl_workflow("Juggernaut-XI-v11.safetensors", prompt, negative, steps or 30, width, height)
-    elif model == "sd15":
-        wf = _build_sd15_workflow("v1-5-pruned-emaonly.safetensors", prompt, negative, steps or 20, width, height)
-    else:
-        raise ValueError(f"Unknown image model: {model}")
-
-    client_id = str(uuid.uuid4())
-    r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
-    resp = r.json()
-    if "error" in resp:
-        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
-    prompt_id = resp["prompt_id"]
-
-    for _ in range(180):
-        time.sleep(1)
-        hist = requests.get(f"{COMFYUI}/history/{prompt_id}", timeout=5).json()
-        if prompt_id in hist and hist[prompt_id].get("outputs"):
-            for node_out in hist[prompt_id]["outputs"].values():
-                if "images" in node_out:
-                    img = node_out["images"][0]
-                    img_r = requests.get(f"{COMFYUI}/view",
-                        params={"filename": img["filename"], "subfolder": img["subfolder"], "type": img["type"]},
-                        timeout=10)
-                    return base64.b64encode(img_r.content).decode()
-    raise TimeoutError("Image generation timed out")
-
-
-def _build_kontext_workflow(unet_file: str, image_name: str, prompt: str, steps: int) -> dict:
-    """Flux Kontext: edit `image_name` according to `prompt`. Image must already be
-    uploaded to ComfyUI's input dir via /upload/image."""
-    return {
-        "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": unet_file}},
-        "2": {"class_type": "DualCLIPLoaderGGUF", "inputs": {"clip_name1": "t5xxl_fp8_e4m3fn.safetensors", "clip_name2": "clip_l.safetensors", "type": "flux"}},
-        "3": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
-        "4": {"class_type": "LoadImage", "inputs": {"image": image_name}},
-        "5": {"class_type": "ImageScaleToTotalPixels", "inputs": {"image": ["4", 0], "upscale_method": "lanczos", "megapixels": 1.0, "resolution_steps": 16}},
-        "6": {"class_type": "VAEEncode", "inputs": {"pixels": ["5", 0], "vae": ["3", 0]}},
-        "7": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["2", 0]}},
-        "8": {"class_type": "CLIPTextEncode", "inputs": {"text": "", "clip": ["2", 0]}},
-        "9": {"class_type": "ReferenceLatent", "inputs": {"conditioning": ["7", 0], "latent": ["6", 0]}},
-        "10": {"class_type": "KSampler", "inputs": {"model": ["1", 0], "positive": ["9", 0], "negative": ["8", 0], "latent_image": ["6", 0], "seed": int(time.time()), "steps": steps, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
-        "11": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
-        "12": {"class_type": "SaveImage", "inputs": {"images": ["11", 0], "filename_prefix": "kontext"}},
-    }
-
-
-def _edit_image(image_bytes: bytes, image_filename: str, prompt: str, steps: int = 20) -> str:
-    """Upload image to ComfyUI, run Kontext edit, return base64 PNG."""
-    files = {"image": (image_filename, image_bytes, "application/octet-stream")}
-    data  = {"overwrite": "true"}
-    up = requests.post(f"{COMFYUI}/upload/image", files=files, data=data, timeout=30)
-    up.raise_for_status()
-    uploaded_name = up.json().get("name") or image_filename
-
-    wf = _build_kontext_workflow("flux1-kontext-dev-Q4_0.gguf", uploaded_name, prompt, steps)
-    client_id = str(uuid.uuid4())
-    r = requests.post(f"{COMFYUI}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
-    resp = r.json()
-    if "error" in resp:
-        err = resp["error"]; raise RuntimeError(err.get("message", str(err)) if isinstance(err, dict) else str(err))
-    prompt_id = resp["prompt_id"]
-
-    for _ in range(240):
-        time.sleep(1)
-        hist = requests.get(f"{COMFYUI}/history/{prompt_id}", timeout=5).json()
-        if prompt_id in hist and hist[prompt_id].get("outputs"):
-            for node_out in hist[prompt_id]["outputs"].values():
-                if "images" in node_out:
-                    img = node_out["images"][0]
-                    img_r = requests.get(f"{COMFYUI}/view",
-                        params={"filename": img["filename"], "subfolder": img["subfolder"], "type": img["type"]},
-                        timeout=15)
-                    return base64.b64encode(img_r.content).decode()
-    raise TimeoutError("Image edit timed out")
-
-
 # Models whose thinking we suppress for snappy chat (they support think=false).
 # qwen3 is NOT here: with think=false it leaks reasoning prose into content —
 # with thinking ON its content stays clean and the thinking tokens stream to
@@ -2773,6 +1840,64 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
                     break
     except Exception as e:
         yield json.dumps({"error": str(e)}) + "\n"
+
+
+
+# ─── Public access gate ──────────────────────────────────────────────
+# This app is published through a public Cloudflare quick tunnel, and it
+# exposes /exec (runs the gemma-agent, which has shell tools), /upload,
+# /wa-send, /memory, /conversations and /logs. Until 2026-08-23 every one of
+# those was reachable by anyone with the URL — /exec was straightforward
+# unauthenticated remote code execution, verified live.
+#
+# cloudflared preserves the real client IP and adds cf-connecting-ip, so
+# tunnel traffic is distinguishable from LAN/tailnet traffic. LAN keeps working
+# untouched; anything arriving over the tunnel must present the token once.
+#
+# Token lives in .env as FRAQTOOS_TOKEN (auto-generated on first boot).
+# Use it as ?k=<token> once — the response sets a year-long cookie — or send
+# it as the X-Auth-Token header.
+_TOKEN = (os.getenv("FRAQTOOS_TOKEN") or "").strip()
+if not _TOKEN:
+    _TOKEN = secrets.token_urlsafe(24)
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"), "a") as f:
+            f.write(f"\n# auto-generated {time.strftime('%Y-%m-%d')} — public tunnel access token\nFRAQTOOS_TOKEN={_TOKEN}\n")
+    except Exception:
+        pass
+
+
+def _is_local_request(req: Request) -> bool:
+    """True only for genuinely local/LAN/tailnet callers.
+
+    Any cf-* / x-forwarded-for header means the request came through the
+    Cloudflare edge, so it is remote no matter what the socket says.
+    """
+    if req.headers.get("cf-connecting-ip") or req.headers.get("x-forwarded-for"):
+        return False
+    host = req.client.host if req.client else ""
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    # 100.64/10 is the CGNAT range Tailscale uses.
+    return ip.is_loopback or ip.is_private or ip in ipaddress.ip_network("100.64.0.0/10")
+
+
+@app.middleware("http")
+async def _public_access_gate(req: Request, call_next):
+    if _is_local_request(req):
+        return await call_next(req)
+    supplied = (req.query_params.get("k")
+                or req.headers.get("x-auth-token")
+                or req.cookies.get("fq_auth") or "")
+    if supplied and secrets.compare_digest(supplied, _TOKEN):
+        resp = await call_next(req)
+        if req.query_params.get("k"):
+            resp.set_cookie("fq_auth", _TOKEN, max_age=31536000,
+                            httponly=True, samesite="lax", secure=True)
+        return resp
+    return JSONResponse({"error": "unauthorized — append ?k=<token> once"}, 401)
 
 
 # ─── Voice: local speech-to-text ─────────────────────────────────────
@@ -2926,71 +2051,22 @@ async def wa_send(req: Request):
         return JSONResponse({"error": str(e)}, 500)
 
 
-# ─── IPMI reverse proxy (Megarac SP BMC at 192.168.0.103) ────────────
-IPMI_ORIGIN = "http://192.168.0.103"
+# ─── (IPMI reverse proxy removed — see note below) ───────────────────
+# ─── IPMI/BMC proxy — REMOVED 2026-08-23 (SECURITY) ──────────────────
+# There was a full reverse proxy here: @app.api_route("/ipmi/{path:path}")
+# forwarding to http://192.168.0.103, plus a bare /ipmi redirect.
+#
+# This app is published through a public Cloudflare quick tunnel, so that
+# route served the AMI Megatrends BMC login page — power control and remote
+# KVM — to the whole internet with no authentication. Verified live:
+#   curl https://<chat-tunnel>.trycloudflare.com/ipmi/  -> the BMC UI.
+#
+# Deleting the separate ipmi cloudflared tunnel on 2026-08-22 did NOT close
+# this; it is a second, independent path to the same BMC. Do not restore it
+# without an auth layer in front. For private access use `tailscale serve`.
 
-@app.api_route("/ipmi/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-async def ipmi_proxy(path: str, req: Request):
-    """Reverse-proxy to the IPMI BMC so it's reachable from anywhere via the
-    chat tunnel. Streams the response back verbatim (headers + body)."""
-    target = f"{IPMI_ORIGIN}/{path}"
-    qs = str(req.url.query)
-    if qs:
-        target += f"?{qs}"
-    headers = {k: v for k, v in req.headers.items()
-               if k.lower() not in ("host", "connection", "transfer-encoding")}
-    body = await req.body()
-    try:
-        resp = requests.request(
-            method=req.method,
-            url=target,
-            headers=headers,
-            data=body if body else None,
-            timeout=30,
-            allow_redirects=False,
-            stream=True,
-        )
-    except requests.exceptions.ConnectionError:
-        return JSONResponse({"error": "IPMI BMC unreachable at 192.168.0.103"}, 503)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 502)
-
-    # Pass through response headers (skip hop-by-hop and encoding headers
-    # since requests auto-decompresses gzip/deflate)
-    excluded = {"transfer-encoding", "connection", "keep-alive", "content-encoding", "content-length"}
-    resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded}
-    # Rewrite Location headers for redirects (requests returns mixed-case keys)
-    for hdr in list(resp_headers):
-        if hdr.lower() == "location":
-            loc = resp_headers[hdr]
-            if loc.startswith(IPMI_ORIGIN):
-                resp_headers[hdr] = loc.replace(IPMI_ORIGIN, "/ipmi", 1)
-            break
-    # Determine content type (case-insensitive header lookup)
-    ct = ""
-    for hdr in resp_headers:
-        if hdr.lower() == "content-type":
-            ct = resp_headers[hdr]
-            break
-    content = resp.content
-    # Rewrite absolute IPMI URLs in HTML responses
-    if ct.startswith("text/html"):
-        content = content.replace(IPMI_ORIGIN.encode(), b"/ipmi")
-    return Response(
-        content=content,
-        status_code=resp.status_code,
-        headers=resp_headers,
-        media_type=ct or None,
-    )
-
-@app.get("/ipmi")
-async def ipmi_root(req: Request):
-    """Redirect bare /ipmi to /ipmi/ so relative links in the BMC UI work."""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse("/ipmi/")
 
 
 if __name__ == "__main__":
     print("FraqtoOS Chat → http://192.168.2.108:8080")
-    print(f"Images: ComfyUI on {COMFYUI}")
     uvicorn.run(app, host="0.0.0.0", port=8080, log_level="warning")
