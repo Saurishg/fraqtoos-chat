@@ -1,32 +1,25 @@
 #!/bin/bash
-# Start Cloudflare quick tunnels: Chat, ComfyUI, Creator Dashboard, AtInUs
+# Start Cloudflare quick tunnels: Chat, ComfyUI, Creator Dashboard
 # Also captures Grafana + Obsidian tunnel URLs from their systemd services
 # Waits for all URLs then sends one WhatsApp message
 
+# 2026-07-30 SECURITY: the tunnels below were disabled. Each published an
+# unauthenticated service to the public internet:
+#   8188/8189 ComfyUI  -> no auth, custom nodes can execute code (RCE)
+#   192.168.0.103 IPMI -> out-of-band server control
+#   8501 Streamlit     -> no auth
+# Re-enable only behind Cloudflare Access or another auth layer.
 LOGDIR="/home/work/fraqtoos-chat"
 CF="/usr/local/bin/cloudflared"
 
 > "$LOGDIR/tunnel_chat.log"
 > "$LOGDIR/tunnel_comfyui.log"
 > "$LOGDIR/tunnel_dashboard.log"
-> "$LOGDIR/tunnel_atinus.log"
 > "$LOGDIR/tunnel_comfyui_rocm.log"
 > "$LOGDIR/tunnel_ipmi.log"
-> "$LOGDIR/tunnel_mpt.log"
-rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_atinus /tmp/cf_url_comfyui_rocm /tmp/cf_url_ipmi /tmp/cf_url_mpt
+rm -f /tmp/cf_url_chat /tmp/cf_url_comfyui /tmp/cf_url_grafana /tmp/cf_url_dashboard /tmp/cf_url_obsidian /tmp/cf_url_comfyui_rocm /tmp/cf_url_ipmi
 
-# ── Start the AtInUs static server (port 8765) ─────────────────────────────
-ATINUS_DIR="/home/work/atinus-website"
-ATINUS_PORT=8765
-ATINUS_LOG="$LOGDIR/atinus_server.log"
-
-# Kill any existing process on the port before starting fresh
-fuser -k -n tcp $ATINUS_PORT 2>/dev/null
-sleep 1
-if [ -d "$ATINUS_DIR" ]; then
-  ( cd "$ATINUS_DIR" && /usr/bin/python3 -m http.server $ATINUS_PORT >> "$ATINUS_LOG" 2>&1 ) &
-  echo "AtInUs static server started on port $ATINUS_PORT (PID $!)"
-fi
+# AtInUs (port 8765) removed entirely 2026-08-09 — project deleted.
 
 # Start a tunnel and write its URL to a file when detected
 start_tunnel() {
@@ -69,13 +62,18 @@ watch_service_tunnel() {
     done &
 }
 
-start_tunnel 8080 /tmp/cf_url_chat      "$LOGDIR/tunnel_chat.log"
-start_tunnel 8188 /tmp/cf_url_comfyui   "$LOGDIR/tunnel_comfyui.log"
-start_tunnel 3000 /tmp/cf_url_dashboard "$LOGDIR/tunnel_dashboard.log"
-start_tunnel $ATINUS_PORT /tmp/cf_url_atinus "$LOGDIR/tunnel_atinus.log"
-start_tunnel 8189 /tmp/cf_url_comfyui_rocm "$LOGDIR/tunnel_comfyui_rocm.log"
-start_tunnel 8501 /tmp/cf_url_mpt "$LOGDIR/tunnel_mpt.log"
-start_tunnel_url "http://192.168.0.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"
+# 2026-08-22: chat and dashboard are now real systemd units
+# (cloudflared-chat.service / cloudflared-dashboard.service) instead of
+# background children of this script. Starting them here too would run a
+# SECOND tunnel per service — two URLs for one origin, one of which the
+# links page would never publish. Watch the units instead.
+# start_tunnel 8080 /tmp/cf_url_chat      "$LOGDIR/tunnel_chat.log"
+# start_tunnel 8188 /tmp/cf_url_comfyui   "$LOGDIR/tunnel_comfyui.log"   # disabled 2026-07-30 (unauth RCE)
+# start_tunnel 3000 /tmp/cf_url_dashboard "$LOGDIR/tunnel_dashboard.log"
+watch_service_tunnel cloudflared-chat      /tmp/cf_url_chat
+watch_service_tunnel cloudflared-dashboard /tmp/cf_url_dashboard
+# start_tunnel 8189 /tmp/cf_url_comfyui_rocm "$LOGDIR/tunnel_comfyui_rocm.log"   # disabled 2026-07-30 (unauth RCE)
+# start_tunnel_url "http://192.168.0.103" /tmp/cf_url_ipmi "$LOGDIR/tunnel_ipmi.log"   # disabled 2026-07-30 (IPMI = full server control)
 watch_service_tunnel cloudflared-grafana  /tmp/cf_url_grafana
 watch_service_tunnel cloudflared-obsidian /tmp/cf_url_obsidian
 
@@ -89,8 +87,7 @@ for i in $(seq 1 90); do
   GRAFANA=$(cat /tmp/cf_url_grafana 2>/dev/null)
   OBSIDIAN=$(cat /tmp/cf_url_obsidian 2>/dev/null)
   IPMI=$(cat /tmp/cf_url_ipmi 2>/dev/null)
-  ATINUS=$(cat /tmp/cf_url_atinus 2>/dev/null)
-  [ -n "$CHAT" ] && [ -n "$COMFY" ] && [ -n "$DASHBOARD" ] && [ -n "$ATINUS" ] && break
+  [ -n "$CHAT" ] && [ -n "$DASHBOARD" ] && break   # COMFY tunnel disabled 2026-07-30
 done
 
 echo "Chat:      ${CHAT:-not found}"
@@ -99,7 +96,6 @@ echo "Dashboard: ${DASHBOARD:-not found}"
 echo "Grafana:   ${GRAFANA:-not found}"
 echo "Obsidian:  ${OBSIDIAN:-not found}"
 echo "IPMI:      ${IPMI:-not found}"
-echo "AtInUs:    ${ATINUS:-not found}"
 
 /usr/bin/python3 /home/work/fraqtoos-chat/notify_url.py "${CHAT:-}" "${COMFY:-}" "${GRAFANA:-}" "${DASHBOARD:-}" &
 

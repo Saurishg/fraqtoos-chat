@@ -23,3 +23,10 @@ vault_index.json
 
 # vector store of conversation embeddings — private user data
 ruvector.db
+
+# generated knowledge-graph output
+graphify-out/
+
+# ruflo leftovers (tool removed 2026-07-17)
+agentdb.rvf
+agentdb.rvf.lock
