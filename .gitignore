@@ -1,6 +1,10 @@
 .env
 tunnel.log
 tunnel_*.log
+# logrotate suffixes — `tunnel_*.log` does NOT match `tunnel_x.log.1` or
+# `tunnel_x.log.2.gz`, so rotated tunnel logs were sweepable by `git add -A`.
+# They carry live trycloudflare hostnames and this repo is PUBLIC.
+tunnel_*.log.*
 __pycache__/
 *.pyc
 
@@ -16,3 +20,6 @@ memory.json
 claude-flow.config.json
 conv_embeddings.json
 vault_index.json
+
+# vector store of conversation embeddings — private user data
+ruvector.db

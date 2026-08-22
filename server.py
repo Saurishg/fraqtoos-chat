@@ -32,6 +32,7 @@ except Exception:
 
 load_dotenv("/home/work/fraqtoos-chat/.env")
 OLLAMA        = "http://localhost:11434"
+
 # Image generation runs on the ROCm instance (6800 XT, comfyui-rocm.service)
 # so FLUX jobs never grab the 3080 Ti — that card is the Chia harvester's only
 # CUDA decompression GPU and an OOM there means missed block rewards.
@@ -436,11 +437,17 @@ async def chat(req: Request):
 
 # ─── Smart auto-routing ──────────────────────────────────────────────
 ROUTING_TARGETS = {
-    "code":      "deepseek-r1:14b",  # reasoning model, thinking ON (streamed to UI)
+    # 2026-08-23: was devstral:latest. Benchmarked on this box at 32k ctx with
+    # the Chia harvester holding 3.8G of the 12G card: devstral 2.5 tok/s
+    # (dense 24B, 67% on CPU) vs gpt-oss 17.6 tok/s (MoE, ~3.6B active, so CPU
+    # offload barely hurts). Devstral is the stronger coding model on paper,
+    # but 7x slower per answer made every code question in chat crawl.
+    # The 6800 XT the old comment sized this against was removed 2026-08-07.
+    "code":      "gpt-oss:20b",
     "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON (streamed to UI)
-    "finance":   "qwen3:30b-a3b",    # MoE depth, thinking ON (worth the wait here)
+    "finance":   "gpt-oss:20b",      # fits fully in 16GB VRAM (qwen3 removed 2026-07-05)
     "copy":      "gemma4:latest",    # back on gemma4 since the Ollama 0.30.7 fix
-    "long":      "qwen3:30b-a3b",    # replaces llama4 (removed)
+    "long":      "gpt-oss:20b",      # replaces qwen3 (removed 2026-07-05)
     "general":   "gemma4:latest",    # fast + clean (qwen3 thinks ~90s even for hello)
     "quick":     "phi4:latest",      # phi4 still fastest for 1-liners
 }
@@ -491,14 +498,14 @@ async def classify(req: Request):
             installed = {m["name"] for m in tags.get("models", [])}
             target = ROUTING_TARGETS[cat]
             if target not in installed:
-                for fb in ("qwen3:30b-a3b", "gemma4:latest", "phi4:latest"):
+                for fb in ("gpt-oss:20b", "gemma4:latest", "phi4:latest"):
                     if fb in installed:
                         target = fb; break
         except Exception:
             target = ROUTING_TARGETS[cat]
         return {"category": cat, "model": target, "raw": raw}
     except Exception as e:
-        return JSONResponse({"category": "general", "model": "qwen3:30b-a3b",
+        return JSONResponse({"category": "general", "model": "gpt-oss:20b",
                              "error": str(e)}, 500)
 
 
@@ -523,7 +530,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v38';
+    sw = """const CACHE = 'fraqtoos-v39';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -2766,6 +2773,221 @@ def ollama_stream(model, messages, system="", images=None, temperature=0.7):
                     break
     except Exception as e:
         yield json.dumps({"error": str(e)}) + "\n"
+
+
+# ─── Voice: local speech-to-text ─────────────────────────────────────
+# faster-whisper (CTranslate2). Lazily loaded and cached: loading the model is
+# seconds, transcribing a short utterance is well under one.
+# CPU on purpose — the 3080 Ti is shared with the Chia harvester's plot
+# decompression, and a "base" model on 56 Xeon threads is fast enough that
+# stealing GPU from farming would be a bad trade.
+_WHISPER = None
+_WHISPER_ERR = None
+
+
+def _whisper():
+    global _WHISPER, _WHISPER_ERR
+    if _WHISPER is not None or _WHISPER_ERR is not None:
+        return _WHISPER
+    try:
+        from faster_whisper import WhisperModel
+        _WHISPER = WhisperModel(
+            os.getenv("WHISPER_MODEL", "base"),
+            device="cpu", compute_type="int8", cpu_threads=8)
+    except Exception as e:
+        _WHISPER_ERR = str(e)
+    return _WHISPER
+
+
+@app.get("/voice/status")
+async def voice_status():
+    """Does this box have working STT? The UI hides the mic if not."""
+    try:
+        from faster_whisper import WhisperModel  # noqa: F401
+        return {"ready": True, "loaded": _WHISPER is not None,
+                "model": os.getenv("WHISPER_MODEL", "base"), "error": _WHISPER_ERR}
+    except Exception as e:
+        return {"ready": False, "error": str(e)}
+
+
+@app.post("/transcribe")
+async def transcribe(req: Request, audio: UploadFile = File(...)):
+    """Speech-to-text for the mic button. Returns {text}."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "conv"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    raw = await audio.read()
+    if not raw:
+        return JSONResponse({"error": "empty audio"}, 400)
+    if len(raw) > 25 * 1024 * 1024:
+        return JSONResponse({"error": "audio too large (25MB max)"}, 413)
+
+    suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
+    tmp = f"/tmp/dictate_{uuid.uuid4().hex}{suffix}"
+    try:
+        with open(tmp, "wb") as f:
+            f.write(raw)
+        model = _whisper()
+        if model is None:
+            return JSONResponse(
+                {"error": f"speech-to-text unavailable: {_WHISPER_ERR}"}, 503)
+        loop = asyncio.get_running_loop()
+
+        def _run():
+            segments, info = model.transcribe(tmp, beam_size=1, vad_filter=True)
+            return " ".join(seg.text.strip() for seg in segments).strip(), info
+
+        text, info = await loop.run_in_executor(None, _run)
+        return {"text": text, "language": getattr(info, "language", "")}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
+# ─── Tunnel + service health for the command-center rail ─────────────
+@app.get("/tunnels")
+async def tunnels():
+    """State of the four cloudflared units, for the server rail.
+
+    Reads the URL each unit is actually advertising from its journal rather
+    than a cached file, so the rail cannot show a URL the tunnel has already
+    rotated away from.
+    """
+    names = ("chat", "dashboard", "grafana", "obsidian")
+    loop = asyncio.get_running_loop()
+
+    def _one(n):
+        unit = f"cloudflared-{n}"
+        try:
+            active = subprocess.run(["systemctl", "is-active", unit],
+                                    capture_output=True, text=True,
+                                    timeout=4).stdout.strip()
+        except Exception:
+            active = "unknown"
+        url, proto = "", ""
+        try:
+            out = subprocess.check_output(
+                ["journalctl", "-u", unit, "--no-pager", "-n", "300"],
+                timeout=5).decode(errors="replace")
+            for line in reversed(out.splitlines()):
+                if not url and "trycloudflare.com" in line and "api." not in line:
+                    for tok in line.split():
+                        if tok.startswith("https://") and tok.endswith(".trycloudflare.com"):
+                            url = tok
+                            break
+                if not proto and "protocol=" in line:
+                    proto = line.split("protocol=")[-1].split()[0]
+                if url and proto:
+                    break
+        except Exception:
+            pass
+        return {"name": n, "unit": unit, "active": active == "active",
+                "url": url, "protocol": proto}
+
+    results = await asyncio.gather(
+        *[loop.run_in_executor(None, _one, n) for n in names])
+    return {"tunnels": list(results),
+            "up": sum(1 for t in results if t["active"]), "total": len(names)}
+
+
+# ─── WhatsApp bridge endpoint ─────────────────────────────────────────
+@app.post("/wa-send")
+async def wa_send(req: Request):
+    """Proxy message to the local wa-service (WhatsApp gateway)."""
+    ip = req.client.host if req.client else "unknown"
+    if not _rate_ok(ip, "chat"):
+        return JSONResponse({"error": "rate limit"}, 429)
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON"}, 400)
+    message = (data.get("message") or "").strip()
+    if not message:
+        return JSONResponse({"error": "message is required"}, 400)
+    phone = data.get("phone") or "+919818187001"
+    try:
+        r = requests.post(
+            "http://127.0.0.1:3131/send",
+            json={"phone": phone, "message": message},
+            timeout=15,
+        )
+        if r.status_code == 200:
+            resp = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+            return {"status": "sent", "detail": resp}
+        else:
+            return JSONResponse({"error": f"wa-service returned {r.status_code}: {r.text[:200]}"}, 502)
+    except requests.exceptions.ConnectionError:
+        return JSONResponse({"error": "wa-service unreachable at 127.0.0.1:3131"}, 503)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 500)
+
+
+# ─── IPMI reverse proxy (Megarac SP BMC at 192.168.0.103) ────────────
+IPMI_ORIGIN = "http://192.168.0.103"
+
+@app.api_route("/ipmi/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+async def ipmi_proxy(path: str, req: Request):
+    """Reverse-proxy to the IPMI BMC so it's reachable from anywhere via the
+    chat tunnel. Streams the response back verbatim (headers + body)."""
+    target = f"{IPMI_ORIGIN}/{path}"
+    qs = str(req.url.query)
+    if qs:
+        target += f"?{qs}"
+    headers = {k: v for k, v in req.headers.items()
+               if k.lower() not in ("host", "connection", "transfer-encoding")}
+    body = await req.body()
+    try:
+        resp = requests.request(
+            method=req.method,
+            url=target,
+            headers=headers,
+            data=body if body else None,
+            timeout=30,
+            allow_redirects=False,
+            stream=True,
+        )
+    except requests.exceptions.ConnectionError:
+        return JSONResponse({"error": "IPMI BMC unreachable at 192.168.0.103"}, 503)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, 502)
+
+    # Pass through response headers (skip hop-by-hop and encoding headers
+    # since requests auto-decompresses gzip/deflate)
+    excluded = {"transfer-encoding", "connection", "keep-alive", "content-encoding", "content-length"}
+    resp_headers = {k: v for k, v in resp.headers.items() if k.lower() not in excluded}
+    # Rewrite Location headers for redirects (requests returns mixed-case keys)
+    for hdr in list(resp_headers):
+        if hdr.lower() == "location":
+            loc = resp_headers[hdr]
+            if loc.startswith(IPMI_ORIGIN):
+                resp_headers[hdr] = loc.replace(IPMI_ORIGIN, "/ipmi", 1)
+            break
+    # Determine content type (case-insensitive header lookup)
+    ct = ""
+    for hdr in resp_headers:
+        if hdr.lower() == "content-type":
+            ct = resp_headers[hdr]
+            break
+    content = resp.content
+    # Rewrite absolute IPMI URLs in HTML responses
+    if ct.startswith("text/html"):
+        content = content.replace(IPMI_ORIGIN.encode(), b"/ipmi")
+    return Response(
+        content=content,
+        status_code=resp.status_code,
+        headers=resp_headers,
+        media_type=ct or None,
+    )
+
+@app.get("/ipmi")
+async def ipmi_root(req: Request):
+    """Redirect bare /ipmi to /ipmi/ so relative links in the BMC UI work."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/ipmi/")
 
 
 if __name__ == "__main__":
