@@ -357,6 +357,45 @@ details.think .body{
 @keyframes bl{50%{opacity:0}}
 .mobonly{display:none}
 
+
+/* ── tools view ─────────────────────────────────────────────────────── */
+.tools{flex:1;overflow-y:auto;padding:20px 24px}
+.tool{background:var(--bg-1);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px}
+.tool > h3{
+  display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--line);
+  font:600 12px/1 Inter;letter-spacing:.1em;text-transform:uppercase;color:var(--tx-3);
+}
+.tool > h3 .badge{
+  font:500 10.5px/1 var(--mono);letter-spacing:0;text-transform:none;
+  padding:3px 7px;border-radius:999px;border:1px solid var(--line);color:var(--tx-3);
+}
+.tool > h3 .badge.ok{color:var(--gr);border-color:rgba(91,217,138,.35)}
+.tool > h3 .badge.bad{color:var(--rd);border-color:rgba(255,107,107,.35)}
+.tool .row{display:flex;gap:8px;padding:13px 15px;flex-wrap:wrap}
+.tool .row input[type=text]{
+  flex:1;min-width:200px;background:var(--bg-2);border:1px solid var(--line);
+  border-radius:var(--r-s);padding:9px 12px;font-size:13.5px;
+}
+.tool .row input[type=text]:focus{border-color:var(--cy);outline:none}
+.tool .out{padding:0 15px 14px;font-size:13.5px;max-height:46vh;overflow-y:auto}
+.tool .out:empty{display:none}
+.hit{
+  display:block;padding:10px 12px;margin-bottom:7px;border-radius:var(--r-s);
+  background:var(--bg-2);border:1px solid var(--line);text-decoration:none;
+}
+.hit:hover{border-color:var(--cy)}
+.hit .t{color:var(--cy);font-size:13.5px;margin-bottom:3px}
+.hit .u{color:var(--tx-3);font-size:11px;font-family:var(--mono);
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hit .s{color:var(--tx-2);font-size:12.5px;margin-top:5px;line-height:1.5}
+.prog{font-family:var(--mono);font-size:12px;color:var(--vi);padding:4px 0}
+.attach{
+  display:flex;align-items:center;gap:8px;margin-bottom:7px;padding:7px 11px;
+  background:var(--bg-3);border:1px solid var(--line-2);border-radius:var(--r-s);font-size:12.5px;
+}
+.attach .x{margin-left:auto;color:var(--tx-3);cursor:pointer}
+.attach .x:hover{color:var(--rd)}
+
 /* ── responsive ────────────────────────────────────────────────────── */
 @media(max-width:1180px){
   #shell{grid-template-columns:var(--sidebar) minmax(0,1fr)}
@@ -411,6 +450,7 @@ details.think .body{
       <div class="views">
         <button class="view-tab on" data-view="chat"    onclick="UI.view('chat')">Chat</button>
         <button class="view-tab"    data-view="compare" onclick="UI.view('compare')">Compare</button>
+        <button class="view-tab"    data-view="tools"   onclick="UI.view('tools')">Tools</button>
         <button class="view-tab"    data-view="console" onclick="UI.view('console')">Console</button>
       </div>
       <span class="spacer"></span>
@@ -429,8 +469,13 @@ details.think .body{
       </div>
       <div class="composer">
         <div class="wrap">
+          <div id="tray"></div>
           <div class="cbox">
             <textarea id="input" rows="1" placeholder="Ask anything…  (⏎ send · ⇧⏎ newline)"></textarea>
+            <input type="file" id="fileinput" style="display:none"
+                   accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,.png,.jpg,.jpeg,.gif,.webp"
+                   onchange="Upload.pick(this)">
+            <button class="cbtn" onclick="document.getElementById('fileinput').click()" title="Attach a file">📎</button>
             <button class="cbtn" id="mic" onclick="Voice.mic()" title="Dictate">🎙</button>
             <button class="cbtn send" id="send" onclick="Chat.send()" title="Send">↑</button>
           </div>
@@ -453,6 +498,55 @@ details.think .body{
           <button class="btn go" onclick="Compare.run()">Run</button>
         </div>
         <div class="cmp-cols" id="cmp-cols"></div>
+      </div>
+    </section>
+
+
+    <!-- tools -->
+    <section class="view" id="view-tools">
+      <div class="tools">
+
+        <div class="tool">
+          <h3>Web search <span class="badge" id="b-search">searxng</span></h3>
+          <div class="row">
+            <input type="text" id="t-search" placeholder="Search the web via local SearXNG…"
+                   onkeydown="if(event.key==='Enter')Tools.search()">
+            <button class="btn go" onclick="Tools.search()">Search</button>
+          </div>
+          <div class="out" id="o-search"></div>
+        </div>
+
+        <div class="tool">
+          <h3>Ask the vault <span class="badge" id="b-vault">obsidian</span></h3>
+          <div class="row">
+            <input type="text" id="t-vault" placeholder="Ask a question about your Obsidian notes…"
+                   onkeydown="if(event.key==='Enter')Tools.vault()">
+            <button class="btn go" onclick="Tools.vault()">Ask</button>
+            <button class="btn" onclick="Tools.reindex()" title="Rebuild the vault embedding index">Reindex</button>
+          </div>
+          <div class="out" id="o-vault"></div>
+        </div>
+
+        <div class="tool">
+          <h3>Deep research <span class="badge" id="b-research">odysseus</span></h3>
+          <div class="row">
+            <input type="text" id="t-research" placeholder="A question worth several rounds of research…"
+                   onkeydown="if(event.key==='Enter')Tools.research()">
+            <button class="btn go" onclick="Tools.research()">Research</button>
+          </div>
+          <div class="out" id="o-research"></div>
+        </div>
+
+        <div class="tool">
+          <h3>Agent exec <span class="badge bad">shell tools</span></h3>
+          <div class="row">
+            <input type="text" id="t-exec" placeholder="Task for the local gemma-agent…"
+                   onkeydown="if(event.key==='Enter')Tools.exec()">
+            <button class="btn go" onclick="Tools.exec()">Run</button>
+          </div>
+          <div class="out" id="o-exec"></div>
+        </div>
+
       </div>
     </section>
 
@@ -597,6 +691,7 @@ const UI = {
     $$('.view-tab').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     if (v === 'console') Console.refresh();
     if (v === 'compare') Compare.init();
+    if (v === 'tools')   Tools.probe();
     this.sidebar(false);
   },
   sidebar(open) {
@@ -751,6 +846,187 @@ const Voice = {
   },
 };
 
+
+/* ── shared NDJSON stream reader ────────────────────────────────────────
+   /chat, /ask-vault, /deep-research and /exec all stream newline-delimited
+   JSON but with different keys, so the parsing lives here once and each
+   caller just handles the objects it cares about. */
+async function ndjson(url, body, onObj, opts = {}) {
+  const r = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body), signal: opts.signal,
+  });
+  if (!r.ok && !r.body) throw new Error(`HTTP ${r.status}`);
+  const rd = r.body.getReader(), dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await rd.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+    for (const ln of lines) {
+      if (!ln.trim()) continue;
+      let d; try { d = JSON.parse(ln); } catch { continue; }
+      onObj(d);
+    }
+  }
+  if (buf.trim()) { try { onObj(JSON.parse(buf)); } catch {} }
+}
+
+/* ── attachments ──────────────────────────────────────────────────────
+   Text/PDF is extracted server-side and folded into the prompt. Images are
+   held as base64 and passed to /chat, which routes them to a vision model. */
+const Upload = {
+  images: [],
+  async pick(el) {
+    const f = el.files && el.files[0];
+    el.value = '';
+    if (!f) return;
+    toast(`Uploading ${f.name}…`);
+    const fd = new FormData(); fd.append('file', f);
+    try {
+      const r = await fetch('/upload', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.error) return toast(j.error);
+      if (j.kind === 'image') {
+        this.images.push({ name: j.name, b64: j.image_b64 });
+        this.tray();
+        toast(`${j.name} attached — needs a vision model`);
+      } else {
+        const inp = $('#input');
+        inp.value += `${inp.value ? '\n\n' : ''}--- ${j.name} ---\n${j.text}\n--- end ---\n\n`;
+        inp.dispatchEvent(new Event('input'));
+        inp.focus();
+        toast(`${j.name}: ${j.chars} chars${j.truncated ? ' (truncated)' : ''}`);
+      }
+    } catch (e) { toast('Upload failed: ' + e.message); }
+  },
+  tray() {
+    $('#tray').innerHTML = this.images.map((im, i) =>
+      `<div class="attach"><span>🖼</span><span>${esc(im.name)}</span>
+       <span class="x" onclick="Upload.drop(${i})">✕</span></div>`).join('');
+  },
+  drop(i) { this.images.splice(i, 1); this.tray(); },
+  take() { const out = this.images.map(i => i.b64); this.images = []; this.tray(); return out; },
+};
+
+/* ── tools ────────────────────────────────────────────────────────────── */
+const Tools = {
+  busy: false,
+  _guard() {
+    if (this.busy) { toast('A tool is already running'); return false; }
+    return true;
+  },
+
+  async probe() {
+    try {
+      const h = await api('/health');
+      const b = $('#b-search');
+      b.textContent = h.search_ready ? 'searxng up' : 'searxng down';
+      b.className = 'badge ' + (h.search_ready ? 'ok' : 'bad');
+    } catch {}
+    try {
+      const v = await api('/ask-vault/status');
+      const b = $('#b-vault');
+      b.textContent = v.nomic_ready ? `${v.vault_files} notes · ${v.indexed_chunks} chunks`
+                                    : 'embed model missing';
+      b.className = 'badge ' + (v.nomic_ready ? 'ok' : 'bad');
+    } catch {}
+  },
+
+  async search() {
+    const q = $('#t-search').value.trim(); if (!q || !this._guard()) return;
+    const out = $('#o-search'); out.innerHTML = '<div class="prog">searching…</div>';
+    this.busy = true;
+    try {
+      const j = await api('/search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, n: 8 }),
+      });
+      out.innerHTML = (j.results || []).map(r =>
+        `<a class="hit" href="${esc(r.url)}" target="_blank" rel="noopener">
+           <div class="t">${esc(r.title || r.url)}</div>
+           <div class="u">${esc(r.url)}${r.engine ? ' · ' + esc(r.engine) : ''}</div>
+           ${r.content ? `<div class="s">${esc(r.content)}</div>` : ''}
+         </a>`).join('') || '<div class="prog">no results</div>';
+    } catch (e) { out.innerHTML = `<div class="prog">error: ${esc(e.message)}</div>`; }
+    this.busy = false;
+  },
+
+  async vault() {
+    const q = $('#t-vault').value.trim(); if (!q || !this._guard()) return;
+    const out = $('#o-vault'); out.innerHTML = '<span class="cursor"></span>';
+    this.busy = true;
+    let txt = '';
+    try {
+      // /ask-vault streams the same shape as /chat.
+      await ndjson('/ask-vault', { text: q }, d => {
+        if (d.error) txt += `\n\n**Error:** ${d.error}`;
+        if (d.token) txt += d.token;
+        out.innerHTML = md(txt) + (d.stats ? '' : '<span class="cursor"></span>');
+      });
+      out.innerHTML = md(txt); highlight(out);
+    } catch (e) { out.innerHTML = `<div class="prog">error: ${esc(e.message)}</div>`; }
+    this.busy = false;
+  },
+
+  async reindex() {
+    if (!this._guard()) return;
+    this.busy = true; toast('Reindexing vault…');
+    try {
+      const j = await api('/ask-vault/reindex', { method: 'POST' });
+      toast(j.error ? j.error : `Indexed ${j.chunks ?? '?'} chunks`);
+      this.probe();
+    } catch (e) { toast('Reindex failed: ' + e.message); }
+    this.busy = false;
+  },
+
+  async research() {
+    const q = $('#t-research').value.trim(); if (!q || !this._guard()) return;
+    const out = $('#o-research');
+    out.innerHTML = '<div class="prog">starting…</div>';
+    this.busy = true;
+    const steps = [];
+    try {
+      await ndjson('/deep-research', { query: q, max_rounds: 3, max_time: 600 }, d => {
+        if (d.progress) {
+          steps.push(d.progress);
+          out.innerHTML = steps.map(p => `<div class="prog">${esc(p)}</div>`).join('');
+        }
+        if (d.error)  out.innerHTML = `<div class="prog">error: ${esc(d.error)}</div>`;
+        if (d.report) {
+          out.innerHTML = md(d.report) +
+            `<div class="trace"><span class="chip vi">${d.sources ?? 0} sources</span>` +
+            (d.report_url ? `<a class="chip cy" href="${esc(d.report_url)}" target="_blank" rel="noopener">open in Odysseus ›</a>` : '') +
+            '</div>';
+          highlight(out);
+        }
+      });
+    } catch (e) { out.innerHTML = `<div class="prog">error: ${esc(e.message)}</div>`; }
+    this.busy = false;
+  },
+
+  async exec() {
+    const t = $('#t-exec').value.trim(); if (!t || !this._guard()) return;
+    if (!confirm(`Run this on the server via the agent?\n\n${t}`)) return;
+    const out = $('#o-exec'); out.innerHTML = '<div class="prog">running…</div>';
+    this.busy = true;
+    try {
+      await ndjson('/exec', { task: t, model: 'auto' }, d => {
+        if (d.progress !== undefined) out.innerHTML = `<div class="prog">running… ${d.progress}s</div>`;
+        if (d.error)  out.innerHTML = `<div class="prog">error: ${esc(d.error)}</div>`;
+        if (d.result !== undefined) {
+          out.innerHTML = md(String(d.result)) +
+            `<div class="trace"><span class="chip">${esc(d.model || '?')}</span>
+             <span class="chip vi">${d.tool_calls ?? 0} tool calls</span></div>`;
+          highlight(out);
+        }
+      });
+    } catch (e) { out.innerHTML = `<div class="prog">error: ${esc(e.message)}</div>`; }
+    this.busy = false;
+  },
+};
+
 /* ── chat ──────────────────────────────────────────────────────────── */
 const Chat = {
   fresh() {
@@ -825,6 +1101,8 @@ const Chat = {
         signal: S.abort.signal,
         body: JSON.stringify({
           model, messages: S.history.slice(-24), temperature: 0.7,
+          // Attached images go to /chat, which swaps in a vision model itself.
+          images: Upload.take(),
         }),
       });
       const rd = r.body.getReader(), dec = new TextDecoder();
@@ -930,6 +1208,26 @@ const Convs = {
         </div>`).join('')).join('');
   },
   mark() { this.render($('#convsearch').value); },
+
+  // Server-side semantic hits, shown with their snippet and score. Falls back
+  // silently to whatever the local filter already rendered.
+  async semantic(q) {
+    try {
+      const j = await api('/conversations/search/q?q=' + encodeURIComponent(q));
+      const m = j.matches || [];
+      if (!m.length) return;
+      $('#convs').innerHTML =
+        `<div class="group">${esc(j.mode || 'search')} · ${m.length} match${m.length === 1 ? '' : 'es'}</div>` +
+        m.map(c => `
+          <div class="conv ${c.id === S.conv ? 'on' : ''}" onclick="Convs.open('${c.id}')">
+            <span class="t">${esc(c.title || 'Untitled')}
+              <span style="display:block;color:var(--tx-3);font-size:11px;overflow:hidden;
+                           text-overflow:ellipsis">${esc((c.snippet || '').slice(0, 70))}</span>
+            </span>
+            ${c.score != null ? `<span class="x" style="opacity:.7;font-family:var(--mono);font-size:10px">${c.score.toFixed(2)}</span>` : ''}
+          </div>`).join('');
+    } catch {}
+  },
   async open(id) {
     try {
       const c = await api('/conversations/' + id);
@@ -1189,6 +1487,7 @@ async function boot() {
 
   Convs.load();
   Voice.probe();
+  Tools.probe();
   Chat.empty();
   Rail.tick(); setInterval(() => Rail.tick(), 15000);
 
@@ -1206,7 +1505,17 @@ async function boot() {
     $('#routehint').textContent = e.target.value === 'auto'
       ? 'Auto-routing on' : 'Pinned to ' + e.target.value;
   });
-  $('#convsearch').addEventListener('input', e => Convs.render(e.target.value));
+  // Debounced server-side semantic search. The old client-side substring
+  // filter could only match a title; /conversations/search/q searches message
+  // bodies by embedding, which is the whole point of the endpoint.
+  let searchT;
+  $('#convsearch').addEventListener('input', e => {
+    const q = e.target.value.trim();
+    clearTimeout(searchT);
+    if (!q) return Convs.render('');
+    Convs.render(q);                       // instant local feedback
+    searchT = setTimeout(() => Convs.semantic(q), 350);
+  });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { Art.close(); UI.closeAll(); }
   });
