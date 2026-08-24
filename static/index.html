@@ -31,7 +31,9 @@
 :root{
   --bg:#07080D; --bg-1:#0B0D14; --bg-2:#11141E; --bg-3:#171B28;
   --line:#1E2333; --line-2:#2A3145;
-  --tx:#E8ECF6; --tx-2:#A6B0C8; --tx-3:#6B7590;
+  --tx:#E8ECF6; --tx-2:#A6B0C8; --tx-3:#768099;  /* AA-checked: 4.65 on --bg-2, 4.92 on --bg-1, 5.07 on --bg. The old
+                      #6B7590 measured 4.00-4.36, under the 4.5 floor, and it carries every
+                      secondary label, hint and placeholder in the UI. */
   --cy:#5BE6D8; --vi:#8B7CFF; --ro:#E26BB0; --am:#F5B764; --gr:#5BD98A; --rd:#FF6B6B;
   --sidebar:264px; --rail:300px;
   --r:12px; --r-s:8px;
@@ -60,6 +62,24 @@ button{background:none;border:0;cursor:pointer}
 ::-webkit-scrollbar-thumb:hover{background:#3A4258}
 ::-webkit-scrollbar-track{background:transparent}
 :focus-visible{outline:2px solid var(--cy);outline-offset:2px;border-radius:4px}
+
+/* Respect the OS setting. The recording pulse and the caret blink are the only
+   looping animations here; transitions collapse to instant rather than being
+   removed, so state changes still read. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important; animation-iteration-count:1 !important;
+    transition-duration:.01ms !important; scroll-behavior:auto !important;
+  }
+  .cursor{animation:none;opacity:1}
+}
+
+/* Keyboard users should reach the composer without tabbing the whole sidebar. */
+.skip{
+  position:absolute;left:-9999px;top:0;z-index:99;padding:10px 16px;
+  background:var(--bg-3);border:1px solid var(--cy);border-radius:0 0 8px 0;
+}
+.skip:focus{left:0}
 
 /* ── shell ─────────────────────────────────────────────────────────── */
 #shell{
@@ -103,9 +123,19 @@ button{background:none;border:0;cursor:pointer}
 }
 .conv:hover{background:var(--bg-2);color:var(--tx)}
 .conv.on{background:var(--bg-3);color:var(--tx);box-shadow:inset 2px 0 0 var(--cy)}
-.conv .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.conv .x{opacity:0;color:var(--tx-3);font-size:16px;line-height:1;padding:0 2px}
-.conv:hover .x{opacity:1}
+.conv .t{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-align:left;color:inherit;font:inherit;padding:0;
+}
+.conv .snip{
+  display:block;color:var(--tx-3);font-size:11px;line-height:1.4;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;
+}
+.conv .score{font-family:var(--mono);font-size:10px;color:var(--tx-3);opacity:.8}
+/* Delete stays hidden until hover, but must appear on keyboard focus too —
+   opacity:0 alone makes it unreachable-looking for keyboard users. */
+.conv .x{opacity:0;color:var(--tx-3);font-size:17px;line-height:1;padding:2px 6px;border-radius:4px}
+.conv:hover .x,.conv .x:focus-visible{opacity:1}
 .conv .x:hover{color:var(--rd)}
 .sidefoot{padding:10px 12px;border-top:1px solid var(--line);display:grid;gap:6px}
 .sbtn{
@@ -396,6 +426,26 @@ details.think .body{
 .attach .x{margin-left:auto;color:var(--tx-3);cursor:pointer}
 .attach .x:hover{color:var(--rd)}
 
+/* ── memory panel ───────────────────────────────────────────────────── */
+#memory{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:70;
+  width:min(560px,92vw);max-height:78vh;display:none;flex-direction:column;
+  background:var(--bg-1);border:1px solid var(--line-2);border-radius:var(--r);
+  box-shadow:0 24px 70px rgba(0,0,0,.6);
+}
+#memory.on{display:flex}
+.mhead{display:flex;align-items:center;gap:9px;padding:13px 15px;border-bottom:1px solid var(--line)}
+.mhead .nm{flex:1;font:600 14px Outfit,sans-serif}
+.mhint{padding:11px 15px 0;color:var(--tx-3);font-size:12px}
+#memlist{padding:11px 15px 15px;overflow-y:auto}
+.memrow{
+  display:flex;gap:10px;align-items:flex-start;padding:9px 11px;margin-bottom:7px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-s);font-size:13px;
+}
+.memrow span{flex:1}
+.memrow .x{color:var(--tx-3);font-size:16px;line-height:1;padding:0 3px}
+.memrow .x:hover{color:var(--rd)}
+
 /* ── responsive ────────────────────────────────────────────────────── */
 @media(max-width:1180px){
   #shell{grid-template-columns:var(--sidebar) minmax(0,1fr)}
@@ -422,6 +472,8 @@ details.think .body{
 </head>
 <body>
 
+<a class="skip" href="#input">Skip to the message box</a>
+
 <div id="shell">
 
   <!-- ═══ conversations ═══════════════════════════════════════════ -->
@@ -430,12 +482,12 @@ details.think .body{
       <span class="dot" id="healthdot"></span>
       <h1>FraqtoOS</h1>
       <span class="spacer"></span>
-      <button class="icobtn mobonly" onclick="UI.sidebar(false)" title="Close">✕</button>
+      <button aria-label="Close conversations" class="icobtn mobonly" onclick="UI.sidebar(false)" title="Close">✕</button>
     </div>
     <div class="searchwrap">
-      <input id="convsearch" placeholder="Search conversations…" autocomplete="off">
+      <input aria-label="Search conversations" id="convsearch" placeholder="Search conversations…" autocomplete="off">
     </div>
-    <div id="convs"></div>
+    <div id="convs" role="list" aria-label="Conversations"></div>
     <div class="sidefoot">
       <button class="sbtn primary" onclick="Chat.fresh()"><span>＋</span> New chat</button>
       <button class="sbtn" onclick="UI.view('console')"><span>◧</span> Server console</button>
@@ -446,20 +498,20 @@ details.think .body{
   <!-- ═══ centre ══════════════════════════════════════════════════ -->
   <main class="pane" id="centre">
     <div class="topbar">
-      <button class="icobtn mobonly" onclick="UI.sidebar(true)" title="Conversations">☰</button>
-      <div class="views">
-        <button class="view-tab on" data-view="chat"    onclick="UI.view('chat')">Chat</button>
-        <button class="view-tab"    data-view="compare" onclick="UI.view('compare')">Compare</button>
-        <button class="view-tab"    data-view="tools"   onclick="UI.view('tools')">Tools</button>
-        <button class="view-tab"    data-view="console" onclick="UI.view('console')">Console</button>
+      <button aria-label="Open conversations" class="icobtn mobonly" onclick="UI.sidebar(true)" title="Conversations">☰</button>
+      <div class="views" role="tablist" aria-label="Views">
+        <button class="view-tab on" data-view="chat" role="tab" aria-controls="view-chat"    onclick="UI.view('chat')">Chat</button>
+        <button class="view-tab"    data-view="compare" role="tab" aria-controls="view-compare" onclick="UI.view('compare')">Compare</button>
+        <button class="view-tab"    data-view="tools" role="tab" aria-controls="view-tools"   onclick="UI.view('tools')">Tools</button>
+        <button class="view-tab"    data-view="console" role="tab" aria-controls="view-console" onclick="UI.view('console')">Console</button>
       </div>
       <span class="spacer"></span>
       <label class="pill" title="Model — Auto lets phi4 route each prompt">
         <span style="color:var(--tx-3)">model</span>
-        <select id="model"><option value="auto">Auto ⚡</option></select>
+        <select id="model" aria-label="Model"><option value="auto">Auto ⚡</option></select>
       </label>
-      <button class="icobtn" id="speakbtn" onclick="Voice.toggleSpeak()" title="Read replies aloud">🕪</button>
-      <button class="icobtn" onclick="UI.rail()" title="Server rail">◨</button>
+      <button aria-label="Read replies aloud" class="icobtn" id="speakbtn" onclick="Voice.toggleSpeak()" title="Read replies aloud">🕪</button>
+      <button aria-label="Toggle server rail" class="icobtn" onclick="UI.rail()" title="Server rail">◨</button>
     </div>
 
     <!-- chat -->
@@ -471,13 +523,13 @@ details.think .body{
         <div class="wrap">
           <div id="tray"></div>
           <div class="cbox">
-            <textarea id="input" rows="1" placeholder="Ask anything…  (⏎ send · ⇧⏎ newline)"></textarea>
+            <textarea aria-label="Message" id="input" rows="1" placeholder="Ask anything…  (⏎ send · ⇧⏎ newline)"></textarea>
             <input type="file" id="fileinput" style="display:none"
                    accept=".txt,.md,.log,.json,.csv,.py,.js,.html,.xml,.yml,.yaml,.pdf,.png,.jpg,.jpeg,.gif,.webp"
                    onchange="Upload.pick(this)">
-            <button class="cbtn" onclick="document.getElementById('fileinput').click()" title="Attach a file">📎</button>
-            <button class="cbtn" id="mic" onclick="Voice.mic()" title="Dictate">🎙</button>
-            <button class="cbtn send" id="send" onclick="Chat.send()" title="Send">↑</button>
+            <button aria-label="Attach a file" class="cbtn" onclick="document.getElementById('fileinput').click()" title="Attach a file">📎</button>
+            <button aria-label="Dictate a message" class="cbtn" id="mic" onclick="Voice.mic()" title="Dictate">🎙</button>
+            <button aria-label="Send message" class="cbtn send" id="send" onclick="Chat.send()" title="Send">↑</button>
           </div>
           <div class="chint">
             <span id="routehint">Auto-routing on</span>
@@ -492,7 +544,7 @@ details.think .body{
     <section class="view" id="view-compare">
       <div class="cmp">
         <div class="cmp-setup">
-          <input id="cmp-prompt" class="btn" style="flex:1;min-width:240px;text-align:left"
+          <input aria-label="Prompt to compare across models" id="cmp-prompt" class="btn" style="flex:1;min-width:240px;text-align:left"
                  placeholder="One prompt, several models…">
           <span id="cmp-picks"></span>
           <button class="btn go" onclick="Compare.run()">Run</button>
@@ -509,7 +561,7 @@ details.think .body{
         <div class="tool">
           <h3>Web search <span class="badge" id="b-search">searxng</span></h3>
           <div class="row">
-            <input type="text" id="t-search" placeholder="Search the web via local SearXNG…"
+            <input type="text" aria-label="Web search query" id="t-search" placeholder="Search the web via local SearXNG…"
                    onkeydown="if(event.key==='Enter')Tools.search()">
             <button class="btn go" onclick="Tools.search()">Search</button>
           </div>
@@ -519,7 +571,7 @@ details.think .body{
         <div class="tool">
           <h3>Ask the vault <span class="badge" id="b-vault">obsidian</span></h3>
           <div class="row">
-            <input type="text" id="t-vault" placeholder="Ask a question about your Obsidian notes…"
+            <input type="text" aria-label="Question for the vault" id="t-vault" placeholder="Ask a question about your Obsidian notes…"
                    onkeydown="if(event.key==='Enter')Tools.vault()">
             <button class="btn go" onclick="Tools.vault()">Ask</button>
             <button class="btn" onclick="Tools.reindex()" title="Rebuild the vault embedding index">Reindex</button>
@@ -530,7 +582,7 @@ details.think .body{
         <div class="tool">
           <h3>Deep research <span class="badge" id="b-research">odysseus</span></h3>
           <div class="row">
-            <input type="text" id="t-research" placeholder="A question worth several rounds of research…"
+            <input type="text" aria-label="Research question" id="t-research" placeholder="A question worth several rounds of research…"
                    onkeydown="if(event.key==='Enter')Tools.research()">
             <button class="btn go" onclick="Tools.research()">Research</button>
           </div>
@@ -540,7 +592,7 @@ details.think .body{
         <div class="tool">
           <h3>Agent exec <span class="badge bad">shell tools</span></h3>
           <div class="row">
-            <input type="text" id="t-exec" placeholder="Task for the local gemma-agent…"
+            <input type="text" aria-label="Task for the agent" id="t-exec" placeholder="Task for the local gemma-agent…"
                    onkeydown="if(event.key==='Enter')Tools.exec()">
             <button class="btn go" onclick="Tools.exec()">Run</button>
           </div>
@@ -574,7 +626,7 @@ details.think .body{
       <button class="atab on" id="tab-prev" onclick="Art.tab('preview')">Preview</button>
       <button class="atab"    id="tab-code" onclick="Art.tab('code')">Code</button>
     </div>
-    <button class="icobtn" onclick="Art.close()" title="Close">✕</button>
+    <button aria-label="Close artifact" class="icobtn" onclick="Art.close()" title="Close">✕</button>
   </div>
   <div class="abody">
     <iframe id="aframe" sandbox="allow-scripts allow-forms allow-modals"></iframe>
@@ -587,8 +639,17 @@ details.think .body{
   </div>
 </div>
 
-<div class="scrim" id="scrim" onclick="UI.closeAll()"></div>
-<div id="toast"></div>
+<div id="memory" role="dialog" aria-modal="true" aria-label="Persistent memory">
+  <div class="mhead">
+    <span class="nm">Persistent memory</span>
+    <button class="icobtn" aria-label="Close memory" onclick="Memory.close()">✕</button>
+  </div>
+  <p class="mhint">Prepended to the system prompt of every conversation.</p>
+  <div id="memlist"></div>
+</div>
+
+<div class="scrim" id="scrim" aria-hidden="true" onclick="UI.closeAll()"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 /* ==========================================================================
@@ -700,12 +761,19 @@ const UI = {
   },
   rail() {
     const r = $('#rail');
-    if (window.innerWidth <= 1180) r.classList.toggle('open');
-    else $('#shell').classList.toggle('no-rail');
+    if (window.innerWidth <= 1180) {
+      const open = r.classList.toggle('open');
+      // Without this the rail slid over the page with no way to dismiss it by
+      // tapping away — the sidebar already dimmed, the rail did not.
+      $('#scrim').classList.toggle('on', open);
+    } else {
+      $('#shell').classList.toggle('no-rail');
+    }
   },
   closeAll() {
     this.sidebar(false);
     $('#rail').classList.remove('open');
+    $('#scrim').classList.remove('on');
   },
 };
 
@@ -903,8 +971,9 @@ const Upload = {
   },
   tray() {
     $('#tray').innerHTML = this.images.map((im, i) =>
-      `<div class="attach"><span>🖼</span><span>${esc(im.name)}</span>
-       <span class="x" onclick="Upload.drop(${i})">✕</span></div>`).join('');
+      `<div class="attach"><span aria-hidden="true">🖼</span><span>${esc(im.name)}</span>
+       <button class="x" onclick="Upload.drop(${i})"
+               aria-label="Remove ${esc(im.name)}">✕</button></div>`).join('');
   },
   drop(i) { this.images.splice(i, 1); this.tray(); },
   take() { const out = this.images.map(i => i.b64); this.images = []; this.tray(); return out; },
@@ -1057,10 +1126,17 @@ const Chat = {
                    <div class="bubble">${html}</div>`;
     const e = $('#msgs').querySelector('.empty'); if (e) e.remove();
     $('#msgs').appendChild(d);
-    this.scroll();
+    this.scroll(true);   // a new message always pulls the view down
     return d;
   },
-  scroll() { const s = $('#stream'); s.scrollTop = s.scrollHeight; },
+  // Only follow the stream if the reader is already at the bottom. Forcing
+  // scrollTop on every token yanks the view away from anyone scrolled up
+  // reading an earlier answer while a new one streams in.
+  scroll(force) {
+    const s = $('#stream');
+    const atBottom = s.scrollHeight - s.scrollTop - s.clientHeight < 120;
+    if (force || atBottom) s.scrollTop = s.scrollHeight;
+  },
 
   async send() {
     if (S.busy) { S.abort?.abort(); return; }
@@ -1202,9 +1278,12 @@ const Convs = {
     });
     $('#convs').innerHTML = Object.entries(groups).filter(([, v]) => v.length).map(([k, v]) =>
       `<div class="group">${k}</div>` + v.map(c => `
-        <div class="conv ${c.id === S.conv ? 'on' : ''}" onclick="Convs.open('${c.id}')">
-          <span class="t">${esc(c.title || 'Untitled')}</span>
-          <span class="x" onclick="event.stopPropagation();Convs.del('${c.id}')" title="Delete">×</span>
+        <div class="conv ${c.id === S.conv ? 'on' : ''}" role="listitem">
+          <button class="t" onclick="Convs.open('${c.id}')"
+                  aria-current="${c.id === S.conv ? 'true' : 'false'}"
+                  title="${esc(c.title || 'Untitled')}">${esc(c.title || 'Untitled')}</button>
+          <button class="x" onclick="Convs.del('${c.id}')"
+                  aria-label="Delete ${esc(c.title || 'conversation')}">×</button>
         </div>`).join('')).join('');
   },
   mark() { this.render($('#convsearch').value); },
@@ -1219,12 +1298,12 @@ const Convs = {
       $('#convs').innerHTML =
         `<div class="group">${esc(j.mode || 'search')} · ${m.length} match${m.length === 1 ? '' : 'es'}</div>` +
         m.map(c => `
-          <div class="conv ${c.id === S.conv ? 'on' : ''}" onclick="Convs.open('${c.id}')">
-            <span class="t">${esc(c.title || 'Untitled')}
-              <span style="display:block;color:var(--tx-3);font-size:11px;overflow:hidden;
-                           text-overflow:ellipsis">${esc((c.snippet || '').slice(0, 70))}</span>
-            </span>
-            ${c.score != null ? `<span class="x" style="opacity:.7;font-family:var(--mono);font-size:10px">${c.score.toFixed(2)}</span>` : ''}
+          <div class="conv ${c.id === S.conv ? 'on' : ''}" role="listitem">
+            <button class="t" onclick="Convs.open('${c.id}')" title="${esc(c.title || 'Untitled')}">
+              ${esc(c.title || 'Untitled')}
+              <span class="snip">${esc((c.snippet || '').slice(0, 70))}</span>
+            </button>
+            ${c.score != null ? `<span class="score" title="similarity">${c.score.toFixed(2)}</span>` : ''}
           </div>`).join('');
     } catch {}
   },
@@ -1277,15 +1356,31 @@ const Convs = {
 
 /* ── memory ────────────────────────────────────────────────────────── */
 const Memory = {
+  // Was a native alert(): unstyled, unscrollable, blocked the page, and gave no
+  // way to delete a fact. /memory already supports DELETE, so show a real panel.
   async open() {
+    $('#memory').classList.add('on');
+    $('#scrim').classList.add('on');
+    $('#memlist').innerHTML = '<div class="prog">loading…</div>';
     try {
       const j = await api('/memory');
       const facts = j.memory || [];
-      const txt = facts.length
-        ? facts.map((f, i) => `${i + 1}. ${f.fact}`).join('\n\n')
-        : 'No facts stored yet.';
-      alert('Persistent memory (prepended to every system prompt):\n\n' + txt);
-    } catch { toast('Memory unavailable'); }
+      $('#memlist').innerHTML = facts.length
+        ? facts.map(f => `
+            <div class="memrow">
+              <span>${esc(f.fact)}</span>
+              <button class="x" onclick="Memory.del('${f.id}')" aria-label="Forget this fact">×</button>
+            </div>`).join('')
+        : `<p style="color:var(--tx-3);font-size:13.5px">
+             Nothing stored yet. Facts saved here are prepended to every system prompt.</p>`;
+    } catch { $('#memlist').innerHTML = '<div class="prog">memory unavailable</div>'; }
+  },
+  close() { $('#memory').classList.remove('on'); $('#scrim').classList.remove('on'); },
+  async del(id) {
+    try {
+      await fetch('/memory/' + encodeURIComponent(id), { method: 'DELETE' });
+      toast('Forgotten'); this.open();
+    } catch { toast('Could not delete'); }
   },
 };
 
@@ -1312,18 +1407,20 @@ const Compare = {
     if (!q) return toast('Enter a prompt');
     if (!this.picks.size) return toast('Pick at least one model');
     const models = [...this.picks];
-    $('#cmp-cols').innerHTML = models.map(m => `
-      <div class="cmp-col" id="cc-${CSS.escape(m)}">
+    // Index-based ids. Model names contain ':' and '.', which are not valid in
+    // a bare id and forced CSS.escape() gymnastics on every lookup.
+    $('#cmp-cols').innerHTML = models.map((m, i) => `
+      <div class="cmp-col" id="cc-${i}">
         <h4><span class="led idle"></span>${esc(m)}</h4>
         <div class="out"><span class="cursor"></span></div>
         <div class="ft"></div>
       </div>`).join('');
     // Sequential on purpose: OLLAMA_NUM_PARALLEL=1, so firing these together
     // just queues them and makes every timing meaningless.
-    for (const m of models) await this.one(m, q);
+    for (let i = 0; i < models.length; i++) await this.one(models[i], q, i);
   },
-  async one(model, q) {
-    const col = document.getElementById('cc-' + CSS.escape(model));
+  async one(model, q, idx) {
+    const col = document.getElementById('cc-' + idx);
     const out = col.querySelector('.out'), ft = col.querySelector('.ft');
     col.querySelector('.led').className = 'led';
     let txt = '', stats = null;
@@ -1517,7 +1614,7 @@ async function boot() {
     searchT = setTimeout(() => Convs.semantic(q), 350);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { Art.close(); UI.closeAll(); }
+    if (e.key === 'Escape') { Art.close(); Memory.close(); UI.closeAll(); }
   });
   inp.focus();
 }
