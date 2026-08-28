@@ -403,6 +403,16 @@ async def chat(req: Request):
     messages = data.get("messages", [])
     if not isinstance(messages, list):
         return JSONResponse({"error": "messages must be a list"}, 400)
+    if not messages:
+        # An empty list used to reach the model anyway, which then answered
+        # from the memory system-block alone — confident prose about whatever
+        # is in memory, unrelated to anything the caller asked. Posting the
+        # singular "message" instead of "messages" is the easy way to land
+        # here, so name the field in the error.
+        return JSONResponse(
+            {"error": 'messages is empty — expected '
+                      '[{"role": "user", "content": "..."}] '
+                      '(the field is "messages", not "message")'}, 400)
     system   = data.get("system", "")
     images   = data.get("images") or []
     if not isinstance(images, list):
