@@ -16,6 +16,8 @@ import io
 import subprocess
 import ipaddress
 import secrets
+import socket
+import ssl
 from collections import defaultdict, deque
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
@@ -321,7 +323,10 @@ async def save_document(req: Request):
 
 @app.get("/")
 async def index():
-    return FileResponse(f"{STATIC}/index.html")
+    # no-cache = revalidate (cheap 304 via ETag) on every load. Without it the
+    # browser guesses a freshness lifetime from Last-Modified (~10% of the file's
+    # age) and kept serving a pre-fix UI for days after an update.
+    return FileResponse(f"{STATIC}/index.html", headers={"Cache-Control": "no-cache"})
 
 
 # Preferred order when several vision models are installed.
@@ -536,7 +541,7 @@ async def manifest():
 
 @app.get("/service-worker.js")
 async def service_worker():
-    sw = """const CACHE = 'fraqtoos-v41';
+    sw = """const CACHE = 'fraqtoos-v42';
 const ASSETS = ['/', '/static/icon-192.png', '/static/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
@@ -554,6 +559,7 @@ self.addEventListener('fetch', e => {
   const API_PREFIXES = ['/chat','/imagine','/search','/upload','/conversations',
     '/bridge','/classify','/health','/models','/gpu','/memory','/suggest','/exec',
     '/status','/logs/','/ask-vault','/feedback','/chia-harvester','/deep-research',
+    '/tunnels','/voice/status','/transcribe',
     '/edit-image','/avatar','/mimic-motion','/animate-anyone','/champ','/champ-status',
     '/wan-video','/wan-i2v','/wan-animate','/vace','/comfy-interrupt','/manifest.json'];
   if (API_PREFIXES.some(p => url.pathname.startsWith(p))) return;
@@ -1983,50 +1989,66 @@ async def transcribe(req: Request, audio: UploadFile = File(...)):
             pass
 
 
-# ─── Tunnel + service health for the command-center rail ─────────────
+# ─── Public-site health for the command-center rail ──────────────────
+# nginx vhosts on *.fraqtos.duckdns.org replaced the four Cloudflare quick
+# tunnels on 2026-09-05 and the cloudflared units were deleted, which left this
+# panel reading 0/4 (all red) for good. (name, vhost, backend nginx proxies to)
+PUBLIC_SITES = (
+    ("chat",      "chat.fraqtos.duckdns.org",     "http://127.0.0.1:8080/manifest.json"),
+    ("dashboard", "dash.fraqtos.duckdns.org",     "http://127.0.0.1:3000/"),
+    ("grafana",   "grafana.fraqtos.duckdns.org",  "http://127.0.0.1:3001/api/health"),
+    ("obsidian",  "obsidian.fraqtos.duckdns.org", "http://127.0.0.1:6080/"),
+    ("ntfy",      "ntfy.fraqtos.duckdns.org",     "http://127.0.0.1:8091/v1/health"),
+)
+
+
+def _vhost_status(host: str) -> int:
+    """HTTP status from this box's nginx for `host`, over TLS with its SNI.
+
+    Goes to 127.0.0.1:443 rather than the public name: a cold DNS lookup on
+    this box takes 4-5 s (ISP resolver), and the vhost + certificate chain is
+    the part this box controls. Certificate problems raise.
+    """
+    ctx = ssl.create_default_context()
+    with socket.create_connection(("127.0.0.1", 443), timeout=4) as raw:
+        with ctx.wrap_socket(raw, server_hostname=host) as s:
+            s.sendall(f"HEAD / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n".encode())
+            return int(s.recv(128).split()[1])
+
+
 @app.get("/tunnels")
 async def tunnels():
-    """State of the four cloudflared units, for the server rail.
+    """State of each public site, for the server rail.
 
-    Reads the URL each unit is actually advertising from its journal rather
-    than a cached file, so the rail cannot show a URL the tunnel has already
-    rotated away from.
+    A 401 from nginx is healthy - basic auth answers before anything is
+    proxied - so the backend is probed separately; otherwise a dead backend
+    would still read as up. Response shape is unchanged from the tunnel era.
     """
-    names = ("chat", "dashboard", "grafana", "obsidian")
     loop = asyncio.get_running_loop()
 
-    def _one(n):
-        unit = f"cloudflared-{n}"
+    def _one(site):
+        name, host, backend = site
+        state = "https"
         try:
-            active = subprocess.run(["systemctl", "is-active", unit],
-                                    capture_output=True, text=True,
-                                    timeout=4).stdout.strip()
+            if _vhost_status(host) >= 500:
+                state = "nginx error"
+        except ssl.SSLCertVerificationError:
+            state = "cert invalid"
         except Exception:
-            active = "unknown"
-        url, proto = "", ""
-        try:
-            out = subprocess.check_output(
-                ["journalctl", "-u", unit, "--no-pager", "-n", "300"],
-                timeout=5).decode(errors="replace")
-            for line in reversed(out.splitlines()):
-                if not url and "trycloudflare.com" in line and "api." not in line:
-                    for tok in line.split():
-                        if tok.startswith("https://") and tok.endswith(".trycloudflare.com"):
-                            url = tok
-                            break
-                if not proto and "protocol=" in line:
-                    proto = line.split("protocol=")[-1].split()[0]
-                if url and proto:
-                    break
-        except Exception:
-            pass
-        return {"name": n, "unit": unit, "active": active == "active",
-                "url": url, "protocol": proto}
+            state = "nginx down"
+        if state == "https":
+            try:
+                if requests.get(backend, timeout=4).status_code >= 500:
+                    state = "backend error"
+            except Exception:
+                state = "backend down"
+        return {"name": name, "unit": "nginx", "active": state == "https",
+                "url": f"https://{host}", "protocol": state}
 
     results = await asyncio.gather(
-        *[loop.run_in_executor(None, _one, n) for n in names])
+        *[loop.run_in_executor(None, _one, s) for s in PUBLIC_SITES])
     return {"tunnels": list(results),
-            "up": sum(1 for t in results if t["active"]), "total": len(names)}
+            "up": sum(1 for t in results if t["active"]), "total": len(results)}
 
 
 # ─── WhatsApp bridge endpoint ─────────────────────────────────────────

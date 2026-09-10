@@ -1481,7 +1481,7 @@ const Rail = {
       </div>
 
       <div class="card">
-        <div class="lbl">Tunnels ${t.up != null ? `· ${t.up}/${t.total}` : ''}</div>
+        <div class="lbl">Public sites ${t.up != null ? `· ${t.up}/${t.total}` : ''}</div>
         ${(t.tunnels || []).map(x => `
           <div class="tun">
             <span class="led ${x.active ? '' : 'off'}"></span>
@@ -1522,7 +1522,7 @@ const Console = {
           <div class="kv"><span class="k">Temp</span><span class="v">${g.temp ?? '?'}°C</span></div>
         </div>
         <div class="panel">
-          <h3>Tunnels</h3>
+          <h3>Public sites</h3>
           ${(t.tunnels || []).map(x => `
             <div class="tun"><span class="led ${x.active ? '' : 'off'}"></span>
               <span class="nm">${esc(x.name)}</span><span class="pr">${esc(x.protocol || '—')}</span></div>
