@@ -1995,7 +1995,6 @@ async def transcribe(req: Request, audio: UploadFile = File(...)):
 # panel reading 0/4 (all red) for good. (name, vhost, backend nginx proxies to)
 PUBLIC_SITES = (
     ("chat",      "chat.fraqtos.duckdns.org",     "http://127.0.0.1:8080/manifest.json"),
-    ("dashboard", "dash.fraqtos.duckdns.org",     "http://127.0.0.1:3000/"),
     ("grafana",   "grafana.fraqtos.duckdns.org",  "http://127.0.0.1:3001/api/health"),
     ("obsidian",  "obsidian.fraqtos.duckdns.org", "http://127.0.0.1:6080/"),
     ("ntfy",      "ntfy.fraqtos.duckdns.org",     "http://127.0.0.1:8091/v1/health"),
