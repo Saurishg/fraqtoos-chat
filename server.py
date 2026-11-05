@@ -455,7 +455,7 @@ ROUTING_TARGETS = {
     # but 7x slower per answer made every code question in chat crawl.
     # The 6800 XT the old comment sized this against was removed 2026-08-07.
     "code":      "gpt-oss:20b",
-    "reasoning": "deepseek-r1:14b",  # reasoning model, thinking ON (streamed to UI)
+    "reasoning": "gpt-oss:20b",      # thinking ON (streamed to UI); deepseek-r1:14b removed 2026-11-05
     "finance":   "gpt-oss:20b",      # fits fully in 16GB VRAM (qwen3 removed 2026-07-05)
     "copy":      "gemma4:latest",    # back on gemma4 since the Ollama 0.30.7 fix
     "long":      "gpt-oss:20b",      # replaces qwen3 (removed 2026-07-05)
